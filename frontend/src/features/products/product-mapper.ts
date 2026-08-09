@@ -3,12 +3,39 @@ import type { Product, ProductDto, ProductPage, PagedResponse } from "@/features
 
 const PRODUCT_PLACEHOLDER = "/images/product-placeholder.svg";
 
+const PRODUCT_MEDIA: Record<string, { image: string; tableImage: string; imageAlt: string; tableImageAlt: string }> = {
+  "TER-NIL-BLU-4P-001": {
+    image: "/images/nila-folded.jpeg",
+    tableImage: "/images/nila-table.png",
+    imageAlt: "سفره ترمه نیلا با زمینه آبی و نقش بته‌جقه روی زمینه سفید",
+    tableImageAlt: "سفره ترمه نیلا روی میز چهار نفره",
+  },
+  "TER-LAJ-NVY-6P-001": {
+    image: "/images/lajvard-folded.jpeg",
+    tableImage: "/images/lajvard-table.png",
+    imageAlt: "سفره ترمه لاجورد با زمینه سرمه‌ای و نقش‌های سفید و مسی روی زمینه سفید",
+    tableImageAlt: "سفره ترمه لاجورد روی میز شش نفره",
+  },
+  "TER-FIR-BLU-8P-001": {
+    image: "/images/firoozeh-folded.jpeg",
+    tableImage: "/images/firoozeh-table.png",
+    imageAlt: "سفره ترمه فیروزه با زمینه آبی و نقش‌های کرم و مسی روی زمینه سفید",
+    tableImageAlt: "سفره ترمه فیروزه روی میز هشت نفره",
+  },
+};
+
 function formatDecimal(value: number) {
   return new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 2 }).format(value);
 }
 
 export function mapProduct(dto: ProductDto): Product {
   const description = dto.description?.trim() || "اطلاعات تکمیلی این محصول به‌زودی ثبت می‌شود.";
+  const media = PRODUCT_MEDIA[dto.sku] ?? {
+    image: PRODUCT_PLACEHOLDER,
+    tableImage: PRODUCT_PLACEHOLDER,
+    imageAlt: `تصویر ${dto.name} هنوز بارگذاری نشده است`,
+    tableImageAlt: `تصویر دوم ${dto.name} هنوز بارگذاری نشده است`,
+  };
   return {
     id: dto.id,
     name: dto.name,
@@ -24,9 +51,7 @@ export function mapProduct(dto: ProductDto): Product {
     lining: dto.liningType,
     colors: dto.color,
     pattern: dto.pattern,
-    image: PRODUCT_PLACEHOLDER,
-    tableImage: PRODUCT_PLACEHOLDER,
-    imageAlt: `تصویر ${dto.name} هنوز بارگذاری نشده است`,
+    ...media,
     description,
     longDescription: description,
     categoryId: dto.categoryId,

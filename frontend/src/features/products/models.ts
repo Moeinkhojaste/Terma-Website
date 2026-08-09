@@ -54,6 +54,7 @@ export type Product = {
   image: string;
   tableImage: string;
   imageAlt: string;
+  tableImageAlt: string;
   description: string;
   longDescription: string;
   categoryId: string;

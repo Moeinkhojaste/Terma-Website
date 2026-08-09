@@ -112,8 +112,6 @@ export function ProductCatalog() {
   }, [query, productAttempt]);
 
   const navigate = useCallback((nextDraft: FilterDraft, page = 1) => {
-    setLoading(true);
-    setProductError(undefined);
     const parameters = new URLSearchParams();
     if (nextDraft.search.trim()) parameters.set("search", nextDraft.search.trim());
     if (nextDraft.categoryId) parameters.set("categoryId", nextDraft.categoryId);
@@ -121,8 +119,14 @@ export function ProductCatalog() {
     if (nextDraft.maxPrice) parameters.set("maxPrice", nextDraft.maxPrice);
     if (nextDraft.tableCapacity) parameters.set("tableCapacity", nextDraft.tableCapacity);
     if (page > 1) parameters.set("page", String(page));
-    router.replace(`${pathname}${parameters.size > 0 ? `?${parameters}` : ""}`, { scroll: false });
-  }, [pathname, router]);
+    const nextQueryKey = parameters.toString();
+
+    if (nextQueryKey === queryKey) return;
+
+    setLoading(true);
+    setProductError(undefined);
+    router.replace(`${pathname}${nextQueryKey ? `?${nextQueryKey}` : ""}`, { scroll: false });
+  }, [pathname, queryKey, router]);
 
   function submitFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -24,8 +24,8 @@ export function Header() {
           </Link>
           <nav className="desktop-nav" aria-label="ناوبری اصلی">
             <Link href="/products">محصولات</Link>
-            <Link href="/products#دسته‌بندی">دسته‌بندی ظرفیت</Link>
-            <Link href="/#داستان-ترما">داستان ترما</Link>
+            <Link href="/about">درباره ما</Link>
+            <Link href="/contact">ارتباط با ما</Link>
           </nav>
           <div className="header-actions">
             <Link className="icon-button" href="/products" aria-label="جست‌وجوی محصولات"><SearchIcon /></Link>
@@ -35,8 +35,8 @@ export function Header() {
         <Container className="mobile-nav">
           <nav aria-label="ناوبری موبایل">
             <Link href="/products">محصولات</Link>
-            <Link href="/products#دسته‌بندی">دسته‌بندی</Link>
-            <Link href="/#داستان-ترما">درباره ترما</Link>
+            <Link href="/about">درباره ما</Link>
+            <Link href="/contact">ارتباط با ما</Link>
           </nav>
         </Container>
       </header>

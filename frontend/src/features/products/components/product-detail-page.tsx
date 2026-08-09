@@ -13,6 +13,8 @@ import { ApiError } from "@/lib/api-client";
 
 type ProductPageProps = { params: Promise<{ id: string }> };
 
+const CAPACITY_OPTIONS = [4, 6, 8] as const;
+
 const getProductForRequest = cache(getProduct);
 
 async function loadProduct(id: string) {
@@ -59,12 +61,25 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <strong className="product-detail__price">{product.price}</strong>
 
               <div className="capacity-selector">
-                <strong>ظرفیت این محصول</strong>
-                <div className="capacity-options capacity-options--single">
-                  <div className="capacity-option capacity-option--selected">
-                    <strong>{product.capacity}</strong>
-                    <span>ظرفیت ثبت‌شده</span>
-                  </div>
+                <strong>انتخاب ظرفیت</strong>
+                <div className="capacity-options">
+                  {CAPACITY_OPTIONS.map((capacity) => {
+                    const isCurrentCapacity = capacity === product.size;
+                    const isAvailable = isCurrentCapacity && product.stockQuantity > 0;
+
+                    return (
+                      <button
+                        type="button"
+                        className={`capacity-option${isAvailable ? " capacity-option--selected" : " capacity-option--unavailable"}`}
+                        disabled={!isAvailable}
+                        aria-pressed={isAvailable}
+                        key={capacity}
+                      >
+                        <strong>{new Intl.NumberFormat("fa-IR").format(capacity)} نفره</strong>
+                        <span>{isAvailable ? "موجود" : "ناموجود"}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -83,7 +98,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <Image src={product.image} alt={product.imageAlt} fill priority sizes="(max-width: 900px) 92vw, 54vw" />
               </div>
               <div className="product-gallery__secondary">
-                <Image src={product.tableImage} alt="تصویر دوم این محصول هنوز بارگذاری نشده است" fill sizes="(max-width: 900px) 92vw, 54vw" />
+                <Image src={product.tableImage} alt={product.tableImageAlt} fill sizes="(max-width: 900px) 92vw, 54vw" />
               </div>
             </div>
           </Container>
@@ -96,7 +111,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <div><dt>ترکیب رنگ</dt><dd>{product.colors}</dd></div>
               <div><dt>طرح</dt><dd>{product.pattern}</dd></div>
               <div><dt>دسته‌بندی</dt><dd>{product.categoryName}</dd></div>
-              <div><dt>موجودی</dt><dd>{new Intl.NumberFormat("fa-IR").format(product.stockQuantity)} عدد</dd></div>
             </dl>
           </Container>
         </section>

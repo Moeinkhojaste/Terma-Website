@@ -26,8 +26,8 @@ export function Footer() {
         </div>
         <div>
           <h2>ارتباط با ترما</h2>
-          <span>اینستاگرام — به‌زودی</span>
-          <span>اطلاعات تماس — به‌زودی</span>
+          <Link href="/about">درباره ما</Link>
+          <Link href="/contact">ارتباط با ما</Link>
           <Link href="/style-guide">راهنمای سبک داخلی</Link>
         </div>
         <div>
