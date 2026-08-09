@@ -5,14 +5,14 @@ import { Container } from "@/components/container";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { ArrowLeftIcon, FabricIcon, PaisleyIcon, StitchIcon } from "@/components/icons";
-import { ProductCard } from "@/components/product-card";
+import { ProductCarousel } from "@/components/product-carousel";
 import { SectionHeader } from "@/components/section-header";
 import { products } from "@/data/products";
 
 const sizes = [
-  { title: "۴ نفره", product: "نیلا" },
-  { title: "۶ نفره", product: "لاجورد" },
-  { title: "۸ نفره", product: "فیروزه" },
+  { title: "۴ نفره", product: "نیلا", size: 4 },
+  { title: "۶ نفره", product: "لاجورد", size: 6 },
+  { title: "۸ نفره", product: "فیروزه", size: 8 },
 ];
 
 const heroImages = [
@@ -46,7 +46,7 @@ export default function Home() {
                   alt={image.alt}
                   fill
                   priority={index === 0}
-                  loading={index === 0 ? undefined : "eager"}
+                  loading="eager"
                   sizes="(max-width: 767px) 92vw, 55vw"
                   key={image.src}
                 />
@@ -60,7 +60,7 @@ export default function Home() {
             <SectionHeader eyebrow="دسته‌بندی" title="انتخاب بر اساس ظرفیت" />
             <div className="size-grid">
               {sizes.map((size) => (
-                <Link className="size-card" href={`#product-${size.product === "نیلا" ? "nila" : size.product === "لاجورد" ? "lajvard" : "firoozeh"}`} key={size.title}>
+                <Link className="size-card" href={`/products#size-${size.size}`} key={size.title}>
                   <FabricIcon className="size-12" />
                   <div><h3>{size.title}</h3><span>مشاهده {size.product} <ArrowLeftIcon /></span></div>
                 </Link>
@@ -72,10 +72,13 @@ export default function Home() {
         <section className="section-pad products-section" id="محصولات">
           <Container>
             <div className="heading-row">
-              <SectionHeader eyebrow="مجموعه ترما" title="سه نقش، سه اندازه" description="هر محصول با همان رنگ، بافت و جزئیاتی نمایش داده شده که در تصاویر اصلی دیده می‌شود." />
-              <p className="heading-note">۳ محصول</p>
+              <SectionHeader eyebrow="مجموعه ترما" title="منتخب‌های ترما" description="سه محصول از مجموعه فعلی را ببینید و برای مشاهده فهرست کامل وارد صفحه محصولات شوید." />
+              <div className="featured-heading-actions">
+                <p className="heading-note">۳ محصول منتخب</p>
+                <Button href="/products" variant="secondary">مشاهده همه محصولات <ArrowLeftIcon /></Button>
+              </div>
             </div>
-            <div className="products-grid">{products.map((product) => <ProductCard product={product} key={product.id} />)}</div>
+            <ProductCarousel products={products} />
           </Container>
         </section>
 
