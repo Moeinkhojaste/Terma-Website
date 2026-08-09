@@ -18,7 +18,6 @@ export function ProductCard({ product, unavailable = false }: { product: Product
       </div>
       <div className="product-card__body">
         <div className="product-meta">
-          <span>{product.capacity}</span>
           <span className={unavailable ? "stock stock--off" : "stock"}>
             {unavailable ? "ناموجود" : product.stock}
           </span>
