@@ -13,6 +13,7 @@ public sealed class ProductRepository(TermaDbContext dbContext) : IProductReposi
     {
         var query = dbContext.Products.AsNoTracking()
             .Include(product => product.Category)
+            .Include(product => product.Variants)
             .Where(product => product.IsActive == request.IsActive);
 
         if (request.IsActive) query = query.Where(product => product.Category.IsActive);
@@ -37,7 +38,7 @@ public sealed class ProductRepository(TermaDbContext dbContext) : IProductReposi
     }
 
     public Task<Product?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
-        dbContext.Products.Include(product => product.Category)
+        dbContext.Products.Include(product => product.Category).Include(product => product.Variants)
             .SingleOrDefaultAsync(product => product.Id == id, cancellationToken);
 
     public Task<bool> SkuExistsAsync(string sku, Guid? excludedProductId, CancellationToken cancellationToken) =>

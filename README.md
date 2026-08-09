@@ -55,7 +55,7 @@ The Web API will start with Swagger UI accessible at `https://localhost:7090/swa
 - `dotnet build Terma.sln`: Build all backend projects.
 - `dotnet test Terma.sln`: Execute unit and integration tests.
 
-The catalog API exposes category and product CRUD, filtering, pagination, RFC 7807 errors, Swagger, and liveness/readiness health checks. SQL Server is configured through `ConnectionStrings__DefaultConnection`; the API does not migrate or seed the database on startup.
+The catalog API exposes category and product CRUD, product variants, secure Identity Cookie authentication for the `Admin` role, guest checkout/orders with inventory reservations, promotions, shipping rules, structured store content, contact messages, local media upload, RFC 7807 errors, Swagger, and liveness/readiness health checks. Catalog reads remain public, while writes require an authenticated admin and an antiforgery token. SQL Server is configured through `ConnectionStrings__DefaultConnection`; the API does not migrate or seed the database on startup. The first admin is provisioned separately with the documented `--seed-admin` command.
 
 See [`backend/README.md`](backend/README.md) for setup, migration, endpoint, and architecture details.
 

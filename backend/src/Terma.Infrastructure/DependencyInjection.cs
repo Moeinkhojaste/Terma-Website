@@ -1,9 +1,14 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Terma.Application.Common.Interfaces;
+using Terma.Infrastructure.Identity;
 using Terma.Infrastructure.Persistence;
 using Terma.Infrastructure.Persistence.Repositories;
+using Terma.Application.Store;
+using Terma.Infrastructure.Store;
+using Terma.Infrastructure.Media;
 
 namespace Terma.Infrastructure;
 
@@ -15,8 +20,28 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
         services.AddDbContext<TermaDbContext>(options => options.UseSqlServer(connectionString));
+        services.AddIdentityCore<AdminUser>(options =>
+            {
+                options.User.RequireUniqueEmail = true;
+                options.Password.RequiredLength = 12;
+                options.Password.RequireUppercase = true;
+                options.Password.RequireLowercase = true;
+                options.Password.RequireDigit = true;
+                options.Password.RequireNonAlphanumeric = true;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+                options.Lockout.AllowedForNewUsers = true;
+            })
+            .AddRoles<IdentityRole<Guid>>()
+            .AddEntityFrameworkStores<TermaDbContext>()
+            .AddSignInManager()
+            .AddDefaultTokenProviders();
+        services.AddScoped<AdminAccountProvisioner>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<IStoreOperationsService, StoreOperationsService>();
+        services.AddSingleton<IMediaStorage, LocalMediaStorage>();
+        services.AddHostedService<ReservationExpirationService>();
         return services;
     }
 }

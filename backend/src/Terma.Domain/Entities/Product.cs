@@ -5,6 +5,8 @@ namespace Terma.Domain.Entities;
 
 public class Product : BaseEntity
 {
+    private readonly List<ProductVariant> _variants = [];
+    private readonly List<ProductMedia> _media = [];
     public string Name { get; private set; } = string.Empty;
     public string Sku { get; private set; } = string.Empty;
     public string? Description { get; private set; }
@@ -20,6 +22,8 @@ public class Product : BaseEntity
     public bool IsActive { get; private set; } = true;
     public Guid CategoryId { get; private set; }
     public Category Category { get; private set; } = null!;
+    public IReadOnlyCollection<ProductVariant> Variants => _variants.AsReadOnly();
+    public IReadOnlyCollection<ProductMedia> Media => _media.AsReadOnly();
 
     private Product() { }
 
@@ -41,6 +45,7 @@ public class Product : BaseEntity
     {
         ApplyChanges(name, sku, description, price, stockQuantity, tableCapacity, length, width,
             fabricType, liningType, color, pattern, categoryId, isActive);
+        _variants.Add(new ProductVariant(Id, "تنوع پیش‌فرض", Sku, Color, TableCapacity, Length, Width, Price, null, StockQuantity, 2, isActive));
     }
 
     public void Update(

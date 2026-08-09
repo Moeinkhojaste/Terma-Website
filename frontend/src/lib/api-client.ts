@@ -12,6 +12,8 @@ type ApiRequestInit = RequestInit & {
   cache?: RequestCache;
 };
 
+let antiforgeryTokenPromise: Promise<string> | undefined;
+
 export class ApiError extends Error {
   readonly status?: number;
   readonly problem?: ApiProblemDetails;
@@ -67,15 +69,51 @@ async function readJson(response: Response) {
   }
 }
 
+async function getAntiforgeryToken() {
+  if (!antiforgeryTokenPromise) {
+    antiforgeryTokenPromise = fetch(`${getApiBaseUrl()}/api/auth/antiforgery`, {
+      headers: { Accept: "application/json" },
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        const body = await readJson(response);
+        if (!response.ok || !isProblemDetails(body) || typeof (body as { token?: unknown }).token !== "string") {
+          throw new ApiError("دریافت اطلاعات امنیتی درخواست ناموفق بود.", { status: response.status });
+        }
+        return (body as { token: string }).token;
+      })
+      .catch((error) => {
+        antiforgeryTokenPromise = undefined;
+        if (error instanceof ApiError) throw error;
+        throw new ApiError("ارتباط با سرویس برای دریافت اطلاعات امنیتی برقرار نشد.", {
+          isNetworkError: true,
+          cause: error,
+        });
+      });
+  }
+
+  return antiforgeryTokenPromise;
+}
+
+export function resetAntiforgeryToken() {
+  antiforgeryTokenPromise = undefined;
+}
+
 export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
+  const method = (init.method ?? "GET").toUpperCase();
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  if (!["GET", "HEAD", "OPTIONS"].includes(method) && !headers.has("X-CSRF-TOKEN")) {
+    headers.set("X-CSRF-TOKEN", await getAntiforgeryToken());
+  }
+
   let response: Response;
   try {
     response = await fetch(`${getApiBaseUrl()}${path}`, {
       ...init,
-      headers: {
-        Accept: "application/json",
-        ...init.headers,
-      },
+      credentials: init.credentials ?? "include",
+      headers,
     });
   } catch (cause) {
     if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
@@ -89,6 +127,7 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
 
   const body = await readJson(response);
   if (!response.ok) {
+    if (response.status === 401) resetAntiforgeryToken();
     const problem = isProblemDetails(body) ? body : undefined;
     throw new ApiError(problem?.detail ?? problem?.title ?? "درخواست سرویس محصولات ناموفق بود.", {
       status: response.status,

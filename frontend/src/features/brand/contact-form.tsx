@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { ArrowLeftIcon } from "@/components/ui/icons";
+import { apiRequest } from "@/lib/api-client";
 
 type ContactFormProps = {
   contactEmail?: string;
@@ -10,7 +11,7 @@ type ContactFormProps = {
 export function ContactForm({ contactEmail }: ContactFormProps) {
   const [message, setMessage] = useState("");
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!contactEmail) return;
 
@@ -19,11 +20,12 @@ export function ContactForm({ contactEmail }: ContactFormProps) {
     const phone = String(form.get("phone") ?? "").trim();
     const topic = String(form.get("topic") ?? "").trim();
     const body = String(form.get("message") ?? "").trim();
-    const subject = encodeURIComponent(`پیام سایت ترما — ${topic}`);
-    const emailBody = encodeURIComponent(`نام: ${name}\nشماره تماس: ${phone}\nموضوع: ${topic}\n\n${body}`);
-
-    setMessage("برنامه ایمیل شما باز می‌شود. لطفاً ارسال نهایی پیام را در همان برنامه انجام دهید.");
-    window.location.href = `mailto:${contactEmail}?subject=${subject}&body=${emailBody}`;
+    try {
+      await apiRequest("/api/store/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, phone, topic, body, email: contactEmail }) });
+      setMessage("پیام شما با موفقیت ارسال شد. به‌زودی با شما تماس می‌گیریم.");
+    } catch {
+      setMessage("ارسال پیام انجام نشد. لطفاً چند لحظه بعد دوباره تلاش کنید.");
+    }
   }
 
   return (

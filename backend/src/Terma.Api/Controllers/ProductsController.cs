@@ -1,4 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Terma.Api.ErrorHandling;
+using Terma.Application.Common.Authorization;
 using Terma.Application.Common.Models;
 using Terma.Application.Products;
 
@@ -15,6 +18,22 @@ public sealed class ProductsController(IProductService service) : ControllerBase
         [FromQuery] ProductListRequest request,
         CancellationToken cancellationToken)
     {
+        // Anonymous storefront requests must never be able to opt into drafts.
+        // Admin users can explicitly request inactive products for management.
+        if (!(User.Identity?.IsAuthenticated ?? false))
+        {
+            request = new ProductListRequest
+            {
+                CategoryId = request.CategoryId,
+                MinPrice = request.MinPrice,
+                MaxPrice = request.MaxPrice,
+                TableCapacity = request.TableCapacity,
+                IsActive = true,
+                Search = request.Search,
+                Page = request.Page,
+                PageSize = request.PageSize
+            };
+        }
         return Ok(await service.ListAsync(request, cancellationToken));
     }
 
@@ -27,6 +46,8 @@ public sealed class ProductsController(IProductService service) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = AdminAuthorization.Policy)]
+    [ValidateApiAntiforgeryToken]
     [ProducesResponseType<ProductDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -40,6 +61,8 @@ public sealed class ProductsController(IProductService service) : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = AdminAuthorization.Policy)]
+    [ValidateApiAntiforgeryToken]
     [ProducesResponseType<ProductDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -53,6 +76,8 @@ public sealed class ProductsController(IProductService service) : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = AdminAuthorization.Policy)]
+    [ValidateApiAntiforgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)

@@ -9,6 +9,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { ProductCarousel } from "@/features/products/components/product-carousel";
 import { listProducts } from "@/features/products/product-api";
 import type { Product } from "@/features/products/models";
+import { getPublicContent, type PublicContent } from "@/features/content/content-api";
 
 const sizes = [
   { title: "۴ نفره", size: 4 },
@@ -25,23 +26,28 @@ const heroImages = [
 export default async function Home() {
   let featuredProducts: Product[] = [];
   let catalogUnavailable = false;
+  let content: PublicContent[] = [];
   try {
     featuredProducts = (await listProducts({ page: 1, pageSize: 3 })).items;
   } catch {
     catalogUnavailable = true;
   }
+  try { content = await getPublicContent("home"); } catch { content = []; }
+  const heroContent = content.find((item) => item.sectionKey === "hero");
+  const announcementContent = content.find((item) => item.sectionKey === "announcement");
 
   return (
     <>
       <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
       <Header />
+      {announcementContent && <div className="announcement">{announcementContent.body}</div>}
       <main id="محتوا">
         <section className="hero section-pad">
           <Container className="hero-grid">
             <div className="hero-copy">
               <p className="hero-kicker"><span /> ترمه، برای خانه امروز</p>
-              <h1>نقش ایرانی،<br />در خانه شما</h1>
-              <p>سفره‌های ترمه با آستر ساتن و لبه‌دوزی دقیق؛ برای پهن‌کردن روی میز یا روی زمین.</p>
+              <h1>{heroContent?.title ?? "نقش ایرانی، در خانه شما"}</h1>
+              <p>{heroContent?.body ?? "سفره‌های ترمه با آستر ساتن و لبه‌دوزی دقیق؛ برای پهن‌کردن روی میز یا روی زمین."}</p>
               <div className="hero-actions">
                 <Button href="#محصولات">دیدن محصولات <ArrowLeftIcon /></Button>
                 <Link className="text-link" href="#راهنمای-خرید">راهنمای انتخاب</Link>

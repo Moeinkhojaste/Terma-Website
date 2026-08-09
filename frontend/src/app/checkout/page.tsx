@@ -6,7 +6,6 @@ export const metadata: Metadata = {
   description: "اطلاعات گیرنده، آدرس ارسال و خلاصه سفارش ترما.",
 };
 
-export default async function CheckoutPage({ searchParams }: { searchParams: Promise<{ simulate?: string }> }) {
-  const { simulate } = await searchParams;
-  return <CheckoutPageClient simulation={simulate} />;
+export default function CheckoutPage() {
+  return <CheckoutPageClient />;
 }

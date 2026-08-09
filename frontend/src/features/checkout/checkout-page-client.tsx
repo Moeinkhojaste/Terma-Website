@@ -9,10 +9,12 @@ import { Container } from "@/components/layout/container";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { formatPrice } from "@/lib/format";
+import { ApiError } from "@/lib/api-client";
+import { createOrder } from "@/features/checkout/checkout-api";
 
 type FieldName = "fullName" | "mobile" | "email" | "province" | "city" | "address" | "postalCode";
 type FormErrors = Partial<Record<FieldName, string>>;
-type RequestState = "idle" | "submitting" | "network-error";
+type RequestState = "idle" | "submitting" | "network-error" | "server-error";
 
 const fieldLabels: Record<FieldName, string> = {
   fullName: "نام و نام خانوادگی",
@@ -44,7 +46,7 @@ function validateForm(formData: FormData) {
   return errors;
 }
 
-export function CheckoutPageClient({ simulation }: { simulation?: string }) {
+export function CheckoutPageClient() {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const { items, hydrated, clearCart } = useCart();
@@ -70,25 +72,20 @@ export function CheckoutPageClient({ simulation }: { simulation?: string }) {
     }
 
     setRequestState("submitting");
-    await new Promise((resolve) => window.setTimeout(resolve, 1100));
-
-    if (!window.navigator.onLine) {
-      setRequestState("network-error");
-      return;
+    if (!window.navigator.onLine) { setRequestState("network-error"); return; }
+    const form = new FormData(event.currentTarget);
+    try {
+      const order = await createOrder({
+        items: items.map(({ product, quantity }) => ({ productId: product.id, quantity })),
+        fullName: String(form.get("fullName") ?? ""), phone: String(form.get("mobile") ?? ""), email: String(form.get("email") ?? "") || undefined,
+        province: String(form.get("province") ?? ""), city: String(form.get("city") ?? ""), address: String(form.get("address") ?? ""), postalCode: String(form.get("postalCode") ?? ""),
+      });
+      clearCart();
+      router.replace(`/order/success?order=${encodeURIComponent(order.number)}&tracking=${encodeURIComponent(order.trackingToken)}`);
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.isNetworkError) setRequestState("network-error");
+      else setRequestState("server-error");
     }
-
-    if (simulation === "failed") {
-      router.push("/order/failed");
-      return;
-    }
-    if (simulation === "cancelled") {
-      router.push("/order/cancelled");
-      return;
-    }
-
-    const orderNumber = `TRM-${String(Date.now()).slice(-8)}`;
-    clearCart();
-    router.replace(`/order/success?order=${orderNumber}`);
   }
 
   const field = (name: FieldName) => ({
@@ -156,6 +153,9 @@ export function CheckoutPageClient({ simulation }: { simulation?: string }) {
                     <div><strong>ارتباط با شبکه برقرار نشد.</strong><p>اتصال اینترنت را بررسی کنید. اطلاعات فرم شما حفظ شده است.</p></div>
                     <button type="button" onClick={() => formRef.current?.requestSubmit()}>تلاش مجدد</button>
                   </div>
+                )}
+                {requestState === "server-error" && (
+                  <div className="network-error" role="alert"><div><strong>ثبت سفارش انجام نشد.</strong><p>موجودی، آدرس یا اتصال سرویس را بررسی کنید و دوباره تلاش کنید.</p></div><button type="button" onClick={() => formRef.current?.requestSubmit()}>تلاش دوباره</button></div>
                 )}
                 <button className="button button--primary checkout-submit" type="submit" disabled={requestState === "submitting"}>
                   {requestState === "submitting" && <span className="button-spinner" aria-hidden="true" />}

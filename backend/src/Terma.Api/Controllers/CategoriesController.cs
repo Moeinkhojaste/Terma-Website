@@ -1,4 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Terma.Api.ErrorHandling;
+using Terma.Application.Common.Authorization;
 using Terma.Application.Categories;
 
 namespace Terma.Api.Controllers;
@@ -25,6 +28,8 @@ public sealed class CategoriesController(ICategoryService service) : ControllerB
     }
 
     [HttpPost]
+    [Authorize(Policy = AdminAuthorization.Policy)]
+    [ValidateApiAntiforgeryToken]
     [ProducesResponseType<CategoryDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<CategoryDto>> Create(
@@ -36,6 +41,8 @@ public sealed class CategoriesController(ICategoryService service) : ControllerB
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = AdminAuthorization.Policy)]
+    [ValidateApiAntiforgeryToken]
     [ProducesResponseType<CategoryDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -48,6 +55,8 @@ public sealed class CategoriesController(ICategoryService service) : ControllerB
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = AdminAuthorization.Policy)]
+    [ValidateApiAntiforgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)

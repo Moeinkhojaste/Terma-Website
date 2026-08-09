@@ -7,9 +7,17 @@ using Terma.Application.Products;
 
 namespace Terma.IntegrationTests;
 
-public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<TermaApiFactory>
+public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<TermaApiFactory>, IAsyncLifetime
 {
-    private readonly HttpClient _client = factory.CreateClient();
+    private HttpClient _client = null!;
+
+    public async Task InitializeAsync() => _client = await factory.CreateAdminClientAsync();
+
+    public Task DisposeAsync()
+    {
+        _client.Dispose();
+        return Task.CompletedTask;
+    }
 
     [Theory]
     [InlineData("/health/live")]
