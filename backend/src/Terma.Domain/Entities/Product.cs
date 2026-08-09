@@ -6,37 +6,122 @@ namespace Terma.Domain.Entities;
 public class Product : BaseEntity
 {
     public string Name { get; private set; } = string.Empty;
-    public string Slug { get; private set; } = string.Empty;
-    public string Description { get; private set; } = string.Empty;
+    public string Sku { get; private set; } = string.Empty;
+    public string? Description { get; private set; }
     public decimal Price { get; private set; }
-    public int CapacityPersons { get; private set; }
-    public string ImageUrl { get; private set; } = string.Empty;
+    public int StockQuantity { get; private set; }
+    public int TableCapacity { get; private set; }
+    public decimal Length { get; private set; }
+    public decimal Width { get; private set; }
+    public string FabricType { get; private set; } = string.Empty;
+    public string LiningType { get; private set; } = string.Empty;
+    public string Color { get; private set; } = string.Empty;
+    public string Pattern { get; private set; } = string.Empty;
     public bool IsActive { get; private set; } = true;
+    public Guid CategoryId { get; private set; }
+    public Category Category { get; private set; } = null!;
 
-    private Product() { } // For EF Core
+    private Product() { }
 
-    public Product(string name, string slug, string description, decimal price, int capacityPersons, string imageUrl)
+    public Product(
+        string name,
+        string sku,
+        string? description,
+        decimal price,
+        int stockQuantity,
+        int tableCapacity,
+        decimal length,
+        decimal width,
+        string fabricType,
+        string liningType,
+        string color,
+        string pattern,
+        Guid categoryId,
+        bool isActive = true)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new DomainException("Product name cannot be empty.");
-        if (price < 0)
-            throw new DomainException("Product price cannot be negative.");
-        if (capacityPersons <= 0)
-            throw new DomainException("Capacity persons must be greater than zero.");
-
-        Name = name;
-        Slug = slug;
-        Description = description;
-        Price = price;
-        CapacityPersons = capacityPersons;
-        ImageUrl = imageUrl;
+        ApplyChanges(name, sku, description, price, stockQuantity, tableCapacity, length, width,
+            fabricType, liningType, color, pattern, categoryId, isActive);
     }
 
-    public void UpdatePrice(decimal newPrice)
+    public void Update(
+        string name,
+        string sku,
+        string? description,
+        decimal price,
+        int stockQuantity,
+        int tableCapacity,
+        decimal length,
+        decimal width,
+        string fabricType,
+        string liningType,
+        string color,
+        string pattern,
+        Guid categoryId,
+        bool isActive)
     {
-        if (newPrice < 0)
-            throw new DomainException("Product price cannot be negative.");
-        Price = newPrice;
-        UpdatedAt = DateTime.UtcNow;
+        ApplyChanges(name, sku, description, price, stockQuantity, tableCapacity, length, width,
+            fabricType, liningType, color, pattern, categoryId, isActive);
+        MarkUpdated();
+    }
+
+    public void Deactivate()
+    {
+        if (!IsActive)
+        {
+            return;
+        }
+
+        IsActive = false;
+        MarkUpdated();
+    }
+
+    private void ApplyChanges(
+        string name,
+        string sku,
+        string? description,
+        decimal price,
+        int stockQuantity,
+        int tableCapacity,
+        decimal length,
+        decimal width,
+        string fabricType,
+        string liningType,
+        string color,
+        string pattern,
+        Guid categoryId,
+        bool isActive)
+    {
+        Name = Required(name, "Product name");
+        Sku = Required(sku, "Product SKU").ToUpperInvariant();
+        Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+
+        if (price <= 0) throw new DomainException("Product price must be greater than zero.");
+        if (stockQuantity < 0) throw new DomainException("Stock quantity cannot be negative.");
+        if (tableCapacity <= 0) throw new DomainException("Table capacity must be greater than zero.");
+        if (length <= 0) throw new DomainException("Length must be greater than zero.");
+        if (width <= 0) throw new DomainException("Width must be greater than zero.");
+        if (categoryId == Guid.Empty) throw new DomainException("Category is required.");
+
+        Price = price;
+        StockQuantity = stockQuantity;
+        TableCapacity = tableCapacity;
+        Length = length;
+        Width = width;
+        FabricType = Required(fabricType, "Fabric type");
+        LiningType = Required(liningType, "Lining type");
+        Color = Required(color, "Color");
+        Pattern = Required(pattern, "Pattern");
+        CategoryId = categoryId;
+        IsActive = isActive;
+    }
+
+    private static string Required(string value, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new DomainException($"{fieldName} is required.");
+        }
+
+        return value.Trim();
     }
 }

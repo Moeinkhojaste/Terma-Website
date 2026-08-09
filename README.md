@@ -55,7 +55,9 @@ The Web API will start with Swagger UI accessible at `https://localhost:7090/swa
 - `dotnet build Terma.sln`: Build all backend projects.
 - `dotnet test Terma.sln`: Execute unit and integration tests.
 
-See [`backend/README.md`](file:///d:/Personal/Shop/Website/backend/README.md) for detailed backend architecture documentation.
+The catalog API exposes category and product CRUD, filtering, pagination, RFC 7807 errors, Swagger, and liveness/readiness health checks. SQL Server is configured through `ConnectionStrings__DefaultConnection`; the API does not migrate or seed the database on startup.
+
+See [`backend/README.md`](backend/README.md) for setup, migration, endpoint, and architecture details.
 
 ---
 
