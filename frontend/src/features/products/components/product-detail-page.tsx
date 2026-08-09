@@ -46,7 +46,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <section className="product-detail section-pad">
           <Container className="product-detail__grid">
             <div className="product-summary">
-              <div className="product-summary__topline"><span>{product.capacity}</span><span className={product.stockQuantity > 0 ? "stock" : "stock stock--off"}>{product.stockQuantity > 0 ? product.stock : "ناموجود"}</span></div>
+              <div className="product-summary__topline"><span className={product.stockQuantity > 0 ? "stock" : "stock stock--off"}>{product.stockQuantity > 0 ? product.stock : "ناموجود"}</span></div>
               <h1>{product.name}</h1>
               <p>{product.longDescription}</p>
               <strong className="product-detail__price">{product.price}</strong>
@@ -80,7 +80,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </dl>
 
               <AddToCartButton productId={product.id} />
-              <p className="product-assumption">ابعاد فعلی تقریبی است و پیش از سفارش نهایی باید بررسی شود.</p>
             </div>
 
             <div className="product-gallery">
