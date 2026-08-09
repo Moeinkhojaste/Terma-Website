@@ -45,15 +45,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
         <section className="product-detail section-pad">
           <Container className="product-detail__grid">
-            <div className="product-gallery">
-              <div className="product-gallery__main">
-                <Image src={product.image} alt={product.imageAlt} fill priority sizes="(max-width: 900px) 92vw, 54vw" />
-              </div>
-              <div className="product-gallery__secondary">
-                <Image src={product.tableImage} alt={`نمای کامل ${product.name} در چیدمان نمونه`} fill sizes="(max-width: 900px) 92vw, 54vw" />
-              </div>
-            </div>
-
             <div className="product-summary">
               <div className="product-summary__topline"><span>{product.capacity}</span><span className={product.stockQuantity > 0 ? "stock" : "stock stock--off"}>{product.stockQuantity > 0 ? product.stock : "ناموجود"}</span></div>
               <h1>{product.name}</h1>
@@ -90,6 +81,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
               <AddToCartButton productId={product.id} />
               <p className="product-assumption">ابعاد فعلی تقریبی است و پیش از سفارش نهایی باید بررسی شود.</p>
+            </div>
+
+            <div className="product-gallery">
+              <div className="product-gallery__main">
+                <Image src={product.image} alt={product.imageAlt} fill priority sizes="(max-width: 900px) 92vw, 54vw" />
+              </div>
+              <div className="product-gallery__secondary">
+                <Image src={product.tableImage} alt={`نمای کامل ${product.name} در چیدمان نمونه`} fill sizes="(max-width: 900px) 92vw, 54vw" />
+              </div>
             </div>
           </Container>
         </section>
