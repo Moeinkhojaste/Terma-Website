@@ -1,5 +1,5 @@
 node_modules/
 .next/
 *.tsbuildinfo
-output/playwright/*.log
+Frontend/output/playwright/*.log
 .playwright-cli/
