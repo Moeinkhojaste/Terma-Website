@@ -13,12 +13,24 @@ frontend/src/
 │   ├── layout/           # Shared structural elements (Header, Footer, Container)
 │   └── ui/               # Reusable UI primitives (Button, Icons, SectionHeader)
 ├── features/
-│   ├── products/         # Product components, page views, and catalog data
+│   ├── products/         # Product components, API DTO mapping, and catalog data access
 │   ├── cart/             # Cart provider state & checkout preview
 │   ├── checkout/         # Checkout client forms & validation
 │   └── orders/           # Order status screens
 └── lib/                  # Utilities (currency formatting, helpers)
 ```
+
+## Backend API
+
+Copy `.env.example` to `.env.local`, then set the public base URL for the separately running backend:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:5242
+```
+
+The storefront reads categories and products from `/api/categories` and `/api/products`. Product images use a local placeholder until image upload is implemented. Do not put credentials in this variable or commit `.env.local`.
+
+Start the ASP.NET Core API from the separate `backend/` application before opening API-backed pages. The backend development CORS policy allows `http://localhost:3000` by default.
 
 ## Available Scripts
 

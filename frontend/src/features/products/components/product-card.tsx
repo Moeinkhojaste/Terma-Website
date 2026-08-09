@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@/components/ui/icons";
-import type { Product } from "@/features/products/data/products";
+import type { Product } from "@/features/products/models";
 
 export function ProductCard({ product, unavailable = false }: { product: Product; unavailable?: boolean }) {
   unavailable = unavailable || product.stockQuantity === 0;

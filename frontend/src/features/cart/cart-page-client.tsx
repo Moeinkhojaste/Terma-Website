@@ -7,16 +7,11 @@ import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { MinusIcon, PlusIcon, TrashIcon } from "@/components/ui/icons";
 import { useCart } from "@/features/cart/cart-provider";
-import { products } from "@/features/products/data/products";
 import { formatPrice } from "@/lib/format";
 
 export function CartPageClient() {
   const { items, hydrated, setQuantity, removeItem } = useCart();
-  const detailedItems = items.flatMap((item) => {
-    const product = products.find((candidate) => candidate.id === item.productId);
-    return product ? [{ ...item, product }] : [];
-  });
-  const subtotal = detailedItems.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
+  const subtotal = items.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
 
   return (
     <>
@@ -35,7 +30,7 @@ export function CartPageClient() {
 
           {!hydrated ? (
             <div className="cart-loading" role="status">در حال آماده‌کردن سبد خرید…</div>
-          ) : detailedItems.length === 0 ? (
+          ) : items.length === 0 ? (
             <section className="commerce-empty">
               <span className="commerce-empty__icon"><TrashIcon className="size-7" /></span>
               <h2>سبد خرید شما خالی است</h2>
@@ -45,7 +40,7 @@ export function CartPageClient() {
           ) : (
             <div className="cart-layout">
               <section className="cart-items" aria-label="محصولات سبد خرید">
-                {detailedItems.map(({ product, quantity }) => (
+                {items.map(({ product, quantity }) => (
                   <article className="cart-item" key={product.id}>
                     <Link className="cart-item__image" href={`/products/${product.id}`} aria-label={`مشاهده ${product.name}`}>
                       <Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 34vw, 180px" />

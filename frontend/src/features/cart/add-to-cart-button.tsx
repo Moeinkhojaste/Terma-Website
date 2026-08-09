@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useCart } from "@/features/cart/cart-provider";
-import { getProduct } from "@/features/products/data/products";
+import type { Product } from "@/features/products/models";
 
-export function AddToCartButton({ productId }: { productId: string }) {
+export function AddToCartButton({ product }: { product: Product }) {
   const { addItem, items } = useCart();
   const [added, setAdded] = useState(false);
-  const product = getProduct(productId);
-  const quantity = items.find((item) => item.productId === productId)?.quantity ?? 0;
-  const unavailable = !product || product.stockQuantity === 0;
+  const quantity = items.find((item) => item.product.id === product.id)?.quantity ?? 0;
+  const unavailable = !product.isActive || product.stockQuantity === 0;
   const atLimit = !unavailable && quantity >= product.stockQuantity;
 
   return (
@@ -20,7 +19,7 @@ export function AddToCartButton({ productId }: { productId: string }) {
         type="button"
         disabled={unavailable || atLimit}
         onClick={() => {
-          addItem(productId);
+          addItem(product);
           setAdded(true);
         }}
       >

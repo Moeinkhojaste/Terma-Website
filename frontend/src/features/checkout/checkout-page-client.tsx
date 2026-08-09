@@ -8,7 +8,6 @@ import { useCart } from "@/features/cart/cart-provider";
 import { Container } from "@/components/layout/container";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
-import { products } from "@/features/products/data/products";
 import { formatPrice } from "@/lib/format";
 
 type FieldName = "fullName" | "mobile" | "email" | "province" | "city" | "address" | "postalCode";
@@ -51,11 +50,7 @@ export function CheckoutPageClient({ simulation }: { simulation?: string }) {
   const { items, hydrated, clearCart } = useCart();
   const [errors, setErrors] = useState<FormErrors>({});
   const [requestState, setRequestState] = useState<RequestState>("idle");
-  const detailedItems = items.flatMap((item) => {
-    const product = products.find((candidate) => candidate.id === item.productId);
-    return product ? [{ ...item, product }] : [];
-  });
-  const subtotal = detailedItems.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
+  const subtotal = items.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
 
   function handleBlur(event: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const name = event.currentTarget.name as FieldName;
@@ -119,7 +114,7 @@ export function CheckoutPageClient({ simulation }: { simulation?: string }) {
 
           {!hydrated ? (
             <div className="cart-loading" role="status">در حال آماده‌کردن سفارش…</div>
-          ) : detailedItems.length === 0 ? (
+          ) : items.length === 0 ? (
             <section className="commerce-empty">
               <h2>محصولی برای تکمیل سفارش وجود ندارد</h2>
               <p>ابتدا یک محصول به سبد خرید اضافه کنید.</p>
@@ -172,7 +167,7 @@ export function CheckoutPageClient({ simulation }: { simulation?: string }) {
               <aside className="order-summary checkout-summary" aria-labelledby="checkout-summary-title">
                 <div className="checkout-summary__heading"><h2 id="checkout-summary-title">سفارش شما</h2><Link href="/cart">ویرایش سبد</Link></div>
                 <div className="checkout-products">
-                  {detailedItems.map(({ product, quantity }) => (
+                  {items.map(({ product, quantity }) => (
                     <div className="checkout-product" key={product.id}>
                       <div className="checkout-product__image"><Image src={product.image} alt="" fill sizes="72px" /></div>
                       <div><strong>{product.name}</strong><span>{product.capacity} · تعداد {new Intl.NumberFormat("fa-IR").format(quantity)}</span></div>

@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeftIcon, FabricIcon, PaisleyIcon, StitchIcon } from "@/components/ui/icons";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ProductCarousel } from "@/features/products/components/product-carousel";
-import { products } from "@/features/products/data/products";
+import { listProducts } from "@/features/products/product-api";
+import type { Product } from "@/features/products/models";
 
 const sizes = [
-  { title: "۴ نفره", product: "نیلا", size: 4 },
-  { title: "۶ نفره", product: "لاجورد", size: 6 },
-  { title: "۸ نفره", product: "فیروزه", size: 8 },
+  { title: "۴ نفره", size: 4 },
+  { title: "۶ نفره", size: 6 },
+  { title: "۸ نفره", size: 8 },
 ];
 
 const heroImages = [
@@ -21,7 +22,15 @@ const heroImages = [
   { src: "/images/nila-folded.jpeg", alt: "سفره ترمه نیلا با نقش‌های بته‌جقه آبی" },
 ];
 
-export default function Home() {
+export default async function Home() {
+  let featuredProducts: Product[] = [];
+  let catalogUnavailable = false;
+  try {
+    featuredProducts = (await listProducts({ page: 1, pageSize: 3 })).items;
+  } catch {
+    catalogUnavailable = true;
+  }
+
   return (
     <>
       <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
@@ -60,9 +69,9 @@ export default function Home() {
             <SectionHeader eyebrow="دسته‌بندی" title="انتخاب بر اساس ظرفیت" />
             <div className="size-grid">
               {sizes.map((size) => (
-                <Link className="size-card" href={`/products#size-${size.size}`} key={size.title}>
+                <Link className="size-card" href={`/products?tableCapacity=${size.size}`} key={size.title}>
                   <FabricIcon className="size-12" />
-                  <div><h3>{size.title}</h3><span>مشاهده {size.product} <ArrowLeftIcon /></span></div>
+                  <div><h3>{size.title}</h3><span>مشاهده محصولات <ArrowLeftIcon /></span></div>
                 </Link>
               ))}
             </div>
@@ -74,11 +83,17 @@ export default function Home() {
             <div className="heading-row">
               <SectionHeader eyebrow="مجموعه ترما" title="منتخب‌های ترما" description="سه محصول از مجموعه فعلی را ببینید و برای مشاهده فهرست کامل وارد صفحه محصولات شوید." />
               <div className="featured-heading-actions">
-                <p className="heading-note">۳ محصول منتخب</p>
+                <p className="heading-note">{new Intl.NumberFormat("fa-IR").format(featuredProducts.length)} محصول منتخب</p>
                 <Button href="/products" variant="secondary">مشاهده همه محصولات <ArrowLeftIcon /></Button>
               </div>
             </div>
-            <ProductCarousel products={products} />
+            {catalogUnavailable ? (
+              <div className="catalog-inline-warning" role="status"><span>محصولات منتخب اکنون در دسترس نیستند.</span><Link href="/products">تلاش در صفحه محصولات</Link></div>
+            ) : featuredProducts.length > 0 ? (
+              <ProductCarousel products={featuredProducts} />
+            ) : (
+              <div className="catalog-empty catalog-empty--compact"><span>۰</span><h3>هنوز محصول فعالی ثبت نشده است</h3><p>محصولات جدید پس از ثبت در این بخش نمایش داده می‌شوند.</p></div>
+            )}
           </Container>
         </section>
 

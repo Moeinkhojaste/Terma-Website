@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -7,30 +8,33 @@ import { Container } from "@/components/layout/container";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { ProductCard } from "@/features/products/components/product-card";
-import { getProduct, products } from "@/features/products/data/products";
-
-const capacityOptions = [4, 6, 8] as const;
-const persianCapacity = { 4: "۴ نفره", 6: "۶ نفره", 8: "۸ نفره" };
+import { getProduct, listProducts } from "@/features/products/product-api";
+import { ApiError } from "@/lib/api-client";
 
 type ProductPageProps = { params: Promise<{ id: string }> };
 
-export function generateStaticParams() {
-  return products.map((product) => ({ id: product.id }));
+const getProductForRequest = cache(getProduct);
+
+async function loadProduct(id: string) {
+  try {
+    return await getProductForRequest(id);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) notFound();
+    throw error;
+  }
 }
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { id } = await params;
-  const product = getProduct(id);
-  return product
-    ? { title: `${product.name} | ترما`, description: product.description }
-    : { title: "محصول پیدا نشد | ترما" };
+  const product = await loadProduct(id);
+  return { title: `${product.name} | ترما`, description: product.description };
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { id } = await params;
-  const product = getProduct(id);
-  if (!product) notFound();
-  const relatedProducts = products.filter((item) => item.id !== product.id);
+  const product = await loadProduct(id);
+  const related = await listProducts({ categoryId: product.categoryId, pageSize: 4 });
+  const relatedProducts = related.items.filter((item) => item.id !== product.id).slice(0, 3);
 
   return (
     <>
@@ -46,40 +50,32 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <section className="product-detail section-pad">
           <Container className="product-detail__grid">
             <div className="product-summary">
-              <div className="product-summary__topline"><span className={product.stockQuantity > 0 ? "stock" : "stock stock--off"}>{product.stockQuantity > 0 ? product.stock : "ناموجود"}</span></div>
+              <div className="product-summary__topline">
+                <span className={product.stockQuantity > 0 ? "stock" : "stock stock--off"}>{product.stock}</span>
+                <span>{product.categoryName}</span>
+              </div>
               <h1>{product.name}</h1>
               <p>{product.longDescription}</p>
               <strong className="product-detail__price">{product.price}</strong>
 
-              <fieldset className="capacity-selector">
-                <legend>انتخاب ظرفیت</legend>
-                <div className="capacity-options">
-                  {capacityOptions.map((option) => {
-                    const available = option === product.size && product.stockQuantity > 0;
-                    return (
-                      <button
-                        className={available ? "capacity-option capacity-option--selected" : "capacity-option capacity-option--unavailable"}
-                        type="button"
-                        disabled={!available}
-                        aria-pressed={available}
-                        key={option}
-                      >
-                        <strong>{persianCapacity[option]}</strong>
-                        <span>{available ? "انتخاب‌شده" : "ناموجود"}</span>
-                      </button>
-                    );
-                  })}
+              <div className="capacity-selector">
+                <strong>ظرفیت این محصول</strong>
+                <div className="capacity-options capacity-options--single">
+                  <div className="capacity-option capacity-option--selected">
+                    <strong>{product.capacity}</strong>
+                    <span>ظرفیت ثبت‌شده</span>
+                  </div>
                 </div>
-              </fieldset>
+              </div>
 
               <dl className="product-quick-specs">
-                <div><dt>ابعاد فعلی</dt><dd>{product.dimensions}</dd></div>
-                <div><dt>رویه</dt><dd>پارچه ترمه</dd></div>
+                <div><dt>ابعاد</dt><dd>{product.dimensions}</dd></div>
+                <div><dt>رویه</dt><dd>{product.fabricType}</dd></div>
                 <div><dt>آستر</dt><dd>{product.lining}</dd></div>
                 <div><dt>کد محصول</dt><dd dir="ltr">{product.sku}</dd></div>
               </dl>
 
-              <AddToCartButton productId={product.id} />
+              <AddToCartButton product={product} />
             </div>
 
             <div className="product-gallery">
@@ -87,7 +83,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <Image src={product.image} alt={product.imageAlt} fill priority sizes="(max-width: 900px) 92vw, 54vw" />
               </div>
               <div className="product-gallery__secondary">
-                <Image src={product.tableImage} alt={`نمای کامل ${product.name} در چیدمان نمونه`} fill sizes="(max-width: 900px) 92vw, 54vw" />
+                <Image src={product.tableImage} alt="تصویر دوم این محصول هنوز بارگذاری نشده است" fill sizes="(max-width: 900px) 92vw, 54vw" />
               </div>
             </div>
           </Container>
@@ -99,20 +95,22 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <dl>
               <div><dt>ترکیب رنگ</dt><dd>{product.colors}</dd></div>
               <div><dt>طرح</dt><dd>{product.pattern}</dd></div>
-              <div><dt>لبه‌دوزی</dt><dd>نوار کرم‌طلایی در چهار طرف محصول</dd></div>
-              <div><dt>نگهداری</dt><dd>شست‌وشوی دستی با آب سرد، شوینده ملایم و خشک‌کردن به‌صورت صاف</dd></div>
+              <div><dt>دسته‌بندی</dt><dd>{product.categoryName}</dd></div>
+              <div><dt>موجودی</dt><dd>{new Intl.NumberFormat("fa-IR").format(product.stockQuantity)} عدد</dd></div>
             </dl>
           </Container>
         </section>
 
-        <section className="related-products section-pad">
-          <Container>
-            <div className="catalog-toolbar"><h2>محصولات دیگر</h2><Link href="/products">مشاهده همه محصولات</Link></div>
-            <div className="products-grid products-grid--related">
-              {relatedProducts.map((item) => <ProductCard product={item} key={item.id} />)}
-            </div>
-          </Container>
-        </section>
+        {relatedProducts.length > 0 && (
+          <section className="related-products section-pad">
+            <Container>
+              <div className="catalog-toolbar"><h2>محصولات دیگر</h2><Link href="/products">مشاهده همه محصولات</Link></div>
+              <div className="products-grid products-grid--related">
+                {relatedProducts.map((item) => <ProductCard product={item} key={item.id} />)}
+              </div>
+            </Container>
+          </section>
+        )}
       </main>
       <Footer />
     </>
