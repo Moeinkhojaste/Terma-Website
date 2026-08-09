@@ -26,6 +26,26 @@ export function ArrowLeftIcon({ className = "size-4" }: IconProps) {
   );
 }
 
+export function PlusIcon({ className = "size-4" }: IconProps) {
+  return <svg aria-hidden="true" className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M10 4v12M4 10h12" strokeLinecap="round" /></svg>;
+}
+
+export function MinusIcon({ className = "size-4" }: IconProps) {
+  return <svg aria-hidden="true" className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 10h12" strokeLinecap="round" /></svg>;
+}
+
+export function TrashIcon({ className = "size-4" }: IconProps) {
+  return <svg aria-hidden="true" className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4.5 6h11M8 3.5h4M6 6l.7 10h6.6L14 6M8.3 8.5v5M11.7 8.5v5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+export function CheckIcon({ className = "size-4" }: IconProps) {
+  return <svg aria-hidden="true" className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m4 10 4 4 8-9" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+export function XIcon({ className = "size-4" }: IconProps) {
+  return <svg aria-hidden="true" className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m5 5 10 10M15 5 5 15" strokeLinecap="round" /></svg>;
+}
+
 export function TableIcon({ seats = 4, className = "size-16" }: IconProps & { seats?: number }) {
   const markers = seats === 4
     ? [[12, 3], [12, 45], [3, 24], [45, 24]]
