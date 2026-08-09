@@ -1,0 +1,168 @@
+name: Terma CI/CD
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terma-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Production build
+        run: npm run build
+
+      - name: Upload frontend delivery artifact
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-next-build-${{ github.sha }}
+          path: |
+            frontend/.next
+            frontend/public
+            frontend/package.json
+            frontend/package-lock.json
+          if-no-files-found: error
+          retention-days: 7
+
+  backend:
+    name: Backend checks
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.x
+
+      - name: Restore
+        run: dotnet restore Terma.sln
+
+      - name: Build with warnings treated as errors
+        run: dotnet build Terma.sln --configuration Release --no-restore --warnaserror
+
+      - name: Run unit and integration tests
+        run: dotnet test Terma.sln --configuration Release --no-build --no-restore --logger "trx;LogFileName=test-results.trx"
+
+      - name: Publish API delivery artifact
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        run: dotnet publish src/Terma.Api/Terma.Api.csproj --configuration Release --no-restore --output publish
+
+      - name: Upload backend delivery artifact
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-api-publish-${{ github.sha }}
+          path: backend/publish
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results-${{ github.sha }}
+          path: backend/**/*.trx
+          if-no-files-found: ignore
+          retention-days: 7
+
+  architecture:
+    name: Architecture and repository policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check repository boundaries and Clean Architecture references
+        shell: pwsh
+        run: |
+          $root = (Get-Location).Path
+
+          if (Test-Path -LiteralPath (Join-Path $root 'src')) {
+            throw 'A shared root-level src directory is not allowed.'
+          }
+
+          $frontend = Join-Path $root 'frontend'
+          $backend = Join-Path $root 'backend'
+          if (-not (Test-Path -LiteralPath $frontend) -or -not (Test-Path -LiteralPath $backend)) {
+            throw 'Both independent frontend and backend applications must exist.'
+          }
+
+          $projects = @{}
+          Get-ChildItem -Path (Join-Path $backend 'src') -Filter '*.csproj' -Recurse | ForEach-Object {
+            $projects[$_.BaseName] = $_.FullName
+          }
+
+          function Get-ProjectReferences([string] $path) {
+            [xml]$xml = Get-Content -LiteralPath $path
+            $includes = @($xml.Project.ItemGroup.ProjectReference.Include | Where-Object { $null -ne $_ -and $_ -ne '' })
+            return @($includes | ForEach-Object {
+              [IO.Path]::GetFileNameWithoutExtension((Split-Path $_ -Leaf))
+            })
+          }
+
+          $allowed = @{
+            'Terma.Domain' = @()
+            'Terma.Application' = @('Terma.Domain')
+            'Terma.Infrastructure' = @('Terma.Application', 'Terma.Domain')
+            'Terma.Api' = @('Terma.Application', 'Terma.Infrastructure')
+          }
+
+          foreach ($name in $allowed.Keys) {
+            $actual = @(Get-ProjectReferences $projects[$name] | Sort-Object)
+            $expected = @($allowed[$name] | Sort-Object)
+            if (($actual -join '|') -ne ($expected -join '|')) {
+              throw "$name has invalid project references. Expected: $($expected -join ', '); actual: $($actual -join ', ')."
+            }
+          }
+
+          $frontendProjectReferences = Get-ChildItem -Path $frontend -Filter '*.csproj' -Recurse -ErrorAction SilentlyContinue
+          if ($null -ne $frontendProjectReferences) {
+            throw 'Frontend must not contain .NET projects.'
+          }
+
+          Write-Host 'Repository boundaries and project dependency direction are valid.'
+
+  delivery-summary:
+    name: Delivery summary
+    needs: [frontend, backend, architecture]
+    if: always() && needs.frontend.result == 'success' && needs.backend.result == 'success' && needs.architecture.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm checks passed
+        run: echo "CI passed for ${{ github.sha }}. Delivery artifacts are created on main and tags."
