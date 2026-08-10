@@ -115,7 +115,10 @@ var app = builder.Build();
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
-    await dbContext.Database.MigrateAsync();
+    if (dbContext.Database.IsSqlServer())
+    {
+        await dbContext.Database.MigrateAsync();
+    }
 }
 
 if (args.Contains("--seed-admin", StringComparer.OrdinalIgnoreCase))
