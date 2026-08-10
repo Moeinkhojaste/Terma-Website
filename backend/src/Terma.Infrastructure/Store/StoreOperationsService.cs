@@ -48,9 +48,19 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
         {
             var variant = await db.ProductVariants.SingleOrDefaultAsync(x => x.Id == item.VariantId, cancellationToken);
             if (variant is null) continue;
+            var product = await db.Products.SingleOrDefaultAsync(x => x.Id == item.ProductId, cancellationToken);
             if (status == OrderStatus.Confirmed && order.Status == OrderStatus.PendingConfirmation) variant.CommitReservation(item.Quantity);
-            if (status is OrderStatus.Cancelled or OrderStatus.Expired && order.Status == OrderStatus.PendingConfirmation) variant.ReleaseReservation(item.Quantity);
-            if (status == OrderStatus.Cancelled && order.Status is (OrderStatus.Confirmed or OrderStatus.Preparing)) variant.AdjustStock(item.Quantity);
+            if (status is OrderStatus.Cancelled or OrderStatus.Expired && order.Status == OrderStatus.PendingConfirmation)
+            {
+                variant.ReleaseReservation(item.Quantity);
+                variant.AdjustStock(item.Quantity);
+                product?.AdjustStock(item.Quantity);
+            }
+            if (status == OrderStatus.Cancelled && order.Status is (OrderStatus.Confirmed or OrderStatus.Preparing))
+            {
+                variant.AdjustStock(item.Quantity);
+                product?.AdjustStock(item.Quantity);
+            }
         }
         order.ChangeStatus(status);
         await db.SaveChangesAsync(cancellationToken);
@@ -148,6 +158,9 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
         foreach (var line in lines)
         {
             line.Variant.Reserve(line.Quantity);
+            line.Variant.AdjustStock(-line.Quantity);
+            var product = await db.Products.SingleOrDefaultAsync(x => x.Id == line.ProductId, cancellationToken);
+            product?.AdjustStock(-line.Quantity);
         }
         var normalized = new string(request.Phone.Where(char.IsDigit).ToArray()).TrimStart('0');
         var customer = await db.Customers.SingleOrDefaultAsync(x => x.NormalizedPhone == normalized, cancellationToken);
@@ -192,7 +205,13 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
         var entity = await db.ProductVariants.SingleOrDefaultAsync(x => x.Id == id, cancellationToken) ?? throw new NotFoundException($"Variant '{id}' was not found.");
         if (await db.ProductVariants.AnyAsync(x => x.Id != id && x.Sku == request.Sku.Trim().ToUpperInvariant(), cancellationToken)) throw new ConflictException("A variant with this SKU already exists.");
         entity.Update(request.Title, request.Sku, request.Color, request.TableCapacity, request.Length, request.Width, request.Price, request.CompareAtPrice, request.LowStockThreshold, request.IsActive);
-        if (request.StockQuantity != entity.StockQuantity) entity.AdjustStock(request.StockQuantity - entity.StockQuantity);
+        if (request.StockQuantity != entity.StockQuantity)
+        {
+            var delta = request.StockQuantity - entity.StockQuantity;
+            entity.AdjustStock(delta);
+            var product = await db.Products.SingleOrDefaultAsync(x => x.Id == entity.ProductId, cancellationToken);
+            if (product is not null && product.StockQuantity + delta >= 0) product.AdjustStock(delta);
+        }
         await db.SaveChangesAsync(cancellationToken); return Map(entity);
     }
 

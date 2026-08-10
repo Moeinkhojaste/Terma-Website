@@ -44,6 +44,10 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
         Assert.NotNull(order);
         var orders = await admin.GetFromJsonAsync<List<AdminOrderDto>>("/api/admin/orders");
         Assert.Contains(orders!, x => x.Number == order!.Number);
+
+        var updatedProduct = await admin.GetFromJsonAsync<ProductDto>($"/api/products/{product.Id}");
+        Assert.NotNull(updatedProduct);
+        Assert.Equal(2, updatedProduct.StockQuantity);
     }
 
     [Fact]

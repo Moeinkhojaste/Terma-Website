@@ -84,6 +84,17 @@ public class Product : BaseEntity
         MarkUpdated();
     }
 
+    public void AdjustStock(int quantity)
+    {
+        if (StockQuantity + quantity < 0)
+        {
+            throw new DomainException("Stock cannot be negative.");
+        }
+
+        StockQuantity += quantity;
+        MarkUpdated();
+    }
+
     private void ApplyChanges(
         string name,
         string sku,
