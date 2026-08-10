@@ -4,7 +4,7 @@ import { FormEvent, useEffect as reactUseEffect, useState } from "react";
 import { AdminShell } from "@/features/admin/admin-shell";
 import { apiRequest, getApiErrorMessage } from "@/lib/api-client";
 import { formatPrice } from "@/lib/format";
-import { changeMessageStatus, changeOrderStatus, deleteContent, getContent, getCustomers, getMessages, getOrders, getPromotions, getShippingRules, upsertContent, type AdminCustomer, type AdminOrder, type ContactMessage, type Promotion, type ShippingRule, type StoreContent } from "@/features/admin/store-api";
+import { changeMessageStatus, changeOrderStatus, getCustomers, getMessages, getOrders, getPromotions, getShippingRules, type AdminCustomer, type AdminOrder, type ContactMessage, type Promotion, type ShippingRule } from "@/features/admin/store-api";
 
 function useEffect(effect: () => void | Promise<void>, dependencies: unknown[]) { reactUseEffect(() => { void effect(); }, dependencies); }
 

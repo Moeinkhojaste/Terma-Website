@@ -134,19 +134,33 @@ export function AdminContentPage() {
   // Preset picker modal
   const [showPresets, setShowPresets] = useState<boolean>(false);
 
-  const loadContent = () => {
-    setLoading(true);
+  const reloadItems = async () => {
+    const filterKey = activeTab === "all" || activeTab === "faq" || activeTab === "seo" ? undefined : activeTab;
+    const data = await getContent(filterKey);
+    setItems(data);
+    setError(undefined);
+  };
+
+  useEffect(() => {
+    let isMounted = true;
     const filterKey = activeTab === "all" || activeTab === "faq" || activeTab === "seo" ? undefined : activeTab;
     getContent(filterKey)
       .then((data) => {
-        setItems(data);
-        setError(undefined);
+        if (isMounted) {
+          setItems(data);
+          setError(undefined);
+        }
       })
-      .catch((e) => setError(getApiErrorMessage(e)))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(loadContent, [activeTab]);
+      .catch((e) => {
+        if (isMounted) setError(getApiErrorMessage(e));
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab]);
 
   // Filtering
   const filteredItems = items.filter((item) => {
@@ -188,7 +202,7 @@ export function AdminContentPage() {
         ...item,
         isPublished: !item.isPublished,
       });
-      await loadContent();
+      await reloadItems();
     } catch (e) {
       setError(getApiErrorMessage(e));
     } finally {
@@ -201,7 +215,7 @@ export function AdminContentPage() {
     setPendingId(item.id);
     try {
       await deleteContent(item.id);
-      await loadContent();
+      await reloadItems();
     } catch (e) {
       setError(getApiErrorMessage(e));
     } finally {
@@ -268,7 +282,7 @@ export function AdminContentPage() {
       });
       setShowEditor(false);
       setEditingItem(null);
-      await loadContent();
+      await reloadItems();
     } catch (e) {
       setError(getApiErrorMessage(e));
     } finally {
@@ -388,7 +402,7 @@ export function AdminContentPage() {
           <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>وضعیت:</span>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
+            onChange={(e) => setStatusFilter(e.target.value as "all" | "published" | "draft")}
             className="input"
             style={{ padding: "0.4rem 0.75rem", fontSize: "0.875rem" }}
           >
