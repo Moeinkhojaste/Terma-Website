@@ -1,8 +1,12 @@
+using System.Text.Json.Serialization;
 using Terma.Domain.Common;
 
 namespace Terma.Domain.Entities;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum PromotionType { Automatic, Coupon }
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum DiscountType { Percentage, FixedAmount }
 
 public sealed class Promotion : BaseEntity

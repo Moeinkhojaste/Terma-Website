@@ -1,7 +1,9 @@
+using System.Text.Json.Serialization;
 using Terma.Domain.Common;
 
 namespace Terma.Domain.Entities;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ContactMessageStatus { New, Read, Replied, Archived }
 
 public sealed class ContactMessage : BaseEntity

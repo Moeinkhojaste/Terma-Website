@@ -46,6 +46,25 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
         Assert.Contains(orders!, x => x.Number == order!.Number);
     }
 
+    [Fact]
+    public async Task ChangeOrderStatus_UpdatesOrderStatusSuccessfully()
+    {
+        using var admin = await factory.CreateAdminClientAsync();
+        var category = await CreateCategory(admin);
+        var productResponse = await admin.PostAsJsonAsync("/api/products", new CreateProductRequest { Name = "Status product", Sku = $"STATUS-{Guid.NewGuid():N}", Description = "test", Price = 1000, StockQuantity = 5, TableCapacity = 4, Length = 150, Width = 180, FabricType = "Termeh", LiningType = "Satin", Color = "Blue", Pattern = "Pattern", CategoryId = category.Id });
+        var product = (await productResponse.Content.ReadFromJsonAsync<ProductDto>())!;
+        using var guest = factory.CreateHttpsClient();
+        var request = new CheckoutRequest { Items = [new CheckoutItemRequest(product.Id, null, 1)], FullName = "Status Buyer", Phone = "09121234567", Province = "Tehran", City = "Tehran", Address = "Address info", PostalCode = "1234567890" };
+        var created = await guest.PostAsJsonAsync("/api/orders", request);
+        var order = (await created.Content.ReadFromJsonAsync<CreatedOrderDto>())!;
+
+        var updateResponse = await admin.PutAsJsonAsync($"/api/admin/orders/{order.Id}/status", new { status = "Confirmed" });
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        var updatedOrder = await updateResponse.Content.ReadFromJsonAsync<AdminOrderDto>();
+        Assert.NotNull(updatedOrder);
+        Assert.Equal(OrderStatus.Confirmed, updatedOrder.Status);
+    }
+
     private static async Task<CategoryDto> CreateCategory(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/categories", new CreateCategoryRequest { Name = $"Checkout {Guid.NewGuid():N}" });

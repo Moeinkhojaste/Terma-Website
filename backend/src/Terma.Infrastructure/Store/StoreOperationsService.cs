@@ -42,7 +42,7 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
 
     public async Task<AdminOrderDto> ChangeOrderStatusAsync(Guid id, OrderStatus status, CancellationToken cancellationToken)
     {
-        var order = await db.Orders.Include(x => x.Items).SingleOrDefaultAsync(x => x.Id == id, cancellationToken)
+        var order = await db.Orders.Include(x => x.Items).Include(x => x.History).SingleOrDefaultAsync(x => x.Id == id, cancellationToken)
             ?? throw new NotFoundException($"Order '{id}' was not found.");
         foreach (var item in order.Items.Where(x => x.VariantId.HasValue))
         {

@@ -57,7 +57,7 @@ public sealed class AdminStoreController(IStoreOperationsService service, IConfi
 
     [HttpPut("orders/{id:guid}/status")]
     [ValidateApiAntiforgeryToken]
-    public Task<AdminOrderDto> ChangeOrderStatus(Guid id, OrderStatusRequest request, CancellationToken ct) => service.ChangeOrderStatusAsync(id, request.Status, ct);
+    public Task<AdminOrderDto> ChangeOrderStatus(Guid id, [FromBody] OrderStatusRequest request, CancellationToken ct) => service.ChangeOrderStatusAsync(id, request.Status, ct);
 
     [HttpGet("customers")]
     public Task<IReadOnlyList<AdminCustomerDto>> Customers(CancellationToken ct) => service.CustomersAsync(ct);

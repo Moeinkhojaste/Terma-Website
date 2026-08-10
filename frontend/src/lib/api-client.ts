@@ -129,7 +129,10 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
   if (!response.ok) {
     if (response.status === 401) resetAntiforgeryToken();
     const problem = isProblemDetails(body) ? body : undefined;
-    throw new ApiError(problem?.detail ?? problem?.title ?? "درخواست سرویس محصولات ناموفق بود.", {
+    const fieldErrors = problem?.errors
+      ? Object.values(problem.errors).flat().join(" ")
+      : undefined;
+    throw new ApiError(fieldErrors || problem?.detail || problem?.title || "درخواست سرویس محصولات ناموفق بود.", {
       status: response.status,
       problem,
     });

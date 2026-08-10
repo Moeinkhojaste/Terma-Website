@@ -1,8 +1,10 @@
+using System.Text.Json.Serialization;
 using Terma.Domain.Common;
 using Terma.Domain.Exceptions;
 
 namespace Terma.Domain.Entities;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum OrderStatus { PendingConfirmation, Confirmed, Preparing, Shipped, Delivered, Cancelled, Expired }
 
 public sealed class Order : BaseEntity
@@ -95,5 +97,5 @@ public sealed class OrderStatusHistory : BaseEntity
     public Order Order { get; private set; } = null!;
     public OrderStatus Status { get; private set; }
     private OrderStatusHistory() { }
-    public OrderStatusHistory(Guid orderId, OrderStatus status, DateTime createdAt) { OrderId = orderId; Status = status; }
+    public OrderStatusHistory(Guid orderId, OrderStatus status, DateTime createdAt) { Id = Guid.Empty; OrderId = orderId; Status = status; }
 }
