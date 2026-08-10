@@ -100,7 +100,7 @@ export function AdminContentPage() {
         ))}
       </div>
 
-      <div className="admin-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "1.5rem" }}>
+      <div className="admin-two-col">
         <form className="admin-panel admin-form" onSubmit={createNew}>
           <h2>افزودن بخش محتوایی جدید</h2>
           <label className="form-field">

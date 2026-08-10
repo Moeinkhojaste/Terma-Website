@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -32,7 +32,21 @@ export function AdminShell({ children, title }: { children: ReactNode; title: st
 
   return <div className="admin-app" dir="rtl">
     <a className="skip-link" href="#admin-main">رفتن به محتوای اصلی</a>
-    <button className="admin-mobile-toggle" type="button" aria-label="باز کردن منوی مدیریت" onClick={() => setOpen((value) => !value)}>âک°</button>
+    <button className="admin-mobile-toggle" type="button" aria-label={open ? "بستن منو" : "باز کردن منوی مدیریت"} onClick={() => setOpen((value) => !value)}>
+      {open ? (
+        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" strokeWidth="2.5" strokeLinecap="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" strokeWidth="2.5" strokeLinecap="round">
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="4" y1="12" x2="20" y2="12" />
+          <line x1="4" y1="18" x2="20" y2="18" />
+        </svg>
+      )}
+    </button>
+    {open && <div className="admin-sidebar-overlay" onClick={() => setOpen(false)} aria-hidden="true" />}
     <aside className={`admin-sidebar${open ? " admin-sidebar--open" : ""}`}>
       <div className="admin-brand"><span className="admin-brand-mark">ت</span><div><strong>مدیریت ترما</strong><small>فروشگاه ترمه ایرانی</small></div></div>
       <nav aria-label="منوی مدیریت" className="admin-nav">
@@ -40,7 +54,7 @@ export function AdminShell({ children, title }: { children: ReactNode; title: st
       </nav>
       <div className="admin-sidebar__footer"><span dir="ltr">{session.email}</span><button type="button" onClick={logout}>خروج</button></div>
     </aside>
-    <main id="admin-main" className="admin-main"><header className="admin-topbar"><div><p className="section-eyebrow">پنل مدیریت</p><h1>{title}</h1></div><Link className="button button--secondary" href="/">مشاهده فروشگاه</Link></header>{children}</main>
+    <main id="admin-main" className="admin-main"><header className="admin-topbar"><div><p className="section-eyebrow">پنل مدیریت</p><h1>{title}</h1></div><Link className="button button--secondary admin-store-link" href="/">مشاهده فروشگاه</Link></header>{children}</main>
   </div>;
 }
 
