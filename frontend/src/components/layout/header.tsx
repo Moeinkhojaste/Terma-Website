@@ -3,11 +3,23 @@ import Link from "next/link";
 import { SearchIcon } from "@/components/ui/icons";
 import { Container } from "@/components/layout/container";
 import { CartLink } from "@/features/cart/cart-link";
+import { getPublicContent } from "@/features/content/content-api";
 
-export function Header() {
+export async function Header() {
+  let announcementText = "نقش ایرانی، دوخت دقیق، برای خانه امروز";
+  try {
+    const commonContent = await getPublicContent("common");
+    const found = commonContent.find((x) => x.sectionKey === "header_announcement");
+    if (found?.body) {
+      announcementText = found.body;
+    }
+  } catch {
+    // Graceful fallback to default announcement text
+  }
+
   return (
     <>
-      <div className="announcement">نقش ایرانی، دوخت دقیق، برای خانه امروز</div>
+      <div className="announcement">{announcementText}</div>
       <header className="site-header">
         <Container className="header-main">
           <Link className="brand" href="/" aria-label="ترما، صفحه اصلی">
@@ -28,7 +40,9 @@ export function Header() {
             <Link href="/contact">ارتباط با ما</Link>
           </nav>
           <div className="header-actions">
-            <Link className="icon-button" href="/products" aria-label="جست‌وجوی محصولات"><SearchIcon /></Link>
+            <Link className="icon-button" href="/products" aria-label="جست‌وجوی محصولات">
+              <SearchIcon />
+            </Link>
             <CartLink />
           </div>
         </Container>

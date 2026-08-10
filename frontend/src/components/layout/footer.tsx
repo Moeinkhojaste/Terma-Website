@@ -1,8 +1,23 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
+import { getPublicContent } from "@/features/content/content-api";
 
-export function Footer() {
+export async function Footer() {
+  let footerTitle = "ترما";
+  let footerTagline = "سفره‌های ترمه برای خانه‌های ایرانی امروز";
+
+  try {
+    const commonContent = await getPublicContent("common");
+    const taglineContent = commonContent.find((x) => x.sectionKey === "footer_tagline");
+    if (taglineContent) {
+      if (taglineContent.title) footerTitle = taglineContent.title;
+      if (taglineContent.body) footerTagline = taglineContent.body;
+    }
+  } catch {
+    // Graceful fallback to default footer texts
+  }
+
   return (
     <footer className="footer" id="تماس">
       <Container className="footer-grid">
@@ -16,7 +31,10 @@ export function Footer() {
               quality={75}
             />
           </span>
-          <div><strong>ترما</strong><p>سفره‌های ترمه برای خانه‌های ایرانی امروز</p></div>
+          <div>
+            <strong>{footerTitle}</strong>
+            <p>{footerTagline}</p>
+          </div>
         </div>
         <div>
           <h2>راهنمای خرید</h2>
@@ -36,7 +54,10 @@ export function Footer() {
           <span>شرایط استفاده — به‌زودی</span>
         </div>
       </Container>
-      <Container className="footer-bottom"><p>© ۱۴۰۵ ترما</p><p>طراحی‌شده با احترام به هنر ایرانی</p></Container>
+      <Container className="footer-bottom">
+        <p>© ۱۴۰۵ ترما</p>
+        <p>طراحی‌شده با احترام به هنر ایرانی</p>
+      </Container>
     </footer>
   );
 }

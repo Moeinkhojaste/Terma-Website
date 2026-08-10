@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { ContactPage } from "@/features/brand/contact-page";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: "ارتباط با ما | ترما",
   description: "راه‌های ارتباط با ترما برای راهنمایی خرید، پیگیری سفارش، همکاری و پاسخ به پرسش‌ها.",
