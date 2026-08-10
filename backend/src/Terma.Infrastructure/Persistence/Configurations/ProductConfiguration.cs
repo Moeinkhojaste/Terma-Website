@@ -13,6 +13,8 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.Sku).IsRequired().HasMaxLength(64);
         builder.Property(p => p.Description).HasMaxLength(4000);
         builder.Property(p => p.Price).HasPrecision(18, 2);
+        builder.Property(p => p.CompareAtPrice).HasPrecision(18, 2);
+        builder.Property(p => p.DiscountPercent);
         builder.Property(p => p.Length).HasPrecision(10, 2);
         builder.Property(p => p.Width).HasPrecision(10, 2);
         builder.Property(p => p.FabricType).IsRequired().HasMaxLength(150);

@@ -4,6 +4,8 @@ export type ProductDto = {
   sku: string;
   description: string | null;
   price: number;
+  compareAtPrice?: number | null;
+  discountPercent?: number | null;
   stockQuantity: number;
   tableCapacity: number;
   length: number;
@@ -44,6 +46,10 @@ export type Product = {
   dimensions: string;
   price: string;
   priceValue: number;
+  compareAtPrice?: string | null;
+  compareAtPriceValue?: number | null;
+  discountPercent?: number | null;
+  hasDiscount: boolean;
   stockQuantity: number;
   stock: string;
   sku: string;

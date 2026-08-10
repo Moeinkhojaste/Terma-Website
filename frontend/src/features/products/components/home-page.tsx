@@ -35,6 +35,9 @@ export default async function Home() {
   try { content = await getPublicContent("home"); } catch { content = []; }
   const heroContent = content.find((item) => item.sectionKey === "hero");
   const announcementContent = content.find((item) => item.sectionKey === "announcement");
+  const valuesContent = content.find((item) => item.sectionKey === "values");
+  const craftContent = content.find((item) => item.sectionKey === "craft");
+  const guideContent = content.find((item) => item.sectionKey === "guide");
 
   return (
     <>
@@ -105,7 +108,7 @@ export default async function Home() {
 
         <section className="values section-pad" id="داستان-ترما">
           <Container>
-            <SectionHeader align="center" eyebrow="آنچه در محصول می‌بینید" title="جزئیات روشن، بدون ادعای اضافه" />
+            <SectionHeader align="center" eyebrow="آنچه در محصول می‌بینید" title={valuesContent?.title ?? "جزئیات روشن، بدون ادعای اضافه"} description={valuesContent?.body} />
             <div className="values-grid">
               <article><span><PaisleyIcon /></span><h3>نقش ایرانی</h3><p>بته‌جقه و نقوش ریز سنتی، با ترکیب رنگ مناسب خانه‌های امروزی.</p></article>
               <article><span><StitchIcon /></span><h3>دوخت منظم</h3><p>لبه‌دوزی یکپارچه و نوار کرم‌طلایی در چهار طرف سفره.</p></article>
@@ -123,8 +126,8 @@ export default async function Home() {
             </div>
             <div className="detail-copy">
               <p className="section-eyebrow">از نزدیک</p>
-              <h2>بافت، لبه و آستر؛<br />سه جزئی که دیده می‌شوند</h2>
-              <p>رنگ آبی زمینه در کنار نقش‌های کرم و سرمه‌ای قرار گرفته است. نوار باریک دور کار، مرز تمیزی میان رویه ترمه و آستر ساتن می‌سازد.</p>
+              <h2>{craftContent?.title ?? "بافت، لبه و آستر؛ سه جزئی که دیده می‌شوند"}</h2>
+              <p>{craftContent?.body ?? "رنگ آبی زمینه در کنار نقش‌های کرم و سرمه‌ای قرار گرفته است. نوار باریک دور کار، مرز تمیزی میان رویه ترمه و آستر ساتن می‌سازد."}</p>
               <ul>
                 <li><span>۰۱</span><div><strong>رویه ترمه</strong><p>نقوش بته‌جقه با جزئیات ریز و تکرار منظم</p></div></li>
                 <li><span>۰۲</span><div><strong>لبه‌دوزی</strong><p>نوار کرم‌طلایی در امتداد چهار طرف سفره</p></div></li>
@@ -137,7 +140,7 @@ export default async function Home() {
         <section className="guide section-pad" id="راهنمای-خرید">
           <Container className="guide-grid">
             <div>
-              <SectionHeader eyebrow="پیش از انتخاب" title="اندازه درست را پیدا کنید" description="ظرفیت اعلام‌شده نقطه شروع است؛ طول و عرض فضایی را که می‌خواهید سفره را روی آن پهن کنید نیز اندازه بگیرید." />
+              <SectionHeader eyebrow="پیش از انتخاب" title={guideContent?.title ?? "اندازه درست را پیدا کنید"} description={guideContent?.body ?? "ظرفیت اعلام‌شده نقطه شروع است؛ طول و عرض فضایی را که می‌خواهید سفره را روی آن پهن کنید نیز اندازه بگیرید."} />
               <p className="guide-caution">ابعاد نوشته‌شده بر اساس اطلاعات فعلی محصولات است. پیش از سفارش نهایی، اندازه دقیق را بررسی کنید.</p>
             </div>
             <div className="guide-steps">

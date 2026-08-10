@@ -11,6 +11,9 @@ public abstract class ProductWriteRequestValidator<TRequest> : AbstractValidator
         RuleFor(request => request.Sku).NotEmpty().MaximumLength(64);
         RuleFor(request => request.Description).MaximumLength(4000);
         RuleFor(request => request.Price).GreaterThan(0);
+        RuleFor(request => request.DiscountPercent)
+            .InclusiveBetween(1, 99)
+            .When(request => request.DiscountPercent.HasValue && request.DiscountPercent.Value > 0);
         RuleFor(request => request.StockQuantity).GreaterThanOrEqualTo(0);
         RuleFor(request => request.TableCapacity).GreaterThan(0);
         RuleFor(request => request.Length).GreaterThan(0);

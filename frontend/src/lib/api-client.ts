@@ -100,7 +100,7 @@ export function resetAntiforgeryToken() {
   antiforgeryTokenPromise = undefined;
 }
 
-export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
+export async function apiRequest<T>(path: string, init: ApiRequestInit = {}, isRetry = false): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
@@ -127,8 +127,14 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
 
   const body = await readJson(response);
   if (!response.ok) {
-    if (response.status === 401) resetAntiforgeryToken();
     const problem = isProblemDetails(body) ? body : undefined;
+    if (!isRetry && response.status === 400 && problem?.title === "Invalid antiforgery token") {
+      resetAntiforgeryToken();
+      const retryHeaders = new Headers(init.headers);
+      retryHeaders.set("X-CSRF-TOKEN", await getAntiforgeryToken());
+      return apiRequest<T>(path, { ...init, headers: retryHeaders }, true);
+    }
+    if (response.status === 401) resetAntiforgeryToken();
     const fieldErrors = problem?.errors
       ? Object.values(problem.errors).flat().join(" ")
       : undefined;

@@ -54,11 +54,21 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <div className="product-summary">
               <div className="product-summary__topline">
                 <span className={product.stockQuantity > 0 ? "stock" : "stock stock--off"}>{product.stock}</span>
+                {product.hasDiscount && product.discountPercent && (
+                  <span className="discount-badge">{new Intl.NumberFormat("fa-IR").format(product.discountPercent)}٪ تخفیف</span>
+                )}
                 <span>{product.categoryName}</span>
               </div>
               <h1>{product.name}</h1>
               <p>{product.longDescription}</p>
-              <strong className="product-detail__price">{product.price}</strong>
+              {product.hasDiscount && product.compareAtPrice ? (
+                <div className="product-detail__price-wrap">
+                  <s className="price-compare price-compare--lg">{product.compareAtPrice}</s>
+                  <strong className="product-detail__price">{product.price}</strong>
+                </div>
+              ) : (
+                <strong className="product-detail__price">{product.price}</strong>
+              )}
 
               <div className="capacity-selector">
                 <strong>انتخاب ظرفیت</strong>

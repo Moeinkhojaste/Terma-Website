@@ -16,6 +16,8 @@ export const getCustomers = () => apiRequest<AdminCustomer[]>("/api/admin/custom
 export const getPromotions = () => apiRequest<Promotion[]>("/api/admin/promotions", { cache: "no-store" });
 export const getShippingRules = () => apiRequest<ShippingRule[]>("/api/admin/shipping-rules", { cache: "no-store" });
 export const getContent = (page?: string) => apiRequest<StoreContent[]>(`/api/admin/content${page ? `?page=${encodeURIComponent(page)}` : ""}`, { cache: "no-store" });
+export const upsertContent = (content: Partial<StoreContent>) => apiRequest<StoreContent>("/api/admin/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(content) });
+export const deleteContent = (id: string) => apiRequest(`/api/admin/content/${id}`, { method: "DELETE" });
 export const getMessages = () => apiRequest<ContactMessage[]>("/api/admin/messages", { cache: "no-store" });
 export const changeMessageStatus = (id: string, status: string) => apiRequest<ContactMessage>(`/api/admin/messages/${id}/status`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
 export const getVariants = (productId:string) => apiRequest<ProductVariant[]>(`/api/admin/products/${productId}/variants`, {cache:"no-store"});

@@ -27,7 +27,7 @@ public sealed class Promotion : BaseEntity
     public Promotion(string name, string? code, PromotionType type, DiscountType discountType, decimal value,
         decimal? minimumSubtotal, decimal? maximumDiscount, int? usageLimit, DateTime startsAtUtc, DateTime? endsAtUtc)
     {
-        Name = name.Trim(); Code = string.IsNullOrWhiteSpace(code) ? null : code.Trim().ToUpperInvariant(); Type = type; DiscountType = discountType; Value = value; MinimumSubtotal = minimumSubtotal; MaximumDiscount = maximumDiscount; UsageLimit = usageLimit; StartsAtUtc = startsAtUtc; EndsAtUtc = endsAtUtc;
+        Name = name.Trim(); Code = string.IsNullOrWhiteSpace(code) ? null : code.Trim().ToUpperInvariant(); Type = type; DiscountType = discountType; Value = value; MinimumSubtotal = minimumSubtotal; MaximumDiscount = maximumDiscount; UsageLimit = usageLimit; StartsAtUtc = startsAtUtc == default ? DateTime.UtcNow : startsAtUtc; EndsAtUtc = endsAtUtc;
     }
     public bool Applies(string? code, decimal subtotal, DateTime now) => IsActive && (!EndsAtUtc.HasValue || now <= EndsAtUtc) && now >= StartsAtUtc && (Type == PromotionType.Automatic || string.Equals(Code, code?.Trim(), StringComparison.OrdinalIgnoreCase)) && (!MinimumSubtotal.HasValue || subtotal >= MinimumSubtotal) && (!UsageLimit.HasValue || UsageCount < UsageLimit);
     public decimal Calculate(decimal subtotal) => Math.Min(MaximumDiscount ?? decimal.MaxValue, DiscountType == DiscountType.Percentage ? subtotal * Value / 100m : Value);

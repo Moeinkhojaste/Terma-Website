@@ -54,14 +54,21 @@ export function AdminLoginPage({ sessionMessage = false }: AdminLoginPageProps) 
         )}
         {error && <p className="admin-auth-message admin-auth-message--error" role="alert">{error}</p>}
 
+        <div className="admin-auth-message admin-auth-message--notice" style={{ marginTop: "1rem", textAlign: "right" }}>
+          <p style={{ margin: 0, fontWeight: 600 }}>🔑 اطلاعات ورود مدیریت:</p>
+          <p style={{ margin: "0.25rem 0 0", fontSize: "0.875rem", direction: "ltr" }}>
+            Email: <code>admin@terma.local</code> | Pass: <code>AdminPassword123!</code>
+          </p>
+        </div>
+
         <form className="admin-auth-form" onSubmit={handleSubmit}>
           <label className="form-field">
             ایمیل
-            <input name="email" type="email" autoComplete="username" required disabled={pending} />
+            <input name="email" type="email" autoComplete="username" defaultValue="admin@terma.local" required disabled={pending} />
           </label>
           <label className="form-field">
             رمز عبور
-            <input name="password" type="password" autoComplete="current-password" required disabled={pending} />
+            <input name="password" type="password" autoComplete="current-password" defaultValue="AdminPassword123!" required disabled={pending} />
           </label>
           <button className="button button--primary admin-auth-submit" type="submit" disabled={pending}>
             {pending && <span className="button-spinner" aria-hidden="true" />}

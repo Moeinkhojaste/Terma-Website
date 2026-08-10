@@ -6,6 +6,8 @@ public sealed record ProductDto(
     string Sku,
     string? Description,
     decimal Price,
+    decimal? CompareAtPrice,
+    int? DiscountPercent,
     int StockQuantity,
     int TableCapacity,
     decimal Length,
@@ -26,6 +28,7 @@ public class ProductWriteRequest
     public string Sku { get; init; } = string.Empty;
     public string? Description { get; init; }
     public decimal Price { get; init; }
+    public int? DiscountPercent { get; init; }
     public int StockQuantity { get; init; }
     public int TableCapacity { get; init; }
     public decimal Length { get; init; }

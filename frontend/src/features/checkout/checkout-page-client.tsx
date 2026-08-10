@@ -10,7 +10,7 @@ import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { formatPrice } from "@/lib/format";
 import { ApiError } from "@/lib/api-client";
-import { createOrder } from "@/features/checkout/checkout-api";
+import { createOrder, getQuote } from "@/features/checkout/checkout-api";
 
 type FieldName = "fullName" | "mobile" | "email" | "province" | "city" | "address" | "postalCode";
 type FormErrors = Partial<Record<FieldName, string>>;
@@ -52,6 +52,13 @@ export function CheckoutPageClient() {
   const { items, hydrated, clearCart } = useCart();
   const [errors, setErrors] = useState<FormErrors>({});
   const [requestState, setRequestState] = useState<RequestState>("idle");
+  
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [discountTotal, setDiscountTotal] = useState<number>(0);
+  const [couponMessage, setCouponMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+
   const subtotal = items.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
 
   function handleBlur(event: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
@@ -59,6 +66,42 @@ export function CheckoutPageClient() {
     if (!(name in fieldLabels)) return;
     const error = validateField(name, event.currentTarget.value);
     setErrors((current) => ({ ...current, [name]: error || undefined }));
+  }
+
+  async function handleApplyCoupon(e: FormEvent) {
+    e.preventDefault();
+    const code = couponInput.trim();
+    if (!code) return;
+    setCouponLoading(true);
+    setCouponMessage(null);
+    try {
+      const quote = await getQuote({
+        items: items.map(({ product, quantity }) => ({ productId: product.id, quantity })),
+        couponCode: code,
+      });
+      if (quote.discountTotal > 0) {
+        setAppliedCoupon(code.toUpperCase());
+        setDiscountTotal(quote.discountTotal);
+        setCouponMessage({ type: "success", text: `کد تخفیف ${code.toUpperCase()} با موفقیت اعمال شد.` });
+      } else {
+        setAppliedCoupon(null);
+        setDiscountTotal(0);
+        setCouponMessage({ type: "error", text: "کد تخفیف واردشده معتبر نیست یا منقضی شده است." });
+      }
+    } catch {
+      setAppliedCoupon(null);
+      setDiscountTotal(0);
+      setCouponMessage({ type: "error", text: "خطا در بررسی کد تخفیف. دوباره تلاش کنید." });
+    } finally {
+      setCouponLoading(false);
+    }
+  }
+
+  function handleRemoveCoupon() {
+    setCouponInput("");
+    setAppliedCoupon(null);
+    setDiscountTotal(0);
+    setCouponMessage(null);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -79,6 +122,7 @@ export function CheckoutPageClient() {
         items: items.map(({ product, quantity }) => ({ productId: product.id, quantity })),
         fullName: String(form.get("fullName") ?? ""), phone: String(form.get("mobile") ?? ""), email: String(form.get("email") ?? "") || undefined,
         province: String(form.get("province") ?? ""), city: String(form.get("city") ?? ""), address: String(form.get("address") ?? ""), postalCode: String(form.get("postalCode") ?? ""),
+        couponCode: appliedCoupon ?? undefined,
       });
       clearCart();
       router.replace(`/order/success?order=${encodeURIComponent(order.number)}&tracking=${encodeURIComponent(order.trackingToken)}`);
@@ -126,19 +170,19 @@ export function CheckoutPageClient() {
                 <section className="checkout-panel" aria-labelledby="receiver-title">
                   <div className="checkout-panel__heading"><span>۱</span><div><h2 id="receiver-title">اطلاعات گیرنده</h2><p>نام و شماره تماس فرد تحویل‌گیرنده</p></div></div>
                   <div className="form-grid">
-                    <label className="form-field"><span>نام و نام خانوادگی *</span><input name="fullName" autoComplete="name" {...field("fullName")} />{errors.fullName && <small className="form-error" id="fullName-error">{errors.fullName}</small>}</label>
-                    <label className="form-field"><span>شماره موبایل *</span><input name="mobile" type="tel" inputMode="numeric" autoComplete="tel" placeholder="مثال: ۰۹۱۲۱۲۳۴۵۶۷" {...field("mobile")} />{errors.mobile && <small className="form-error" id="mobile-error">{errors.mobile}</small>}</label>
-                    <label className="form-field"><span>ایمیل <small>اختیاری</small></span><input name="email" type="email" autoComplete="email" {...field("email")} />{errors.email && <small className="form-error" id="email-error">{errors.email}</small>}</label>
+                    <label className="form-field"><span>نام و نام خانوادگی *</span><input name="fullName" autoComplete="name" {...field("fullName")} /></label>
+                    <label className="form-field"><span>شماره موبایل *</span><input name="mobile" type="tel" inputMode="numeric" autoComplete="tel" placeholder="مثال: ۰۹۱۲۱۲۳۴۵۶۷" {...field("mobile")} /></label>
+                    <label className="form-field"><span>ایمیل <small>اختیاری</small></span><input name="email" type="email" autoComplete="email" {...field("email")} /></label>
                   </div>
                 </section>
 
                 <section className="checkout-panel" aria-labelledby="address-title">
                   <div className="checkout-panel__heading"><span>۲</span><div><h2 id="address-title">آدرس ارسال</h2><p>نشانی دقیق محل تحویل سفارش</p></div></div>
                   <div className="form-grid">
-                    <label className="form-field"><span>استان *</span><input name="province" autoComplete="address-level1" {...field("province")} />{errors.province && <small className="form-error" id="province-error">{errors.province}</small>}</label>
-                    <label className="form-field"><span>شهر *</span><input name="city" autoComplete="address-level2" {...field("city")} />{errors.city && <small className="form-error" id="city-error">{errors.city}</small>}</label>
-                    <label className="form-field form-field--full"><span>آدرس کامل *</span><textarea name="address" rows={4} autoComplete="street-address" {...field("address")} />{errors.address && <small className="form-error" id="address-error">{errors.address}</small>}</label>
-                    <label className="form-field"><span>کد پستی *</span><input name="postalCode" inputMode="numeric" autoComplete="postal-code" {...field("postalCode")} />{errors.postalCode && <small className="form-error" id="postalCode-error">{errors.postalCode}</small>}</label>
+                    <label className="form-field"><span>استان *</span><input name="province" autoComplete="address-level1" {...field("province")} /></label>
+                    <label className="form-field"><span>شهر *</span><input name="city" autoComplete="address-level2" {...field("city")} /></label>
+                    <label className="form-field form-field--full"><span>آدرس کامل *</span><textarea name="address" rows={4} autoComplete="street-address" {...field("address")} /></label>
+                    <label className="form-field"><span>کد پستی *</span><input name="postalCode" inputMode="numeric" autoComplete="postal-code" {...field("postalCode")} /></label>
                     <label className="form-field"><span>توضیحات سفارش <small>اختیاری</small></span><input name="notes" /></label>
                   </div>
                 </section>
@@ -175,8 +219,43 @@ export function CheckoutPageClient() {
                     </div>
                   ))}
                 </div>
-                <dl><div><dt>جمع محصولات</dt><dd>{formatPrice(subtotal)}</dd></div><div><dt>هزینه ارسال</dt><dd>پس از بررسی آدرس</dd></div></dl>
-                <div className="order-summary__total"><span>مبلغ فعلی</span><strong>{formatPrice(subtotal)}</strong></div>
+
+                <div style={{ marginTop: "1.25rem", padding: "1rem 0", borderTop: "1px solid var(--line)" }}>
+                  <form onSubmit={handleApplyCoupon} style={{ display: "flex", gap: "0.5rem" }}>
+                    <input
+                      type="text"
+                      placeholder="کد تخفیف (مثلاً OFF20)"
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                      disabled={Boolean(appliedCoupon) || couponLoading}
+                      dir="ltr"
+                      style={{ flex: 1, padding: "0.5rem 0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--line)", font: "inherit", textTransform: "uppercase" }}
+                    />
+                    {appliedCoupon ? (
+                      <button type="button" className="button button--secondary" onClick={handleRemoveCoupon}>
+                        حذف
+                      </button>
+                    ) : (
+                      <button type="submit" className="button button--primary" disabled={couponLoading || !couponInput.trim()}>
+                        {couponLoading ? "بررسی…" : "اعمال"}
+                      </button>
+                    )}
+                  </form>
+                  {couponMessage && (
+                    <p style={{ marginTop: "0.5rem", fontSize: "0.8rem", color: couponMessage.type === "success" ? "var(--teal-deep)" : "var(--danger)" }}>
+                      {couponMessage.text}
+                    </p>
+                  )}
+                </div>
+
+                <dl>
+                  <div><dt>جمع محصولات</dt><dd>{formatPrice(subtotal)}</dd></div>
+                  {discountTotal > 0 && (
+                    <div><dt style={{ color: "var(--teal-deep)" }}>تخفیف کد ({appliedCoupon})</dt><dd style={{ color: "var(--teal-deep)", fontWeight: 700 }}>{formatPrice(discountTotal)}-</dd></div>
+                  )}
+                  <div><dt>هزینه ارسال</dt><dd>پس از بررسی آدرس</dd></div>
+                </dl>
+                <div className="order-summary__total"><span>مبلغ نهایی</span><strong>{formatPrice(Math.max(0, subtotal - discountTotal))}</strong></div>
                 <p>در این مرحله هیچ مبلغی از شما دریافت نمی‌شود.</p>
               </aside>
             </div>

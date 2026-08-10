@@ -36,6 +36,10 @@ export function mapProduct(dto: ProductDto): Product {
     imageAlt: `تصویر ${dto.name} هنوز بارگذاری نشده است`,
     tableImageAlt: `تصویر دوم ${dto.name} هنوز بارگذاری نشده است`,
   };
+  const hasDiscount = Boolean(dto.compareAtPrice && dto.compareAtPrice > dto.price);
+  const compareAtPrice = hasDiscount && dto.compareAtPrice ? formatPrice(dto.compareAtPrice) : null;
+  const discountPercent = dto.discountPercent ?? (hasDiscount && dto.compareAtPrice ? Math.round(((dto.compareAtPrice - dto.price) / dto.compareAtPrice) * 100) : null);
+
   return {
     id: dto.id,
     name: dto.name,
@@ -44,6 +48,10 @@ export function mapProduct(dto: ProductDto): Product {
     dimensions: `${formatDecimal(dto.length)} × ${formatDecimal(dto.width)} سانتی‌متر`,
     price: formatPrice(dto.price),
     priceValue: dto.price,
+    compareAtPrice,
+    compareAtPriceValue: dto.compareAtPrice ?? null,
+    discountPercent,
+    hasDiscount,
     stockQuantity: dto.stockQuantity,
     stock: dto.stockQuantity > 0 ? "موجود" : "ناموجود",
     sku: dto.sku,

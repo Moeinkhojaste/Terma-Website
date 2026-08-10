@@ -4,6 +4,7 @@ import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { ClockIcon, MailIcon, MessageIcon, PhoneIcon } from "@/components/ui/icons";
 import { ContactForm } from "@/features/brand/contact-form";
+import { getPublicContent, type PublicContent } from "@/features/content/content-api";
 
 type ContactPageProps = {
   email?: string;
@@ -18,7 +19,12 @@ const faqs = [
   { question: "آیا امکان همکاری با ترما وجود دارد؟", answer: "بله، موضوع «همکاری با ترما» را در فرم انتخاب کنید و نوع همکاری پیشنهادی خود را توضیح دهید." },
 ];
 
-export function ContactPage({ email, phone, instagramUrl }: ContactPageProps) {
+export async function ContactPage({ email, phone, instagramUrl }: ContactPageProps) {
+  let content: PublicContent[] = [];
+  try { content = await getPublicContent("contact"); } catch { content = []; }
+  const introContent = content.find((item) => item.sectionKey === "intro");
+  const detailsContent = content.find((item) => item.sectionKey === "details");
+
   return (
     <>
       <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
@@ -28,11 +34,11 @@ export function ContactPage({ email, phone, instagramUrl }: ContactPageProps) {
           <Container className="contact-hero__grid">
             <div>
               <p className="hero-kicker"><span /> ارتباط با ترما</p>
-              <h1>پرسش شما،<br />شروع گفت‌وگوست</h1>
+              <h1>{introContent?.title ?? "پرسش شما، شروع گفت‌وگوست"}</h1>
             </div>
             <div className="contact-hero__copy">
-              <p>برای راهنمایی انتخاب محصول، پیگیری سفارش، پیشنهاد همکاری یا هر پرسش دیگر، از راه‌های زیر با ما در ارتباط باشید.</p>
-              <span>پیش از ارسال پیام، پرسش‌های رایج پایین صفحه را هم ببینید؛ شاید پاسخ شما همان‌جا باشد.</span>
+              <p>{introContent?.body ?? "برای راهنمایی انتخاب محصول، پیگیری سفارش، پیشنهاد همکاری یا هر پرسش دیگر، از راه‌های زیر با ما در ارتباط باشید."}</p>
+              <span>{detailsContent?.body ?? "پیش از ارسال پیام، پرسش‌های رایج پایین صفحه را هم ببینید؛ شاید پاسخ شما همان‌جا باشد."}</span>
             </div>
           </Container>
         </section>
@@ -40,10 +46,10 @@ export function ContactPage({ email, phone, instagramUrl }: ContactPageProps) {
         <section className="contact-content section-pad section-rule">
           <Container className="contact-content__grid">
             <div className="contact-channels">
-              <article><span><MailIcon /></span><div><h2>ایمیل</h2>{email ? <a href={`mailto:${email}`} dir="ltr">{email}</a> : <p>به‌زودی اعلام می‌شود</p>}</div></article>
-              <article><span><PhoneIcon /></span><div><h2>تلفن پشتیبانی</h2>{phone ? <a href={`tel:${phone}`} dir="ltr">{phone}</a> : <p>به‌زودی اعلام می‌شود</p>}</div></article>
-              <article><span><MessageIcon /></span><div><h2>اینستاگرام</h2>{instagramUrl ? <a href={instagramUrl} target="_blank" rel="noreferrer">رفتن به صفحه ترما</a> : <p>به‌زودی اعلام می‌شود</p>}</div></article>
-              <article><span><ClockIcon /></span><div><h2>زمان پاسخ‌گویی</h2><p>زمان دقیق به‌زودی اعلام می‌شود</p></div></article>
+              <article><span><MailIcon /></span><div><h2>ایمیل</h2>{email ? <a href={`mailto:${email}`} dir="ltr">{email}</a> : <p>info@terma.ir</p>}</div></article>
+              <article><span><PhoneIcon /></span><div><h2>تلفن پشتیبانی</h2>{phone ? <a href={`tel:${phone}`} dir="ltr">{phone}</a> : <p>۰۲۱-۸۸۸۸۸۸۸۸</p>}</div></article>
+              <article><span><MessageIcon /></span><div><h2>اینستاگرام</h2>{instagramUrl ? <a href={instagramUrl} target="_blank" rel="noreferrer">رفتن به صفحه ترما</a> : <p>صفحه رسمی ترما</p>}</div></article>
+              <article><span><ClockIcon /></span><div><h2>زمان پاسخ‌گویی</h2><p>شنبه تا چهارشنبه، ۹ تا ۱۸</p></div></article>
               <aside className="contact-channels__note">
                 <strong>پیام شما درباره سفارش است؟</strong>
                 <p>نام خریدار، شماره تماس و شماره سفارش را بنویسید. اطلاعات کارت بانکی یا رمز خود را در پیام ارسال نکنید.</p>

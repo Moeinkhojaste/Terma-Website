@@ -42,6 +42,9 @@ public sealed class AdminAccountProvisioner(
                 "Could not update the admin password.");
         }
 
+        await userManager.SetLockoutEndDateAsync(user, null);
+        await userManager.ResetAccessFailedCountAsync(user);
+
         if (!await userManager.IsInRoleAsync(user, AdminAuthorization.Role))
             EnsureSucceeded(
                 await userManager.AddToRoleAsync(user, AdminAuthorization.Role),

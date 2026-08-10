@@ -62,9 +62,9 @@ public sealed class ProductService(
 
         product.Update(request.Name, request.Sku, request.Description, request.Price, request.StockQuantity,
             request.TableCapacity, request.Length, request.Width, request.FabricType, request.LiningType,
-            request.Color, request.Pattern, request.CategoryId, request.IsActive);
+            request.Color, request.Pattern, request.CategoryId, request.DiscountPercent, request.IsActive);
         var defaultVariant = product.Variants.FirstOrDefault(variant => variant.Title == "تنوع پیش‌فرض");
-        defaultVariant?.SyncFromLegacy(request.Sku, request.Color, request.TableCapacity, request.Length, request.Width, request.Price, request.StockQuantity, request.IsActive);
+        defaultVariant?.SyncFromLegacy(request.Sku, request.Color, request.TableCapacity, request.Length, request.Width, product.Price, request.StockQuantity, request.IsActive);
         await productRepository.SaveChangesAsync(cancellationToken);
         return mapper.Map<ProductDto>(await GetProductAsync(id, cancellationToken));
     }
@@ -102,6 +102,6 @@ public sealed class ProductService(
     {
         return new Product(request.Name, request.Sku, request.Description, request.Price, request.StockQuantity,
             request.TableCapacity, request.Length, request.Width, request.FabricType, request.LiningType,
-            request.Color, request.Pattern, request.CategoryId, request.IsActive);
+            request.Color, request.Pattern, request.CategoryId, request.DiscountPercent, request.IsActive);
     }
 }

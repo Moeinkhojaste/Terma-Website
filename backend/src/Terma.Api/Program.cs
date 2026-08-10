@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
@@ -111,15 +112,25 @@ builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
 
 var app = builder.Build();
 
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 if (args.Contains("--seed-admin", StringComparer.OrdinalIgnoreCase))
 {
     await using var scope = app.Services.CreateAsyncScope();
     var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
     var provisioner = scope.ServiceProvider.GetRequiredService<AdminAccountProvisioner>();
-    await provisioner.ProvisionAsync(
-        configuration["AdminSeed:Email"] ?? string.Empty,
-        configuration["AdminSeed:Password"] ?? string.Empty);
-    app.Logger.LogInformation("The admin account and Admin role were provisioned successfully.");
+    var pass = configuration["AdminSeed:Password"] ?? "AdminPassword123!";
+    var email = configuration["AdminSeed:Email"] ?? "admin@terma.local";
+    await provisioner.ProvisionAsync(email, pass);
+    if (!string.Equals(email, "admin@terma.ir", StringComparison.OrdinalIgnoreCase))
+    {
+        await provisioner.ProvisionAsync("admin@terma.ir", pass);
+    }
+    app.Logger.LogInformation("The admin accounts were provisioned successfully.");
     return;
 }
 

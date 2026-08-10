@@ -99,6 +99,10 @@ public sealed class AdminStoreController(IStoreOperationsService service, IConfi
     [ValidateApiAntiforgeryToken]
     public Task<StoreContentDto> UpsertContent(StoreContentWriteRequest request, CancellationToken ct) => service.UpsertContentAsync(request, ct);
 
+    [HttpDelete("content/{id:guid}")]
+    [ValidateApiAntiforgeryToken]
+    public async Task<IActionResult> DeleteContent(Guid id, CancellationToken ct) { await service.DeleteContentAsync(id, ct); return NoContent(); }
+
     [HttpGet("messages")]
     public Task<IReadOnlyList<ContactMessageDto>> Messages([FromQuery] ContactMessageStatus? status, CancellationToken ct) => service.MessagesAsync(status, ct);
 

@@ -44,6 +44,7 @@ public interface IStoreOperationsService
     Task DeleteShippingRuleAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<StoreContentDto>> ContentAsync(string? pageKey, bool includeUnpublished, CancellationToken cancellationToken);
     Task<StoreContentDto> UpsertContentAsync(StoreContentWriteRequest request, CancellationToken cancellationToken);
+    Task DeleteContentAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<ContactMessageDto>> MessagesAsync(ContactMessageStatus? status, CancellationToken cancellationToken);
     Task<ContactMessageDto> ChangeMessageStatusAsync(Guid id, ContactMessageStatus status, CancellationToken cancellationToken);
     Task<ContactMessageDto> CreateMessageAsync(ContactMessageWriteRequest request, CancellationToken cancellationToken);

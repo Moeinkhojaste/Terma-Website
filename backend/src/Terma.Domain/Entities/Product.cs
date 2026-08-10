@@ -11,6 +11,8 @@ public class Product : BaseEntity
     public string Sku { get; private set; } = string.Empty;
     public string? Description { get; private set; }
     public decimal Price { get; private set; }
+    public decimal? CompareAtPrice { get; private set; }
+    public int? DiscountPercent { get; private set; }
     public int StockQuantity { get; private set; }
     public int TableCapacity { get; private set; }
     public decimal Length { get; private set; }
@@ -41,11 +43,12 @@ public class Product : BaseEntity
         string color,
         string pattern,
         Guid categoryId,
+        int? discountPercent = null,
         bool isActive = true)
     {
         ApplyChanges(name, sku, description, price, stockQuantity, tableCapacity, length, width,
-            fabricType, liningType, color, pattern, categoryId, isActive);
-        _variants.Add(new ProductVariant(Id, "تنوع پیش‌فرض", Sku, Color, TableCapacity, Length, Width, Price, null, StockQuantity, 2, isActive));
+            fabricType, liningType, color, pattern, categoryId, discountPercent, isActive);
+        _variants.Add(new ProductVariant(Id, "تنوع پیش‌فرض", Sku, Color, TableCapacity, Length, Width, Price, CompareAtPrice, StockQuantity, 2, isActive));
     }
 
     public void Update(
@@ -62,10 +65,11 @@ public class Product : BaseEntity
         string color,
         string pattern,
         Guid categoryId,
-        bool isActive)
+        int? discountPercent = null,
+        bool isActive = true)
     {
         ApplyChanges(name, sku, description, price, stockQuantity, tableCapacity, length, width,
-            fabricType, liningType, color, pattern, categoryId, isActive);
+            fabricType, liningType, color, pattern, categoryId, discountPercent, isActive);
         MarkUpdated();
     }
 
@@ -94,6 +98,7 @@ public class Product : BaseEntity
         string color,
         string pattern,
         Guid categoryId,
+        int? discountPercent,
         bool isActive)
     {
         Name = Required(name, "Product name");
@@ -107,7 +112,21 @@ public class Product : BaseEntity
         if (width <= 0) throw new DomainException("Width must be greater than zero.");
         if (categoryId == Guid.Empty) throw new DomainException("Category is required.");
 
-        Price = price;
+        if (discountPercent.HasValue && discountPercent.Value > 0)
+        {
+            if (discountPercent.Value < 0 || discountPercent.Value >= 100)
+                throw new DomainException("Discount percentage must be between 1 and 99.");
+            CompareAtPrice = price;
+            DiscountPercent = discountPercent.Value;
+            Price = Math.Round(price * (100 - discountPercent.Value) / 100m, 2);
+        }
+        else
+        {
+            CompareAtPrice = null;
+            DiscountPercent = null;
+            Price = price;
+        }
+
         StockQuantity = stockQuantity;
         TableCapacity = tableCapacity;
         Length = length;

@@ -107,6 +107,13 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
         await db.SaveChangesAsync(cancellationToken); return Map(entity);
     }
 
+    public async Task DeleteContentAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var entity = await db.StoreContents.SingleOrDefaultAsync(x => x.Id == id, cancellationToken) ?? throw new NotFoundException($"Content '{id}' was not found.");
+        db.StoreContents.Remove(entity);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ContactMessageDto>> MessagesAsync(ContactMessageStatus? status, CancellationToken cancellationToken)
     { var query = db.ContactMessages.AsNoTracking().OrderByDescending(x => x.CreatedAt).AsQueryable(); if (status.HasValue) query = query.Where(x => x.Status == status.Value).OrderByDescending(x => x.CreatedAt); return (await query.ToListAsync(cancellationToken)).Select(MapMessage).ToList(); }
 
@@ -150,6 +157,11 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
         var order = new Order($"TRM-{DateTime.UtcNow:yyyyMMdd}-{RandomNumberGenerator.GetInt32(1000, 9999)}", customer, request.Province, request.City, request.Address, request.PostalCode, quote.Subtotal, quote.DiscountTotal, quote.ShippingTotal, quote.ReservedUntilUtc, Hash(rawToken));
         if (!string.IsNullOrWhiteSpace(idempotencyKey)) order.SetIdempotencyKey(idempotencyKey);
         foreach (var line in lines) order.AddItem(new OrderItem(line.ProductId, line.VariantId, line.ProductName, line.Sku, line.UnitPrice, line.Quantity));
+        if (!string.IsNullOrWhiteSpace(request.CouponCode))
+        {
+            var matchedPromo = await db.Promotions.FirstOrDefaultAsync(x => x.IsActive && x.Code != null && x.Code.ToUpper() == request.CouponCode.Trim().ToUpper(), cancellationToken);
+            matchedPromo?.IncrementUsage();
+        }
         customer.AddOrder(order.Total);
         await db.Orders.AddAsync(order, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);

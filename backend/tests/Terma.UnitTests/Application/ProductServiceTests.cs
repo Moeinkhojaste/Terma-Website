@@ -33,6 +33,17 @@ public sealed class ProductServiceTests
     }
 
     [Fact]
+    public void Product_WithDiscountPercent_CalculatesDiscountedPrice()
+    {
+        var categoryId = Guid.NewGuid();
+        var product = new Product("Nila", "TER-001", "desc", 1_000_000, 5, 4, 150, 180, "Termeh", "Satin", "Blue", "Boteh", categoryId, 20);
+
+        Assert.Equal(20, product.DiscountPercent);
+        Assert.Equal(1_000_000, product.CompareAtPrice);
+        Assert.Equal(800_000, product.Price);
+    }
+
+    [Fact]
     public void AutoMapperConfiguration_IsValid()
     {
         using var provider = CreateMapperProvider();

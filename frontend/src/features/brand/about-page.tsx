@@ -4,6 +4,7 @@ import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { ArrowLeftIcon, FabricIcon, PaisleyIcon, StitchIcon } from "@/components/ui/icons";
+import { getPublicContent, type PublicContent } from "@/features/content/content-api";
 
 const principles = [
   { number: "۰۱", icon: PaisleyIcon, title: "ریشه در نقش ایرانی", description: "انتخاب محصولاتی با نقش‌های آشنا و رنگ‌هایی که در خانه امروز هم جای خود را پیدا می‌کنند." },
@@ -11,7 +12,13 @@ const principles = [
   { number: "۰۳", icon: FabricIcon, title: "اطلاعات بدون ابهام", description: "اندازه، ظرفیت، جنس و نکات نگهداری هر محصول باید ساده و قابل‌مقایسه نوشته شود." },
 ];
 
-export function AboutPage() {
+export async function AboutPage() {
+  let content: PublicContent[] = [];
+  try { content = await getPublicContent("about"); } catch { content = []; }
+  const introContent = content.find((item) => item.sectionKey === "intro");
+  const storyContent = content.find((item) => item.sectionKey === "story");
+  const valuesContent = content.find((item) => item.sectionKey === "values");
+
   return (
     <>
       <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
@@ -21,8 +28,8 @@ export function AboutPage() {
           <Container className="brand-page-hero__grid">
             <div className="brand-page-hero__copy">
               <p className="hero-kicker"><span /> درباره ترما</p>
-              <h1>نقش‌های آشنا،<br />برای زندگی امروز</h1>
-              <p>ترما یک فروشگاه آنلاین برای دیدن و انتخاب سفره‌های ترمه است؛ با تمرکز بر معرفی ساده محصول، تصویرهای روشن و جزئیاتی که پیش از خرید به آن‌ها نیاز دارید.</p>
+              <h1>{introContent?.title ?? "نقش‌های آشنا، برای زندگی امروز"}</h1>
+              <p>{introContent?.body ?? "ترما یک فروشگاه آنلاین برای دیدن و انتخاب سفره‌های ترمه است؛ با تمرکز بر معرفی ساده محصول، تصویرهای روشن و جزئیاتی که پیش از خرید به آن‌ها نیاز دارید."}</p>
               <Button href="/products">دیدن مجموعه ترما <ArrowLeftIcon /></Button>
             </div>
             <div className="brand-page-hero__visual">
@@ -41,11 +48,10 @@ export function AboutPage() {
           <Container className="about-story__grid">
             <div>
               <p className="section-eyebrow">داستان ما</p>
-              <h2>میان اصالت و سادگی</h2>
+              <h2>{storyContent?.title ?? "میان اصالت و سادگی"}</h2>
             </div>
             <div className="about-story__text">
-              <p>ترمه پارچه‌ای پرجزئیات است. برای همین در ترما تلاش می‌کنیم تجربه خرید آن شلوغ و پیچیده نباشد. محصول باید از چند زاویه دیده شود و اطلاعات مهم آن در دسترس باشد.</p>
-              <p>مجموعه فعلی ترما بر سفره‌هایی با ظرفیت‌های متفاوت، رویه ترمه، آستر ساتن و لبه‌دوزی منظم تمرکز دارد. هدف ما این است که بتوانید مدل مناسب میز یا فضای خود را با آرامش مقایسه کنید.</p>
+              <p>{storyContent?.body ?? "ترمه پارچه‌ای پرجزئیات است. برای همین در ترما تلاش می‌کنیم تجربه خرید آن شلوغ و پیچیده نباشد. محصول باید از چند زاویه دیده شود و اطلاعات مهم آن در دسترس باشد."}</p>
             </div>
           </Container>
         </section>
@@ -54,7 +60,8 @@ export function AboutPage() {
           <Container>
             <div className="about-section-heading">
               <p className="section-eyebrow">آنچه برای ما مهم است</p>
-              <h2>سه اصل در معرفی هر محصول</h2>
+              <h2>{valuesContent?.title ?? "سه اصل در معرفی هر محصول"}</h2>
+              {valuesContent?.body && <p style={{ color: "var(--muted)", marginTop: "0.5rem" }}>{valuesContent.body}</p>}
             </div>
             <div className="about-principles__grid">
               {principles.map(({ number, icon: Icon, title, description }) => (

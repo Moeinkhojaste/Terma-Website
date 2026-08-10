@@ -21,11 +21,21 @@ export function ProductCard({ product, unavailable = false }: { product: Product
           <span className={unavailable ? "stock stock--off" : "stock"}>
             {unavailable ? "ناموجود" : product.stock}
           </span>
+          {product.hasDiscount && product.discountPercent && (
+            <span className="discount-badge">{new Intl.NumberFormat("fa-IR").format(product.discountPercent)}٪ تخفیف</span>
+          )}
         </div>
         <h3>{product.name}</h3>
         <p className="product-description">{product.description}</p>
         <div className="product-card__footer">
-          <strong>{product.price}</strong>
+          {product.hasDiscount && product.compareAtPrice ? (
+            <div className="product-card__prices">
+              <s className="price-compare">{product.compareAtPrice}</s>
+              <strong>{product.price}</strong>
+            </div>
+          ) : (
+            <strong>{product.price}</strong>
+          )}
           {unavailable ? (
             <span className="card-action card-action--disabled">ناموجود</span>
           ) : (
