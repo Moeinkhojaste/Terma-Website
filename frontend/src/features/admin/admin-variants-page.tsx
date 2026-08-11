@@ -1,8 +1,75 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import type { FormEvent } from "react";
 import { useParams } from "next/navigation";
 import { AdminShell } from "@/features/admin/admin-shell";
 import { createVariant, getVariants, type ProductVariant } from "@/features/admin/store-api";
 import { getApiErrorMessage } from "@/lib/api-client";
-export function AdminVariantsPage(){const {id}=useParams<{id:string}>();const [items,setItems]=useState<ProductVariant[]>([]);const [error,setError]=useState<string>();const [form,setForm]=useState({title:"تنوع جدید",sku:"",color:"",price:"",stockQuantity:"0",tableCapacity:"4",length:"0",width:"0"});const load=()=>getVariants(id).then(setItems).catch(e=>setError(getApiErrorMessage(e)));useEffect(()=>{if(id)load();},[id]);async function submit(e:FormEvent){e.preventDefault();try{await createVariant(id,{...form,price:Number(form.price),stockQuantity:Number(form.stockQuantity),tableCapacity:Number(form.tableCapacity),length:Number(form.length),width:Number(form.width)});setForm(v=>({...v,sku:"",price:"",stockQuantity:"0"}));load();}catch(e){setError(getApiErrorMessage(e));}}return <AdminShell title="تنوع‌های محصول"><div className="admin-panel"><h2>افزودن تنوع</h2>{error&&<div className="admin-alert admin-alert--error" role="alert">{error}</div>}<form className="form-grid" onSubmit={submit}>{Object.entries(form).map(([key,value])=><label className="form-field" key={key}><span>{key}</span><input value={value} onChange={e=>setForm(v=>({...v,[key]:e.target.value}))} required={key!=="color"}/></label>)}<button className="button button--primary" type="submit">ذخیره تنوع</button></form></div><div className="admin-panel admin-table-wrap"><table className="admin-table"><thead><tr><th>عنوان</th><th>SKU</th><th>قیمت</th><th>موجودی قابل فروش</th></tr></thead><tbody>{items.map(x=><tr key={x.id}><td>{x.title}</td><td dir="ltr">{x.sku}</td><td>{x.price.toLocaleString("fa-IR")}</td><td>{x.availableQuantity}</td></tr>)}</tbody></table></div></AdminShell>}
+
+export function AdminVariantsPage() {
+  const { id } = useParams<{ id: string }>();
+  const [items, setItems] = useState<ProductVariant[]>([]);
+  const [error, setError] = useState<string>();
+  const [form, setForm] = useState({ title: "تنوع جدید", sku: "", color: "", price: "", stockQuantity: "0", tableCapacity: "4", length: "0", width: "0" });
+
+  const load = useCallback(() => {
+    if (id) {
+      getVariants(id).then(setItems).catch((e) => setError(getApiErrorMessage(e)));
+    }
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    try {
+      await createVariant(id, { ...form, price: Number(form.price), stockQuantity: Number(form.stockQuantity), tableCapacity: Number(form.tableCapacity), length: Number(form.length), width: Number(form.width) });
+      setForm((v) => ({ ...v, sku: "", price: "", stockQuantity: "0" }));
+      load();
+    } catch (e) {
+      setError(getApiErrorMessage(e));
+    }
+  }
+
+  return (
+    <AdminShell title="تنوع‌های محصول">
+      <div className="admin-panel">
+        <h2>افزودن تنوع</h2>
+        {error && <div className="admin-alert admin-alert--error" role="alert">{error}</div>}
+        <form className="form-grid" onSubmit={submit}>
+          {Object.entries(form).map(([key, value]) => (
+            <label className="form-field" key={key}>
+              <span>{key}</span>
+              <input value={value} onChange={(e) => setForm((v) => ({ ...v, [key]: e.target.value }))} required={key !== "color"} />
+            </label>
+          ))}
+          <button className="button button--primary" type="submit">ذخیره تنوع</button>
+        </form>
+      </div>
+      <div className="admin-panel admin-table-wrap">
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>عنوان</th>
+              <th>SKU</th>
+              <th>قیمت</th>
+              <th>موجودی قابل فروش</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((x) => (
+              <tr key={x.id}>
+                <td>{x.title}</td>
+                <td dir="ltr">{x.sku}</td>
+                <td>{x.price.toLocaleString("fa-IR")}</td>
+                <td>{x.availableQuantity}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </AdminShell>
+  );
+}

@@ -12,7 +12,7 @@ type ContactPageProps = {
   instagramUrl?: string;
 };
 
-const faqs = [
+const defaultFaqs = [
   { question: "چطور اندازه مناسب را انتخاب کنم؟", answer: "طول و عرض میز یا فضای موردنظر را اندازه بگیرید و با ابعاد نوشته‌شده در صفحه هر محصول مقایسه کنید. ظرفیت چهار، شش یا هشت نفره فقط یک راهنمای اولیه است." },
   { question: "برای پیگیری سفارش چه اطلاعاتی لازم است؟", answer: "در پیام خود نام خریدار، شماره تماس و شماره سفارش را بنویسید تا بررسی درخواست ساده‌تر باشد." },
   { question: "رنگ محصول دقیقاً شبیه عکس است؟", answer: "نور محیط و نمایشگر می‌تواند رنگ را کمی متفاوت نشان دهد. تصاویر مختلف هر محصول را ببینید و اگر رنگ برای شما مهم است، پیش از خرید پیام بفرستید." },
@@ -21,9 +21,21 @@ const faqs = [
 
 export async function ContactPage({ email, phone, instagramUrl }: ContactPageProps) {
   let content: PublicContent[] = [];
-  try { content = await getPublicContent("contact"); } catch { content = []; }
+  try {
+    content = await getPublicContent("contact");
+  } catch {
+    content = [];
+  }
+
   const introContent = content.find((item) => item.sectionKey === "intro");
   const detailsContent = content.find((item) => item.sectionKey === "details");
+
+  // Dynamic FAQs from CMS
+  const cmsFaqs = content
+    .filter((item) => item.sectionKey.startsWith("faq"))
+    .map((item) => ({ question: item.title, answer: item.body }));
+
+  const finalFaqs = cmsFaqs.length > 0 ? cmsFaqs : defaultFaqs;
 
   return (
     <>
@@ -66,7 +78,15 @@ export async function ContactPage({ email, phone, instagramUrl }: ContactPagePro
               <h2>پرسش‌های رایج</h2>
             </div>
             <div className="contact-faq__grid">
-              {faqs.map((faq) => <details key={faq.question}><summary>{faq.question}<span aria-hidden="true">+</span></summary><p>{faq.answer}</p></details>)}
+              {finalFaqs.map((faq) => (
+                <details key={faq.question}>
+                  <summary>
+                    {faq.question}
+                    <span aria-hidden="true">+</span>
+                  </summary>
+                  <p>{faq.answer}</p>
+                </details>
+              ))}
             </div>
             <p className="contact-faq__footer">پاسخ خود را پیدا نکردید؟ <Link href="#فرم-پیام">از فرم پیام برای ما بنویسید.</Link></p>
           </Container>
