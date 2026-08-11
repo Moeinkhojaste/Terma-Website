@@ -9,6 +9,8 @@ using Terma.Infrastructure.Persistence.Repositories;
 using Terma.Application.Store;
 using Terma.Infrastructure.Store;
 using Terma.Infrastructure.Media;
+using Terma.Application.Cms;
+using Terma.Infrastructure.Cms;
 
 namespace Terma.Infrastructure;
 
@@ -40,8 +42,11 @@ public static class DependencyInjection
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IStoreOperationsService, StoreOperationsService>();
+        services.AddScoped<ICmsService, CmsService>();
+        services.AddScoped<CmsContentSeeder>();
         services.AddSingleton<IMediaStorage, LocalMediaStorage>();
         services.AddHostedService<ReservationExpirationService>();
+        services.AddHostedService<CmsPublishingService>();
         return services;
     }
 }

@@ -23,6 +23,9 @@ backend/tests/*/obj/
 # Logs & Test Screenshots/Artifacts
 *.log
 frontend/output/
+frontend/test-results/
+frontend/playwright-report/
+backend/.e2e-media/
 .playwright-cli/
 
 # Environment files

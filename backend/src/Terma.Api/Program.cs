@@ -119,6 +119,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     {
         await dbContext.Database.MigrateAsync();
     }
+    await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();
 }
 
 if (args.Contains("--seed-admin", StringComparer.OrdinalIgnoreCase))

@@ -29,8 +29,10 @@ public sealed class LocalMediaStorage(IConfiguration configuration) : IMediaStor
 
     private string Resolve(string key)
     {
-        var path = Path.GetFullPath(Path.Combine(Root, key));
-        if (!path.StartsWith(Root, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Invalid media key.");
+        var root = Path.TrimEndingDirectorySeparator(Root);
+        var path = Path.GetFullPath(Path.Combine(root, key));
+        var rootPrefix = root + Path.DirectorySeparatorChar;
+        if (!path.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Invalid media key.");
         return path;
     }
 }

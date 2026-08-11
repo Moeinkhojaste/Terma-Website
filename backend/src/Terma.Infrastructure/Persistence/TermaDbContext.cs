@@ -24,6 +24,9 @@ public class TermaDbContext : IdentityDbContext<AdminUser, IdentityRole<Guid>, G
     public DbSet<ShippingRule> ShippingRules => Set<ShippingRule>();
     public DbSet<ContactMessage> ContactMessages => Set<ContactMessage>();
     public DbSet<StoreContent> StoreContents => Set<StoreContent>();
+    public DbSet<CmsPage> CmsPages => Set<CmsPage>();
+    public DbSet<CmsRevision> CmsRevisions => Set<CmsRevision>();
+    public DbSet<MediaAsset> MediaAssets => Set<MediaAsset>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

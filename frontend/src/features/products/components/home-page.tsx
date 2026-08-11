@@ -10,6 +10,7 @@ import { ProductCarousel } from "@/features/products/components/product-carousel
 import { listProducts } from "@/features/products/product-api";
 import type { Product } from "@/features/products/models";
 import { getPublicContent, type PublicContent } from "@/features/content/content-api";
+import { getPublishedCmsPage } from "@/features/content/cms-api";
 
 const sizes = [
   { title: "۴ نفره", size: 4 },
@@ -32,7 +33,28 @@ export default async function Home() {
   } catch {
     catalogUnavailable = true;
   }
-  try { content = await getPublicContent("home"); } catch { content = []; }
+  try {
+    const cmsPage = await getPublishedCmsPage("home");
+    const hero = cmsPage.document.blocks.find((block) => block.type === "hero");
+    const featureBlocks = cmsPage.document.blocks.filter((block) => block.type === "featureGrid");
+    const craft = cmsPage.document.blocks.find((block) => block.type === "imageText");
+    const fromBlock = (sectionKey: string, block: typeof hero): PublicContent | undefined => block ? {
+      pageKey: "home",
+      sectionKey,
+      title: typeof block.data.title === "string" ? block.data.title : "",
+      body: typeof block.data.text === "string" ? block.data.text : "",
+      linkUrl: null,
+      imageUrl: typeof block.data.imageUrl === "string" ? block.data.imageUrl : null,
+    } : undefined;
+    content = [
+      fromBlock("hero", hero),
+      fromBlock("values", featureBlocks[0]),
+      fromBlock("craft", craft),
+      fromBlock("guide", featureBlocks[1]),
+    ].filter((item): item is PublicContent => Boolean(item));
+  } catch {
+    try { content = await getPublicContent("home"); } catch { content = []; }
+  }
   const heroContent = content.find((item) => item.sectionKey === "hero");
   const announcementContent = content.find((item) => item.sectionKey === "announcement");
   const valuesContent = content.find((item) => item.sectionKey === "values");

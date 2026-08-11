@@ -1,2 +1,2 @@
-import { AdminContentPage } from "@/features/admin/admin-operations-pages";
-export default function Page(){return <AdminContentPage/>;}
+import { AdminCmsPages } from "@/features/admin/cms/admin-cms-pages";
+export default function Page(){return <AdminCmsPages/>;}

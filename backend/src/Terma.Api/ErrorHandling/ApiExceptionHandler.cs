@@ -35,6 +35,7 @@ public sealed class ApiExceptionHandler(
             ValidationException validationException => CreateValidationProblem(validationException),
             NotFoundException => Create(StatusCodes.Status404NotFound, "Resource not found", exception.Message),
             ConflictException => Create(StatusCodes.Status409Conflict, "Conflict", exception.Message),
+            PreconditionFailedException => Create(StatusCodes.Status412PreconditionFailed, "Content changed", exception.Message),
             DomainException => Create(StatusCodes.Status400BadRequest, "Domain rule violation", exception.Message),
             _ => Create(StatusCodes.Status500InternalServerError, "Server error", "An unexpected error occurred.")
         };

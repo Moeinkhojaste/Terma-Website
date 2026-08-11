@@ -1,9 +1,4 @@
-import type { Metadata } from "next";
-import { AboutPage } from "@/features/brand/about-page";
-
-export const metadata: Metadata = {
-  title: "درباره ما | ترما",
-  description: "با داستان ترما، اصول معرفی محصولات و مسیر انتخاب سفره‌های ترمه آشنا شوید.",
-};
-
-export default AboutPage;
+import { CmsPageView } from "@/features/content/cms-page-view";
+import { cmsMetadata } from "@/features/content/cms-metadata";
+export const generateMetadata = () => cmsMetadata("about");
+export default async function Page({ searchParams }: { searchParams: Promise<{ cmsPreview?: string }> }) { return <CmsPageView slug="about" previewId={(await searchParams).cmsPreview} />; }

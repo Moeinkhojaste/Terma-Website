@@ -50,7 +50,7 @@ export function AdminShell({ children, title }: { children: ReactNode; title: st
     <aside className={`admin-sidebar${open ? " admin-sidebar--open" : ""}`}>
       <div className="admin-brand"><span className="admin-brand-mark">ت</span><div><strong>مدیریت ترما</strong><small>فروشگاه ترمه ایرانی</small></div></div>
       <nav aria-label="منوی مدیریت" className="admin-nav">
-        {links.map(([href, label]) => <Link key={href} className={pathname === href ? "admin-nav__link admin-nav__link--active" : "admin-nav__link"} href={href} onClick={() => setOpen(false)}>{label}</Link>)}
+        {links.map(([href, label]) => <Link key={href} className={pathname === href || (href !== "/admin" && pathname.startsWith(`${href}/`)) ? "admin-nav__link admin-nav__link--active" : "admin-nav__link"} href={href} onClick={() => setOpen(false)}>{label}</Link>)}
       </nav>
       <div className="admin-sidebar__footer"><span dir="ltr">{session.email}</span><button type="button" onClick={logout}>خروج</button></div>
     </aside>

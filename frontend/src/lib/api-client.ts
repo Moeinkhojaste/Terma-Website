@@ -31,21 +31,21 @@ export class ApiError extends Error {
   }
 }
 
-function getApiBaseUrl() {
+export function getApiBaseUrl() {
   const configuredUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
   if (!configuredUrl) {
-    throw new ApiError("آدرس سرویس محصولات تنظیم نشده است.");
+    throw new ApiError("آدرس سرویس بک‌اند تنظیم نشده است.");
   }
 
   let url: URL;
   try {
     url = new URL(configuredUrl);
   } catch (cause) {
-    throw new ApiError("آدرس سرویس محصولات معتبر نیست.", { cause });
+    throw new ApiError("آدرس سرویس بک‌اند معتبر نیست.", { cause });
   }
 
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new ApiError("آدرس سرویس محصولات باید با http یا https شروع شود.");
+    throw new ApiError("آدرس سرویس بک‌اند باید با http یا https شروع شود.");
   }
 
   return url.toString().replace(/\/$/, "");
@@ -62,7 +62,7 @@ async function readJson(response: Response) {
   try {
     return await response.json() as unknown;
   } catch (cause) {
-    throw new ApiError("پاسخ سرویس محصولات قابل خواندن نیست.", {
+    throw new ApiError("پاسخ سرویس بک‌اند قابل خواندن نیست.", {
       status: response.status,
       cause,
     });
@@ -117,7 +117,7 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}, isR
     });
   } catch (cause) {
     if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
-    throw new ApiError("ارتباط با سرویس محصولات برقرار نشد.", {
+    throw new ApiError("ارتباط با سرویس بک‌اند برقرار نشد. مطمئن شوید API در حال اجرا است.", {
       isNetworkError: true,
       cause,
     });
@@ -138,14 +138,14 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}, isR
     const fieldErrors = problem?.errors
       ? Object.values(problem.errors).flat().join(" ")
       : undefined;
-    throw new ApiError(fieldErrors || problem?.detail || problem?.title || "درخواست سرویس محصولات ناموفق بود.", {
+    throw new ApiError(fieldErrors || problem?.detail || problem?.title || "درخواست سرویس بک‌اند ناموفق بود.", {
       status: response.status,
       problem,
     });
   }
 
   if (body === undefined) {
-    throw new ApiError("سرویس محصولات پاسخ JSON برنگرداند.", { status: response.status });
+    throw new ApiError("سرویس بک‌اند پاسخ قابل‌خواندن برنگرداند.", { status: response.status });
   }
 
   return body as T;
