@@ -1,3 +1,5 @@
+using Terma.Application.Store;
+
 namespace Terma.Application.Products;
 
 public sealed record ProductDto(
@@ -20,7 +22,8 @@ public sealed record ProductDto(
     Guid CategoryId,
     string CategoryName,
     DateTime CreatedAt,
-    DateTime? UpdatedAt);
+    DateTime? UpdatedAt,
+    IReadOnlyList<ProductVariantDto>? Variants = null);
 
 public class ProductWriteRequest
 {

@@ -22,3 +22,5 @@ export const getMessages = () => apiRequest<ContactMessage[]>("/api/admin/messag
 export const changeMessageStatus = (id: string, status: string) => apiRequest<ContactMessage>(`/api/admin/messages/${id}/status`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
 export const getVariants = (productId:string) => apiRequest<ProductVariant[]>(`/api/admin/products/${productId}/variants`, {cache:"no-store"});
 export const createVariant = (productId:string, body:Partial<ProductVariant>) => apiRequest<ProductVariant>(`/api/admin/products/${productId}/variants`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+export const updateVariant = (id:string, body:Partial<ProductVariant>) => apiRequest<ProductVariant>(`/api/admin/variants/${id}`, {method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+export const deleteVariant = (id:string) => apiRequest(`/api/admin/variants/${id}`, {method:"DELETE"});

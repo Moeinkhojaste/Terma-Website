@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AddToCartButton } from "@/features/cart/add-to-cart-button";
 import { Container } from "@/components/layout/container";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
@@ -11,9 +10,9 @@ import { ProductCard } from "@/features/products/components/product-card";
 import { getProduct, listProducts } from "@/features/products/product-api";
 import { ApiError } from "@/lib/api-client";
 
-type ProductPageProps = { params: Promise<{ id: string }> };
+import { ProductCapacityDetails } from "@/features/products/components/product-capacity-details";
 
-const CAPACITY_OPTIONS = [4, 6, 8] as const;
+type ProductPageProps = { params: Promise<{ id: string }> };
 
 const getProductForRequest = cache(getProduct);
 
@@ -61,46 +60,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </div>
               <h1>{product.name}</h1>
               <p>{product.longDescription}</p>
-              {product.hasDiscount && product.compareAtPrice ? (
-                <div className="product-detail__price-wrap">
-                  <s className="price-compare price-compare--lg">{product.compareAtPrice}</s>
-                  <strong className="product-detail__price">{product.price}</strong>
-                </div>
-              ) : (
-                <strong className="product-detail__price">{product.price}</strong>
-              )}
 
-              <div className="capacity-selector">
-                <strong>انتخاب ظرفیت</strong>
-                <div className="capacity-options">
-                  {CAPACITY_OPTIONS.map((capacity) => {
-                    const isCurrentCapacity = capacity === product.size;
-                    const isAvailable = isCurrentCapacity && product.stockQuantity > 0;
-
-                    return (
-                      <button
-                        type="button"
-                        className={`capacity-option${isAvailable ? " capacity-option--selected" : " capacity-option--unavailable"}`}
-                        disabled={!isAvailable}
-                        aria-pressed={isAvailable}
-                        key={capacity}
-                      >
-                        <strong>{new Intl.NumberFormat("fa-IR").format(capacity)} نفره</strong>
-                        <span>{isAvailable ? "موجود" : "ناموجود"}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <dl className="product-quick-specs">
-                <div><dt>ابعاد</dt><dd>{product.dimensions}</dd></div>
-                <div><dt>رویه</dt><dd>{product.fabricType}</dd></div>
-                <div><dt>آستر</dt><dd>{product.lining}</dd></div>
-                <div><dt>کد محصول</dt><dd dir="ltr">{product.sku}</dd></div>
-              </dl>
-
-              <AddToCartButton product={product} />
+              <ProductCapacityDetails product={product} />
             </div>
 
             <div className="product-gallery">

@@ -63,6 +63,16 @@ public sealed class ProductService(
         product.Update(request.Name, request.Sku, request.Description, request.Price, request.StockQuantity,
             request.TableCapacity, request.Length, request.Width, request.FabricType, request.LiningType,
             request.Color, request.Pattern, request.CategoryId, request.DiscountPercent, request.IsActive);
+
+        foreach (var variant in product.Variants)
+        {
+            if (variant.Color != request.Color)
+            {
+                variant.Update(variant.Title, variant.Sku, request.Color, variant.TableCapacity, variant.Length,
+                    variant.Width, variant.Price, variant.CompareAtPrice, variant.LowStockThreshold, variant.IsActive);
+            }
+        }
+
         var defaultVariant = product.Variants.FirstOrDefault(variant => variant.Title == "تنوع پیش‌فرض");
         defaultVariant?.SyncFromLegacy(request.Sku, request.Color, request.TableCapacity, request.Length, request.Width, product.Price, request.StockQuantity, request.IsActive);
         await productRepository.SaveChangesAsync(cancellationToken);
