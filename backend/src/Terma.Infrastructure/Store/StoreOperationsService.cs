@@ -5,6 +5,7 @@ using Terma.Application.Common.Exceptions;
 using Terma.Application.Store;
 using Terma.Domain.Entities;
 using Terma.Infrastructure.Persistence;
+using Terma.Domain.Services;
 
 namespace Terma.Infrastructure.Store;
 
@@ -36,35 +37,56 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
     {
         var query = db.Orders.AsNoTracking().Include(x => x.Items).OrderByDescending(x => x.CreatedAt).AsQueryable();
         if (status.HasValue) query = query.Where(x => x.Status == status.Value).OrderByDescending(x => x.CreatedAt);
-        return await query.Select(x => new AdminOrderDto(x.Id, x.Number, x.FullNameSnapshot, x.PhoneSnapshot, x.Status, x.Total, x.CreatedAt, x.ReservationExpiresAtUtc,
-            x.Items.OrderBy(i => i.CreatedAt).Select(i => new AdminOrderItemDto(i.ProductId, i.VariantId, i.ProductName, i.Sku, i.UnitPrice, i.Quantity)).ToList())).ToListAsync(cancellationToken);
+        var orders = await query.ToListAsync(cancellationToken);
+        return await MapOrdersAsync(orders, cancellationToken);
     }
 
     public async Task<AdminOrderDto> ChangeOrderStatusAsync(Guid id, OrderStatus status, CancellationToken cancellationToken)
     {
         var order = await db.Orders.Include(x => x.Items).Include(x => x.History).SingleOrDefaultAsync(x => x.Id == id, cancellationToken)
             ?? throw new NotFoundException($"Order '{id}' was not found.");
-        foreach (var item in order.Items.Where(x => x.VariantId.HasValue))
+        if (order.Status != status)
         {
-            var variant = await db.ProductVariants.SingleOrDefaultAsync(x => x.Id == item.VariantId, cancellationToken);
-            if (variant is null) continue;
-            var product = await db.Products.SingleOrDefaultAsync(x => x.Id == item.ProductId, cancellationToken);
-            if (status == OrderStatus.Confirmed && order.Status == OrderStatus.PendingConfirmation) variant.CommitReservation(item.Quantity);
-            if (status is OrderStatus.Cancelled or OrderStatus.Expired && order.Status == OrderStatus.PendingConfirmation)
+            var isPreviousCancelledOrExpired = order.Status is OrderStatus.Cancelled or OrderStatus.Expired;
+            var isNextCancelledOrExpired = status is OrderStatus.Cancelled or OrderStatus.Expired;
+
+            foreach (var item in order.Items.Where(x => x.VariantId.HasValue))
             {
-                variant.ReleaseReservation(item.Quantity);
-                variant.AdjustStock(item.Quantity);
-                product?.AdjustStock(item.Quantity);
+                var variant = await db.ProductVariants.SingleOrDefaultAsync(x => x.Id == item.VariantId, cancellationToken);
+                if (variant is null) continue;
+                var product = await db.Products.SingleOrDefaultAsync(x => x.Id == item.ProductId, cancellationToken);
+
+                if (order.Status == OrderStatus.PendingConfirmation && !isNextCancelledOrExpired)
+                {
+                    if (variant.ReservedQuantity >= item.Quantity)
+                    {
+                        variant.CommitReservation(item.Quantity);
+                    }
+                }
+                else if (order.Status == OrderStatus.PendingConfirmation && isNextCancelledOrExpired)
+                {
+                    if (variant.ReservedQuantity >= item.Quantity)
+                    {
+                        variant.ReleaseReservation(item.Quantity);
+                    }
+                    product?.AdjustStock(item.Quantity);
+                }
+                else if (!isPreviousCancelledOrExpired && isNextCancelledOrExpired)
+                {
+                    variant.AdjustStock(item.Quantity);
+                    product?.AdjustStock(item.Quantity);
+                }
+                else if (isPreviousCancelledOrExpired && !isNextCancelledOrExpired)
+                {
+                    variant.AdjustStock(-item.Quantity);
+                    product?.AdjustStock(-item.Quantity);
+                }
             }
-            if (status == OrderStatus.Cancelled && order.Status is (OrderStatus.Confirmed or OrderStatus.Preparing))
-            {
-                variant.AdjustStock(item.Quantity);
-                product?.AdjustStock(item.Quantity);
-            }
+            order.ChangeStatus(status);
+            await db.SaveChangesAsync(cancellationToken);
         }
-        order.ChangeStatus(status);
-        await db.SaveChangesAsync(cancellationToken);
-        return Map(order);
+        var mapped = await MapOrdersAsync([order], cancellationToken);
+        return mapped.Single();
     }
 
     public async Task<IReadOnlyList<AdminCustomerDto>> CustomersAsync(CancellationToken cancellationToken) =>
@@ -145,8 +167,9 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
         return new(subtotal, discount, shipping, subtotal - discount + shipping, lines.Select(x => new CheckoutQuoteItemDto(x.ProductId, x.VariantId, x.ProductName, x.Sku, x.UnitPrice, x.Quantity, x.AvailableQuantity)).ToList(), DateTime.UtcNow.AddHours(24));
     }
 
-    public async Task<CreatedOrderDto> CreateOrderAsync(CheckoutRequest request, string? idempotencyKey, CancellationToken cancellationToken)
+    public async Task<CreatedOrderDto> CreateOrderAsync(CheckoutRequest request, string? idempotencyKey, Guid? userId, string? verifiedPhone, CancellationToken cancellationToken)
     {
+        ValidateCheckoutDetails(request);
         if (!string.IsNullOrWhiteSpace(idempotencyKey))
         {
             var previous = await db.Orders.AsNoTracking().SingleOrDefaultAsync(x => x.IdempotencyKey == idempotencyKey, cancellationToken);
@@ -158,16 +181,19 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
         foreach (var line in lines)
         {
             line.Variant.Reserve(line.Quantity);
-            line.Variant.AdjustStock(-line.Quantity);
             var product = await db.Products.SingleOrDefaultAsync(x => x.Id == line.ProductId, cancellationToken);
             product?.AdjustStock(-line.Quantity);
         }
-        var normalized = new string(request.Phone.Where(char.IsDigit).ToArray()).TrimStart('0');
+        var normalized = IranianPhoneNumber.Normalize(request.Phone);
+        if (userId.HasValue && (string.IsNullOrWhiteSpace(verifiedPhone) || IranianPhoneNumber.Normalize(verifiedPhone) != normalized))
+            throw new ConflictException("The checkout mobile number must match the verified account mobile number.");
         var customer = await db.Customers.SingleOrDefaultAsync(x => x.NormalizedPhone == normalized, cancellationToken);
-        if (customer is null) { customer = new Customer(request.FullName, request.Phone, request.Email); await db.Customers.AddAsync(customer, cancellationToken); }
-        else customer.RefreshProfile(request.FullName, request.Phone, request.Email);
+        if (customer is null) { customer = new Customer(request.FullName, request.Phone, null); await db.Customers.AddAsync(customer, cancellationToken); }
+        else customer.RefreshProfile(request.FullName, request.Phone, null);
+        if (userId.HasValue) customer.AttachToUser(userId.Value);
         var rawToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-        var order = new Order($"TRM-{DateTime.UtcNow:yyyyMMdd}-{RandomNumberGenerator.GetInt32(1000, 9999)}", customer, request.Province, request.City, request.Address, request.PostalCode, quote.Subtotal, quote.DiscountTotal, quote.ShippingTotal, quote.ReservedUntilUtc, Hash(rawToken));
+        var order = new Order($"TRM-{DateTime.UtcNow:yyyyMMdd}-{RandomNumberGenerator.GetInt32(1000, 9999)}", customer, request.Province, request.City, request.Address, request.PostalCode, quote.Subtotal, quote.DiscountTotal, quote.ShippingTotal, quote.ReservedUntilUtc, Hash(rawToken), request.CustomerNotes);
+        if (userId.HasValue) order.AttachToUser(userId.Value);
         if (!string.IsNullOrWhiteSpace(idempotencyKey)) order.SetIdempotencyKey(idempotencyKey);
         foreach (var line in lines) order.AddItem(new OrderItem(line.ProductId, line.VariantId, line.ProductName, line.Sku, line.UnitPrice, line.Quantity));
         if (!string.IsNullOrWhiteSpace(request.CouponCode))
@@ -186,7 +212,8 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
     {
         var order = await db.Orders.AsNoTracking().Include(x => x.Items).SingleOrDefaultAsync(x => x.TrackingTokenHash == Hash(token), cancellationToken)
             ?? throw new NotFoundException("Order was not found.");
-        return Map(order);
+        var mapped = await MapOrdersAsync([order], cancellationToken);
+        return mapped.Single();
     }
 
     public async Task<IReadOnlyList<ProductVariantDto>> VariantsAsync(Guid productId, CancellationToken cancellationToken) =>
@@ -242,7 +269,49 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
     private sealed record CheckoutLine(Guid ProductId, Guid? VariantId, string ProductName, string Sku, decimal UnitPrice, int Quantity, int AvailableQuantity, ProductVariant Variant);
     private static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
-    private static AdminOrderDto Map(Order x) => new(x.Id, x.Number, x.FullNameSnapshot, x.PhoneSnapshot, x.Status, x.Total, x.CreatedAt, x.ReservationExpiresAtUtc, x.Items.Select(i => new AdminOrderItemDto(i.ProductId, i.VariantId, i.ProductName, i.Sku, i.UnitPrice, i.Quantity)).ToList());
+    private static void ValidateCheckoutDetails(CheckoutRequest request)
+    {
+        if (request.FullName.Trim().Length is < 3 or > 200) throw new Terma.Domain.Exceptions.DomainException("A valid full name is required.");
+        _ = IranianPhoneNumber.Normalize(request.Phone);
+        if (request.Province.Trim().Length is < 2 or > 120) throw new Terma.Domain.Exceptions.DomainException("A valid province is required.");
+        if (request.City.Trim().Length is < 2 or > 120) throw new Terma.Domain.Exceptions.DomainException("A valid city is required.");
+        if (request.Address.Trim().Length is < 10 or > 1000) throw new Terma.Domain.Exceptions.DomainException("A complete address is required.");
+        var postalCode = new string(request.PostalCode.Select(value => value switch { >= '\u06F0' and <= '\u06F9' => (char)('0' + value - '\u06F0'), >= '\u0660' and <= '\u0669' => (char)('0' + value - '\u0660'), _ => value }).ToArray());
+        if (postalCode.Length != 10 || postalCode.Any(value => !char.IsDigit(value))) throw new Terma.Domain.Exceptions.DomainException("A valid ten-digit postal code is required.");
+    }
+
+    private async Task<IReadOnlyList<AdminOrderDto>> MapOrdersAsync(List<Order> orders, CancellationToken cancellationToken)
+    {
+        var variantIds = orders.SelectMany(o => o.Items).Select(i => i.VariantId).Where(v => v.HasValue).Select(v => v!.Value).Distinct().ToList();
+        var productIds = orders.SelectMany(o => o.Items).Select(i => i.ProductId).Distinct().ToList();
+        var variants = await db.ProductVariants.AsNoTracking().Where(x => variantIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+        var products = await db.Products.AsNoTracking().Where(x => productIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+
+        var result = new List<AdminOrderDto>();
+        foreach (var x in orders)
+        {
+            var items = x.Items.OrderBy(i => i.CreatedAt).Select(i =>
+            {
+                string? title = null;
+                int? capacity = null;
+                if (i.VariantId.HasValue && variants.TryGetValue(i.VariantId.Value, out var v))
+                {
+                    title = string.IsNullOrWhiteSpace(v.Title) || v.Title == "تنوع پیش‌فرض" ? null : v.Title;
+                    capacity = v.TableCapacity;
+                }
+                else if (products.TryGetValue(i.ProductId, out var p))
+                {
+                    capacity = p.TableCapacity;
+                }
+                var formattedTitle = title ?? (capacity > 0 ? $"{capacity} نفره" : null);
+                return new AdminOrderItemDto(i.ProductId, i.VariantId, i.ProductName, formattedTitle, capacity, i.Sku, i.UnitPrice, i.Quantity);
+            }).ToList();
+
+            result.Add(new AdminOrderDto(x.Id, x.Number, x.FullNameSnapshot, x.PhoneSnapshot, x.Status, x.Total, x.CreatedAt, x.ReservationExpiresAtUtc, x.Province, x.City, x.Address, x.PostalCode, x.CustomerNotes, items));
+        }
+        return result;
+    }
+
     private static PromotionDto Map(Promotion x) => new(x.Id, x.Name, x.Code, x.Type, x.DiscountType, x.Value, x.MinimumSubtotal, x.MaximumDiscount, x.UsageLimit, x.UsageCount, x.StartsAtUtc, x.EndsAtUtc, x.IsActive);
     private static ShippingRuleDto Map(ShippingRule x) => new(x.Id, x.Name, x.Province, x.City, x.Cost, x.FreeAboveSubtotal, x.Priority, x.IsActive);
     private static StoreContentDto Map(StoreContent x) => new(x.Id, x.PageKey, x.SectionKey, x.Title, x.Body, x.LinkUrl, x.ImageUrl, x.SeoTitle, x.SeoDescription, x.IsPublished);

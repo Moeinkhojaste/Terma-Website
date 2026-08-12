@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { SearchIcon } from "@/components/ui/icons";
+import { SearchIcon, UserIcon } from "@/components/ui/icons";
 import { Container } from "@/components/layout/container";
 import { CartLink } from "@/features/cart/cart-link";
 
@@ -29,6 +29,7 @@ export function Header() {
           </nav>
           <div className="header-actions">
             <Link className="icon-button" href="/products" aria-label="جست‌وجوی محصولات"><SearchIcon /></Link>
+            <Link className="icon-button" href="/account" aria-label="حساب کاربری"><UserIcon /></Link>
             <CartLink />
           </div>
         </Container>

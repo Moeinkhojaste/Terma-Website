@@ -14,6 +14,7 @@ public sealed class Order : BaseEntity
     public string Number { get; private set; } = string.Empty;
     public Guid CustomerId { get; private set; }
     public Customer Customer { get; private set; } = null!;
+    public Guid? UserId { get; private set; }
     public OrderStatus Status { get; private set; } = OrderStatus.PendingConfirmation;
     public string FullNameSnapshot { get; private set; } = string.Empty;
     public string PhoneSnapshot { get; private set; } = string.Empty;
@@ -22,6 +23,7 @@ public sealed class Order : BaseEntity
     public string City { get; private set; } = string.Empty;
     public string Address { get; private set; } = string.Empty;
     public string PostalCode { get; private set; } = string.Empty;
+    public string? CustomerNotes { get; private set; }
     public decimal Subtotal { get; private set; }
     public decimal DiscountTotal { get; private set; }
     public decimal ShippingTotal { get; private set; }
@@ -36,7 +38,7 @@ public sealed class Order : BaseEntity
 
     public Order(string number, Customer customer, string province, string city, string address,
         string postalCode, decimal subtotal, decimal discountTotal, decimal shippingTotal,
-        DateTime reservationExpiresAtUtc, string trackingTokenHash)
+        DateTime reservationExpiresAtUtc, string trackingTokenHash, string? customerNotes = null)
     {
         Number = number;
         Customer = customer;
@@ -48,6 +50,7 @@ public sealed class Order : BaseEntity
         City = city.Trim();
         Address = address.Trim();
         PostalCode = postalCode.Trim();
+        CustomerNotes = string.IsNullOrWhiteSpace(customerNotes) ? null : customerNotes.Trim();
         Subtotal = subtotal;
         DiscountTotal = discountTotal;
         ShippingTotal = shippingTotal;
@@ -60,13 +63,18 @@ public sealed class Order : BaseEntity
     public void AddItem(OrderItem item) => _items.Add(item);
     public void SetIdempotencyKey(string key) { IdempotencyKey = key.Trim(); }
 
+    public void AttachToUser(Guid userId)
+    {
+        if (UserId.HasValue && UserId.Value != userId)
+            throw new DomainException("This order is already linked to another account.");
+        if (UserId == userId) return;
+        UserId = userId;
+        MarkUpdated();
+    }
+
     public void ChangeStatus(OrderStatus next)
     {
         if (Status == next) return;
-        if (Status is OrderStatus.Delivered or OrderStatus.Cancelled or OrderStatus.Expired)
-            throw new DomainException("This order cannot change status anymore.");
-        if (next == OrderStatus.PendingConfirmation)
-            throw new DomainException("An order cannot return to pending confirmation.");
         Status = next;
         _history.Add(new OrderStatusHistory(Id, next, DateTime.UtcNow));
         MarkUpdated();

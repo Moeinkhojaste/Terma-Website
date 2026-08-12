@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Terma.Domain.Entities;
+using Terma.Infrastructure.Identity;
 
 namespace Terma.Infrastructure.Persistence.Configurations;
 
@@ -8,7 +9,7 @@ public sealed class StoreOperationsConfiguration : IEntityTypeConfiguration<Cust
 {
     public void Configure(EntityTypeBuilder<Customer> builder)
     {
-        builder.HasKey(x => x.Id); builder.Property(x => x.FullName).HasMaxLength(200).IsRequired(); builder.Property(x => x.Phone).HasMaxLength(32).IsRequired(); builder.Property(x => x.NormalizedPhone).HasMaxLength(32).IsRequired(); builder.Property(x => x.Email).HasMaxLength(320); builder.Property(x => x.TotalOrderValue).HasPrecision(18, 2); builder.HasIndex(x => x.NormalizedPhone).IsUnique();
+        builder.HasKey(x => x.Id); builder.Property(x => x.FullName).HasMaxLength(200).IsRequired(); builder.Property(x => x.Phone).HasMaxLength(32).IsRequired(); builder.Property(x => x.NormalizedPhone).HasMaxLength(32).IsRequired(); builder.Property(x => x.Email).HasMaxLength(320); builder.Property(x => x.TotalOrderValue).HasPrecision(18, 2); builder.HasIndex(x => x.NormalizedPhone).IsUnique(); builder.HasIndex(x => x.UserId).IsUnique().HasFilter("[UserId] IS NOT NULL"); builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
     }
     public void Configure(EntityTypeBuilder<OrderItem> builder)
     { builder.HasKey(x => x.Id); builder.Property(x => x.ProductName).HasMaxLength(200).IsRequired(); builder.Property(x => x.Sku).HasMaxLength(64).IsRequired(); builder.Property(x => x.UnitPrice).HasPrecision(18, 2); }

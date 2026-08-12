@@ -11,6 +11,9 @@ using Terma.Infrastructure.Store;
 using Terma.Infrastructure.Media;
 using Terma.Application.Cms;
 using Terma.Infrastructure.Cms;
+using Terma.Application.Customers;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Terma.Infrastructure;
 
@@ -22,7 +25,7 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
         services.AddDbContext<TermaDbContext>(options => options.UseSqlServer(connectionString));
-        services.AddIdentityCore<AdminUser>(options =>
+        services.AddIdentityCore<ApplicationUser>(options =>
             {
                 options.User.RequireUniqueEmail = true;
                 options.Password.RequiredLength = 6;
@@ -38,7 +41,13 @@ public static class DependencyInjection
             .AddEntityFrameworkStores<TermaDbContext>()
             .AddSignInManager()
             .AddDefaultTokenProviders();
+        services.RemoveAll<IUserValidator<ApplicationUser>>();
+        services.AddScoped<IUserValidator<ApplicationUser>, ApplicationUserValidator>();
+        services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, ApplicationUserClaimsPrincipalFactory>();
         services.AddScoped<AdminAccountProvisioner>();
+        services.Configure<OtpOptions>(configuration.GetSection(OtpOptions.SectionName));
+        services.AddScoped<IPhoneOtpSender, DevelopmentPhoneOtpSender>();
+        services.AddScoped<ICustomerAccountService, CustomerAccountService>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IStoreOperationsService, StoreOperationsService>();

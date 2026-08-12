@@ -5,15 +5,26 @@ namespace Terma.Application.Store;
 public sealed record DashboardDto(int ProductCount, int CategoryCount, int LowStockCount, int PendingOrderCount, int UnreadMessageCount, int CustomerCount, decimal OrderValue);
 public sealed record SalesReportDto(DateTime FromUtc, DateTime ToUtc, int OrderCount, decimal GrossSales, decimal CancelledSales, IReadOnlyList<ReportBucketDto> ByStatus);
 public sealed record ReportBucketDto(string Status, int Count, decimal Total);
-public sealed record AdminOrderDto(Guid Id, string Number, string CustomerName, string Phone, OrderStatus Status, decimal Total, DateTime CreatedAt, DateTime ReservationExpiresAtUtc, IReadOnlyList<AdminOrderItemDto> Items);
-public sealed record AdminOrderItemDto(Guid ProductId, Guid? VariantId, string ProductName, string Sku, decimal UnitPrice, int Quantity);
+public sealed record AdminOrderDto(Guid Id, string Number, string CustomerName, string Phone, OrderStatus Status, decimal Total, DateTime CreatedAt, DateTime ReservationExpiresAtUtc, string Province, string City, string Address, string PostalCode, string? CustomerNotes, IReadOnlyList<AdminOrderItemDto> Items);
+public sealed record AdminOrderItemDto(Guid ProductId, Guid? VariantId, string ProductName, string? VariantTitle, int? TableCapacity, string Sku, decimal UnitPrice, int Quantity);
 public sealed record AdminCustomerDto(Guid Id, string FullName, string Phone, string? Email, int OrderCount, decimal TotalOrderValue, DateTime CreatedAt);
 public sealed record PromotionDto(Guid Id, string Name, string? Code, PromotionType Type, DiscountType DiscountType, decimal Value, decimal? MinimumSubtotal, decimal? MaximumDiscount, int? UsageLimit, int UsageCount, DateTime StartsAtUtc, DateTime? EndsAtUtc, bool IsActive);
 public sealed record ShippingRuleDto(Guid Id, string Name, string? Province, string? City, decimal Cost, decimal? FreeAboveSubtotal, int Priority, bool IsActive);
 public sealed record StoreContentDto(Guid Id, string PageKey, string SectionKey, string Title, string Body, string? LinkUrl, string? ImageUrl, string? SeoTitle, string? SeoDescription, bool IsPublished);
 public sealed record ContactMessageDto(Guid Id, string Name, string Phone, string? Email, string Topic, string Body, ContactMessageStatus Status, DateTime CreatedAt);
 public sealed record CheckoutItemRequest(Guid ProductId, Guid? VariantId, int Quantity);
-public sealed class CheckoutRequest { public IReadOnlyList<CheckoutItemRequest> Items { get; init; } = []; public string FullName { get; init; } = string.Empty; public string Phone { get; init; } = string.Empty; public string? Email { get; init; } public string Province { get; init; } = string.Empty; public string City { get; init; } = string.Empty; public string Address { get; init; } = string.Empty; public string PostalCode { get; init; } = string.Empty; public string? CouponCode { get; init; } }
+public sealed class CheckoutRequest
+{
+    public IReadOnlyList<CheckoutItemRequest> Items { get; init; } = [];
+    public string FullName { get; init; } = string.Empty;
+    public string Phone { get; init; } = string.Empty;
+    public string Province { get; init; } = string.Empty;
+    public string City { get; init; } = string.Empty;
+    public string Address { get; init; } = string.Empty;
+    public string PostalCode { get; init; } = string.Empty;
+    public string? CustomerNotes { get; init; }
+    public string? CouponCode { get; init; }
+}
 public sealed record CheckoutQuoteDto(decimal Subtotal, decimal DiscountTotal, decimal ShippingTotal, decimal Total, IReadOnlyList<CheckoutQuoteItemDto> Items, DateTime ReservedUntilUtc);
 public sealed record CheckoutQuoteItemDto(Guid ProductId, Guid? VariantId, string ProductName, string Sku, decimal UnitPrice, int Quantity, int AvailableQuantity);
 public sealed record CreatedOrderDto(Guid Id, string Number, string TrackingToken, decimal Total, DateTime ReservationExpiresAtUtc);
@@ -49,7 +60,7 @@ public interface IStoreOperationsService
     Task<ContactMessageDto> ChangeMessageStatusAsync(Guid id, ContactMessageStatus status, CancellationToken cancellationToken);
     Task<ContactMessageDto> CreateMessageAsync(ContactMessageWriteRequest request, CancellationToken cancellationToken);
     Task<CheckoutQuoteDto> QuoteAsync(CheckoutRequest request, CancellationToken cancellationToken);
-    Task<CreatedOrderDto> CreateOrderAsync(CheckoutRequest request, string? idempotencyKey, CancellationToken cancellationToken);
+    Task<CreatedOrderDto> CreateOrderAsync(CheckoutRequest request, string? idempotencyKey, Guid? userId, string? verifiedPhone, CancellationToken cancellationToken);
     Task<AdminOrderDto> TrackOrderAsync(string token, CancellationToken cancellationToken);
     Task<IReadOnlyList<ProductVariantDto>> VariantsAsync(Guid productId, CancellationToken cancellationToken);
     Task<ProductVariantDto> CreateVariantAsync(Guid productId, ProductVariantWriteRequest request, CancellationToken cancellationToken);

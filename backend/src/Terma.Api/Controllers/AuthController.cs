@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Terma.Api.ErrorHandling;
 using Terma.Infrastructure.Identity;
+using Terma.Application.Common.Authorization;
 
 namespace Terma.Api.Controllers;
 
@@ -15,8 +16,8 @@ namespace Terma.Api.Controllers;
 [Route("api/auth")]
 public sealed class AuthController(
     IAntiforgery antiforgery,
-    UserManager<AdminUser> userManager,
-    SignInManager<AdminUser> signInManager,
+    UserManager<ApplicationUser> userManager,
+    SignInManager<ApplicationUser> signInManager,
     TimeProvider timeProvider) : ControllerBase
 {
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromMinutes(30);
@@ -42,7 +43,6 @@ public sealed class AuthController(
         var user = await userManager.FindByEmailAsync(request.Email.Trim());
         if (user is null)
             return InvalidCredentials();
-
         var result = await signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
         if (result.IsLockedOut)
         {
@@ -66,7 +66,7 @@ public sealed class AuthController(
         return Ok(await CreateSessionResponseAsync(user, expiresAt));
     }
 
-    [Authorize]
+    [Authorize(Policy = AdminAuthorization.Policy)]
     [HttpGet("me")]
     [ProducesResponseType<AdminSessionResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -81,7 +81,7 @@ public sealed class AuthController(
         return Ok(await CreateSessionResponseAsync(user, expiresAt));
     }
 
-    [Authorize]
+    [Authorize(Policy = AdminAuthorization.Policy)]
     [HttpPost("logout")]
     [ValidateApiAntiforgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -92,7 +92,7 @@ public sealed class AuthController(
         return NoContent();
     }
 
-    private async Task<AdminSessionResponse> CreateSessionResponseAsync(AdminUser user, DateTimeOffset expiresAt)
+    private async Task<AdminSessionResponse> CreateSessionResponseAsync(ApplicationUser user, DateTimeOffset expiresAt)
     {
         var roles = await userManager.GetRolesAsync(user);
         return new AdminSessionResponse(user.Email!, roles.FirstOrDefault(), expiresAt);

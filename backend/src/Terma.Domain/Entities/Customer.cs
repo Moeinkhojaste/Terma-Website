@@ -1,4 +1,6 @@
 using Terma.Domain.Common;
+using Terma.Domain.Exceptions;
+using Terma.Domain.Services;
 
 namespace Terma.Domain.Entities;
 
@@ -10,6 +12,7 @@ public sealed class Customer : BaseEntity
     public string? Email { get; private set; }
     public int OrderCount { get; private set; }
     public decimal TotalOrderValue { get; private set; }
+    public Guid? UserId { get; private set; }
 
     private Customer() { }
 
@@ -17,7 +20,7 @@ public sealed class Customer : BaseEntity
     {
         FullName = fullName.Trim();
         Phone = phone.Trim();
-        NormalizedPhone = NormalizePhone(phone);
+        NormalizedPhone = IranianPhoneNumber.Normalize(phone);
         Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
     }
 
@@ -25,7 +28,7 @@ public sealed class Customer : BaseEntity
     {
         FullName = fullName.Trim();
         Phone = phone.Trim();
-        NormalizedPhone = NormalizePhone(phone);
+        NormalizedPhone = IranianPhoneNumber.Normalize(phone);
         Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
         MarkUpdated();
     }
@@ -37,5 +40,12 @@ public sealed class Customer : BaseEntity
         MarkUpdated();
     }
 
-    private static string NormalizePhone(string phone) => new string(phone.Where(char.IsDigit).ToArray()).TrimStart('0');
+    public void AttachToUser(Guid userId)
+    {
+        if (UserId.HasValue && UserId.Value != userId)
+            throw new DomainException("This customer is already linked to another account.");
+        if (UserId == userId) return;
+        UserId = userId;
+        MarkUpdated();
+    }
 }

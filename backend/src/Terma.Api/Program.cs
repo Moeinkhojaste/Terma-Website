@@ -62,9 +62,25 @@ builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
     .AddIdentityCookies();
+builder.Services.AddAuthentication()
+    .AddCookie(CustomerAuthorization.AuthenticationScheme);
 builder.Services.AddAuthorization(options =>
+{
     options.AddPolicy(AdminAuthorization.Policy, policy =>
-        policy.RequireRole(AdminAuthorization.Role)));
+    {
+        policy.AddAuthenticationSchemes(IdentityConstants.ApplicationScheme);
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole(AdminAuthorization.Role);
+        policy.RequireClaim(CustomerAuthorization.AccountTypeClaim, AdminAuthorization.AccountType);
+    });
+    options.AddPolicy(CustomerAuthorization.Policy, policy =>
+    {
+        policy.AddAuthenticationSchemes(CustomerAuthorization.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole(CustomerAuthorization.Role);
+        policy.RequireClaim(CustomerAuthorization.AccountTypeClaim, CustomerAuthorization.AccountType);
+    });
+});
 builder.Services.AddAntiforgery(options =>
 {
     options.HeaderName = "X-CSRF-TOKEN";
@@ -98,6 +114,21 @@ builder.Services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.Appli
             StatusCodes.Status403Forbidden,
             "Access denied",
             "The signed-in account does not have permission to perform this action.");
+    });
+builder.Services.AddOptions<CookieAuthenticationOptions>(CustomerAuthorization.AuthenticationScheme)
+    .Configure<TimeProvider>((options, timeProvider) =>
+    {
+        options.Cookie.Name = useSecureCookies ? "__Host-Terma.Customer" : "Terma.Customer.Dev";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.IsEssential = true;
+        options.Cookie.Path = "/";
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = useSecureCookies ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
+        options.ExpireTimeSpan = TimeSpan.FromDays(30);
+        options.SlidingExpiration = false;
+        options.TimeProvider = timeProvider;
+        options.Events.OnRedirectToLogin = context => WriteAuthenticationProblemAsync(context, StatusCodes.Status401Unauthorized, "Authentication required", "The customer session is missing or has expired.");
+        options.Events.OnRedirectToAccessDenied = context => WriteAuthenticationProblemAsync(context, StatusCodes.Status403Forbidden, "Access denied", "The signed-in customer cannot access this resource.");
     });
 
 builder.Services.AddHealthChecks()

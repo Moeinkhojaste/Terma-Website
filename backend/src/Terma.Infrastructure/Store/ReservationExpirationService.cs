@@ -25,6 +25,8 @@ public sealed class ReservationExpirationService(IServiceScopeFactory scopes, IL
                     {
                         var variant = await db.ProductVariants.SingleOrDefaultAsync(x => x.Id == item.VariantId, stoppingToken);
                         variant?.ReleaseReservation(item.Quantity);
+                        var product = await db.Products.SingleOrDefaultAsync(x => x.Id == item.ProductId, stoppingToken);
+                        product?.AdjustStock(item.Quantity);
                     }
                     order.ChangeStatus(OrderStatus.Expired);
                 }

@@ -16,6 +16,8 @@ public sealed class ApiExceptionHandler(
         CancellationToken cancellationToken)
     {
         var problem = CreateProblem(httpContext, exception);
+        if (exception is TooManyRequestsException rateLimit)
+            httpContext.Response.Headers.RetryAfter = rateLimit.RetryAfterSeconds.ToString();
         if (problem.Status >= 500)
             logger.LogError(exception, "Unhandled exception for {Method} {Path}", httpContext.Request.Method, httpContext.Request.Path);
 
@@ -36,6 +38,7 @@ public sealed class ApiExceptionHandler(
             NotFoundException => Create(StatusCodes.Status404NotFound, "Resource not found", exception.Message),
             ConflictException => Create(StatusCodes.Status409Conflict, "Conflict", exception.Message),
             PreconditionFailedException => Create(StatusCodes.Status412PreconditionFailed, "Content changed", exception.Message),
+            TooManyRequestsException => Create(StatusCodes.Status429TooManyRequests, "Too many requests", exception.Message),
             DomainException => Create(StatusCodes.Status400BadRequest, "Domain rule violation", exception.Message),
             _ => Create(StatusCodes.Status500InternalServerError, "Server error", "An unexpected error occurred.")
         };

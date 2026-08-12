@@ -92,7 +92,7 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
 
     private static async Task SeedIdentityAsync(IServiceProvider services)
     {
-        var users = services.GetRequiredService<UserManager<AdminUser>>();
+        var users = services.GetRequiredService<UserManager<ApplicationUser>>();
         var roles = services.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
 
         if (!await roles.RoleExistsAsync(AdminAuthorization.Role))
@@ -104,7 +104,7 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
     }
 
     private static async Task CreateUserAsync(
-        UserManager<AdminUser> users,
+        UserManager<ApplicationUser> users,
         string email,
         string password,
         string? role = null)
@@ -112,7 +112,7 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
         if (await users.FindByEmailAsync(email) is not null)
             return;
 
-        var user = new AdminUser { UserName = email, Email = email, EmailConfirmed = true };
+        var user = new ApplicationUser { UserName = email, Email = email, EmailConfirmed = true, AccountType = ApplicationUserType.Admin };
         Assert.True((await users.CreateAsync(user, password)).Succeeded);
         if (role is not null)
             Assert.True((await users.AddToRoleAsync(user, role)).Succeeded);

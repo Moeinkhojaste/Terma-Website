@@ -30,7 +30,7 @@ public sealed class AuthenticationApiTests(TermaApiFactory factory) : IClassFixt
         const string secondPassword = "SecondAdmin!456";
         await using var scope = factory.Services.CreateAsyncScope();
         var provisioner = scope.ServiceProvider.GetRequiredService<AdminAccountProvisioner>();
-        var users = scope.ServiceProvider.GetRequiredService<UserManager<AdminUser>>();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
         await provisioner.ProvisionAsync(email, firstPassword);
         await provisioner.ProvisionAsync(email, secondPassword);

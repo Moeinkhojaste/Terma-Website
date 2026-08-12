@@ -13,9 +13,9 @@ import { getPublicContent, type PublicContent } from "@/features/content/content
 import { getPublishedCmsPage } from "@/features/content/cms-api";
 
 const sizes = [
-  { title: "۴ نفره", size: 4 },
-  { title: "۶ نفره", size: 6 },
-  { title: "۸ نفره", size: 8 },
+  { title: "۴ نفره", size: 4, image: "/images/table-4p.webp", alt: "سفره ترمه روی میز چهار نفره", desc: "مناسب صبحانه و وعده‌های دونفره تا چهارنفره" },
+  { title: "۶ نفره", size: 6, image: "/images/table-6p.webp", alt: "سفره ترمه روی میز شش نفره", desc: "ابعاد استاندارد برای پذیرایی‌های خانوادگی" },
+  { title: "۸ نفره", size: 8, image: "/images/table-8p.webp", alt: "سفره ترمه روی میز هشت نفره", desc: "مناسب مهمانی‌های بزرگ و سفره‌های اصیل" },
 ];
 
 const heroImages = [
@@ -97,12 +97,29 @@ export default async function Home() {
 
         <section className="section-pad section-rule" id="اندازه‌ها">
           <Container>
-            <SectionHeader eyebrow="دسته‌بندی" title="انتخاب بر اساس ظرفیت" />
+            <SectionHeader eyebrow="دسته‌بندی" title="انتخاب بر اساس ظرفیت" description="سفره ترمه مناسب ابعاد میز خوری خود را انتخاب کنید." />
             <div className="size-grid">
               {sizes.map((size) => (
                 <Link className="size-card" href={`/products?tableCapacity=${size.size}`} key={size.title}>
-                  <FabricIcon className="size-12" />
-                  <div><h3>{size.title}</h3><span>مشاهده محصولات <ArrowLeftIcon /></span></div>
+                  <div className="size-card__image-wrap">
+                    <Image
+                      src={size.image}
+                      alt={size.alt}
+                      width={260}
+                      height={180}
+                      className="size-card__image"
+                    />
+                    <div className="size-card__badge">{size.title}</div>
+                  </div>
+                  <div className="size-card__content">
+                    <div>
+                      <h3>سفره {size.title}</h3>
+                      <p>{size.desc}</p>
+                    </div>
+                    <span className="size-card__cta">
+                      مشاهده محصولات <ArrowLeftIcon />
+                    </span>
+                  </div>
                 </Link>
               ))}
             </div>

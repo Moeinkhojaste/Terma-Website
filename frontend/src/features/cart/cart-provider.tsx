@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Product } from "@/features/products/models";
 
 export type CartItem = {
@@ -17,7 +17,11 @@ type CartContextValue = {
   items: CartItem[];
   itemCount: number;
   hydrated: boolean;
-  addItem: (product: Product) => void;
+  isCartOpen: boolean;
+  openCart: () => void;
+  closeCart: () => void;
+  toggleCart: () => void;
+  addItem: (product: Product, openDrawer?: boolean) => void;
   setQuantity: (productId: string, quantity: number) => void;
   removeItem: (productId: string) => void;
   clearCart: () => void;
@@ -49,6 +53,11 @@ function readStoredCart(value: string): CartItem[] {
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  const openCart = useCallback(() => setIsCartOpen(true), []);
+  const closeCart = useCallback(() => setIsCartOpen(false), []);
+  const toggleCart = useCallback(() => setIsCartOpen((prev) => !prev), []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -72,19 +81,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
     items,
     hydrated,
     itemCount: items.reduce((total, item) => total + item.quantity, 0),
-    addItem: (product) => setItems((current) => {
-      if (!product.isActive || product.stockQuantity < 1) return current;
-      const existing = current.find((item) => item.product.id === product.id);
-      return existing
-        ? current.map((item) => item.product.id === product.id ? { ...item, product, quantity: Math.min(item.quantity + 1, product.stockQuantity) } : item)
-        : [...current, { product, quantity: 1 }];
-    }),
+    isCartOpen,
+    openCart,
+    closeCart,
+    toggleCart,
+    addItem: (product, openDrawer = true) => {
+      setItems((current) => {
+        if (!product.isActive || product.stockQuantity < 1) return current;
+        const existing = current.find((item) => item.product.id === product.id);
+        return existing
+          ? current.map((item) => item.product.id === product.id ? { ...item, product, quantity: Math.min(item.quantity + 1, product.stockQuantity) } : item)
+          : [...current, { product, quantity: 1 }];
+      });
+      if (openDrawer) setIsCartOpen(true);
+    },
     setQuantity: (productId, quantity) => setItems((current) => current.map((item) => item.product.id === productId
       ? { ...item, quantity: Math.max(1, Math.min(quantity, item.product.stockQuantity)) }
       : item)),
     removeItem: (productId) => setItems((current) => current.filter((item) => item.product.id !== productId)),
     clearCart: () => setItems([]),
-  }), [hydrated, items]);
+  }), [hydrated, isCartOpen, items, openCart, closeCart, toggleCart]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cairo } from "next/font/google";
 import { CartProvider } from "@/features/cart/cart-provider";
+import { CartDrawer } from "@/features/cart/cart-drawer";
 import "./globals.css";
 
 const cairo = Cairo({
@@ -18,9 +19,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="fa" dir="rtl" className={cairo.variable}>
       <body className={cairo.className}>
-        <CartProvider>{children}</CartProvider>
+        <CartProvider>
+          {children}
+          <CartDrawer />
+        </CartProvider>
       </body>
     </html>
   );
 }
-

@@ -6,7 +6,7 @@ using Terma.Domain.Entities;
 
 namespace Terma.Infrastructure.Persistence;
 
-public class TermaDbContext : IdentityDbContext<AdminUser, IdentityRole<Guid>, Guid>
+public class TermaDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
 {
     public TermaDbContext(DbContextOptions<TermaDbContext> options) : base(options)
     {
@@ -27,10 +27,11 @@ public class TermaDbContext : IdentityDbContext<AdminUser, IdentityRole<Guid>, G
     public DbSet<CmsPage> CmsPages => Set<CmsPage>();
     public DbSet<CmsRevision> CmsRevisions => Set<CmsRevision>();
     public DbSet<MediaAsset> MediaAssets => Set<MediaAsset>();
+    public DbSet<PhoneOtpChallenge> PhoneOtpChallenges => Set<PhoneOtpChallenge>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(TermaDbContext).Assembly);
         base.OnModelCreating(modelBuilder);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(TermaDbContext).Assembly);
     }
 }

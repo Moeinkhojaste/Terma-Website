@@ -1,7 +1,7 @@
 import { apiRequest } from "@/lib/api-client";
 
 export type Dashboard = { productCount: number; categoryCount: number; lowStockCount: number; pendingOrderCount: number; unreadMessageCount: number; customerCount: number; orderValue: number };
-export type AdminOrder = { id: string; number: string; customerName: string; phone: string; status: string; total: number; createdAt: string; reservationExpiresAtUtc: string; items: { productId: string; variantId: string | null; productName: string; sku: string; unitPrice: number; quantity: number }[] };
+export type AdminOrder = { id: string; number: string; customerName: string; phone: string; status: string; total: number; createdAt: string; reservationExpiresAtUtc: string; province: string; city: string; address: string; postalCode: string; customerNotes: string | null; items: { productId: string; variantId: string | null; productName: string; variantTitle?: string | null; tableCapacity?: number | null; sku: string; unitPrice: number; quantity: number }[] };
 export type AdminCustomer = { id: string; fullName: string; phone: string; email: string | null; orderCount: number; totalOrderValue: number; createdAt: string };
 export type Promotion = { id: string; name: string; code: string | null; type: string; discountType: string; value: number; minimumSubtotal: number | null; maximumDiscount: number | null; usageLimit: number | null; usageCount: number; startsAtUtc: string; endsAtUtc: string | null; isActive: boolean };
 export type ShippingRule = { id: string; name: string; province: string | null; city: string | null; cost: number; freeAboveSubtotal: number | null; priority: number; isActive: boolean };

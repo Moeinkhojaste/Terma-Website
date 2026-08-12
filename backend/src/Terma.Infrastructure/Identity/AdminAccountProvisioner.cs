@@ -4,7 +4,7 @@ using Terma.Application.Common.Authorization;
 namespace Terma.Infrastructure.Identity;
 
 public sealed class AdminAccountProvisioner(
-    UserManager<AdminUser> userManager,
+    UserManager<ApplicationUser> userManager,
     RoleManager<IdentityRole<Guid>> roleManager)
 {
     public async Task ProvisionAsync(string email, string password)
@@ -25,17 +25,20 @@ public sealed class AdminAccountProvisioner(
         var user = await userManager.FindByEmailAsync(normalizedEmail);
         if (user is null)
         {
-            user = new AdminUser
+            user = new ApplicationUser
             {
                 UserName = normalizedEmail,
                 Email = normalizedEmail,
-                EmailConfirmed = true
+                EmailConfirmed = true,
+                AccountType = ApplicationUserType.Admin
             };
 
             EnsureSucceeded(await userManager.CreateAsync(user, password), "Could not create the admin account.");
         }
         else
         {
+            user.AccountType = ApplicationUserType.Admin;
+            EnsureSucceeded(await userManager.UpdateAsync(user), "Could not update the admin account type.");
             var resetToken = await userManager.GeneratePasswordResetTokenAsync(user);
             EnsureSucceeded(
                 await userManager.ResetPasswordAsync(user, resetToken, password),

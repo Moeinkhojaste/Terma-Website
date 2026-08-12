@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Terma.Application.Categories;
 using Terma.Application.Products;
 using Terma.Application.Store;
@@ -37,6 +38,7 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
         var productResponse = await admin.PostAsJsonAsync("/api/products", new CreateProductRequest { Name = "Checkout product", Sku = $"CHECK-{Guid.NewGuid():N}", Description = "test", Price = 1000, StockQuantity = 3, TableCapacity = 4, Length = 150, Width = 180, FabricType = "Termeh", LiningType = "Satin", Color = "Blue", Pattern = "Pattern", CategoryId = category.Id });
         var product = (await productResponse.Content.ReadFromJsonAsync<ProductDto>())!;
         using var guest = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(guest);
         var request = new CheckoutRequest { Items = [new CheckoutItemRequest(product.Id, null, 1)], FullName = "Guest Buyer", Phone = "09121234567", Province = "Tehran", City = "Tehran", Address = "A sufficiently long address", PostalCode = "1234567890" };
         var created = await guest.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.OK, created.StatusCode);
@@ -48,6 +50,14 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
         var updatedProduct = await admin.GetFromJsonAsync<ProductDto>($"/api/products/{product.Id}");
         Assert.NotNull(updatedProduct);
         Assert.Equal(2, updatedProduct.StockQuantity);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.TermaDbContext>();
+            var variant = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(db.ProductVariants, x => x.ProductId == product.Id);
+            Assert.Equal(3, variant.StockQuantity);
+            Assert.Equal(1, variant.ReservedQuantity);
+            Assert.Equal(2, variant.AvailableQuantity);
+        }
     }
 
     [Fact]
@@ -58,6 +68,7 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
         var productResponse = await admin.PostAsJsonAsync("/api/products", new CreateProductRequest { Name = "Status product", Sku = $"STATUS-{Guid.NewGuid():N}", Description = "test", Price = 1000, StockQuantity = 5, TableCapacity = 4, Length = 150, Width = 180, FabricType = "Termeh", LiningType = "Satin", Color = "Blue", Pattern = "Pattern", CategoryId = category.Id });
         var product = (await productResponse.Content.ReadFromJsonAsync<ProductDto>())!;
         using var guest = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(guest);
         var request = new CheckoutRequest { Items = [new CheckoutItemRequest(product.Id, null, 1)], FullName = "Status Buyer", Phone = "09121234567", Province = "Tehran", City = "Tehran", Address = "Address info", PostalCode = "1234567890" };
         var created = await guest.PostAsJsonAsync("/api/orders", request);
         var order = (await created.Content.ReadFromJsonAsync<CreatedOrderDto>())!;
@@ -67,6 +78,14 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
         var updatedOrder = await updateResponse.Content.ReadFromJsonAsync<AdminOrderDto>();
         Assert.NotNull(updatedOrder);
         Assert.Equal(OrderStatus.Confirmed, updatedOrder.Status);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.TermaDbContext>();
+            var variant = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(db.ProductVariants, x => x.ProductId == product.Id);
+            Assert.Equal(4, variant.StockQuantity);
+            Assert.Equal(0, variant.ReservedQuantity);
+            Assert.Equal(4, variant.AvailableQuantity);
+        }
     }
 
     private static async Task<CategoryDto> CreateCategory(HttpClient client)

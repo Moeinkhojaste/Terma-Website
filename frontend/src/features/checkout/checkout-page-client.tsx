@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRef, useState, type FocusEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FocusEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/features/cart/cart-provider";
 import { Container } from "@/components/layout/container";
@@ -11,15 +11,16 @@ import { Header } from "@/components/layout/header";
 import { formatPrice } from "@/lib/format";
 import { ApiError } from "@/lib/api-client";
 import { createOrder, getQuote } from "@/features/checkout/checkout-api";
+import { getCustomerSession } from "@/features/account/account-api";
+import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
 
-type FieldName = "fullName" | "mobile" | "email" | "province" | "city" | "address" | "postalCode";
+type FieldName = "fullName" | "mobile" | "province" | "city" | "address" | "postalCode";
 type FormErrors = Partial<Record<FieldName, string>>;
 type RequestState = "idle" | "submitting" | "network-error" | "server-error";
 
 const fieldLabels: Record<FieldName, string> = {
   fullName: "نام و نام خانوادگی",
   mobile: "شماره موبایل",
-  email: "ایمیل",
   province: "استان",
   city: "شهر",
   address: "آدرس کامل",
@@ -28,12 +29,16 @@ const fieldLabels: Record<FieldName, string> = {
 
 function validateField(name: FieldName, value: string) {
   const clean = value.trim();
+  if (name === "fullName" && !clean) return "نام و نام خانوادگی را وارد کنید.";
   if (name === "fullName" && clean.length < 3) return "نام و نام خانوادگی را کامل وارد کنید.";
-  if (name === "mobile" && !/^[0-9۰-۹]{11}$/.test(clean)) return "شماره موبایل باید ۱۱ رقم باشد.";
-  if (name === "email" && clean && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) return "ایمیل واردشده معتبر نیست.";
+  if (name === "mobile" && !clean) return "شماره موبایل را وارد کنید.";
+  if (name === "mobile" && !normalizeIranianMobile(clean)) return "شماره را مانند ۰۹۱۲...، +۹۸۹۱۲... یا ۰۰۹۸۹۱۲... وارد کنید.";
+  if ((name === "province" || name === "city") && !clean) return `${fieldLabels[name]} را وارد کنید.`;
   if ((name === "province" || name === "city") && clean.length < 2) return `${fieldLabels[name]} را وارد کنید.`;
+  if (name === "address" && !clean) return "آدرس کامل را وارد کنید.";
   if (name === "address" && clean.length < 10) return "آدرس را با جزئیات بیشتری وارد کنید.";
-  if (name === "postalCode" && !/^[0-9۰-۹]{10}$/.test(clean)) return "کد پستی باید ۱۰ رقم باشد.";
+  if (name === "postalCode" && !clean) return "کد پستی را وارد کنید.";
+  if (name === "postalCode" && !/^\d{10}$/.test(normalizeNumericText(clean))) return "کد پستی باید ۱۰ رقم باشد.";
   return "";
 }
 
@@ -52,6 +57,10 @@ export function CheckoutPageClient() {
   const { items, hydrated, clearCart } = useCart();
   const [errors, setErrors] = useState<FormErrors>({});
   const [requestState, setRequestState] = useState<RequestState>("idle");
+  const [serverError, setServerError] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [verifiedMobile, setVerifiedMobile] = useState(false);
+  useEffect(() => { getCustomerSession().then(session => { setMobile(session.phone); setVerifiedMobile(true); }).catch(() => undefined); }, []);
   
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
@@ -66,6 +75,15 @@ export function CheckoutPageClient() {
     if (!(name in fieldLabels)) return;
     const error = validateField(name, event.currentTarget.value);
     setErrors((current) => ({ ...current, [name]: error || undefined }));
+  }
+
+  function handleChange(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    const name = event.currentTarget.name as FieldName;
+    if (!(name in fieldLabels)) return;
+    const error = validateField(name, event.currentTarget.value);
+    setErrors((current) => ({ ...current, [name]: error || undefined }));
+    setRequestState("idle");
+    setServerError("");
   }
 
   async function handleApplyCoupon(e: FormEvent) {
@@ -115,20 +133,25 @@ export function CheckoutPageClient() {
     }
 
     setRequestState("submitting");
+    setServerError("");
     if (!window.navigator.onLine) { setRequestState("network-error"); return; }
     const form = new FormData(event.currentTarget);
     try {
       const order = await createOrder({
         items: items.map(({ product, quantity }) => ({ productId: product.id, quantity })),
-        fullName: String(form.get("fullName") ?? ""), phone: String(form.get("mobile") ?? ""), email: String(form.get("email") ?? "") || undefined,
-        province: String(form.get("province") ?? ""), city: String(form.get("city") ?? ""), address: String(form.get("address") ?? ""), postalCode: String(form.get("postalCode") ?? ""),
+        fullName: String(form.get("fullName") ?? "").trim(), phone: normalizeIranianMobile(String(form.get("mobile") ?? ""))!,
+        province: String(form.get("province") ?? "").trim(), city: String(form.get("city") ?? "").trim(), address: String(form.get("address") ?? "").trim(), postalCode: normalizeNumericText(String(form.get("postalCode") ?? "")),
+        customerNotes: String(form.get("customerNotes") ?? "").trim() || undefined,
         couponCode: appliedCoupon ?? undefined,
       });
       clearCart();
       router.replace(`/order/success?order=${encodeURIComponent(order.number)}&tracking=${encodeURIComponent(order.trackingToken)}`);
     } catch (caught) {
       if (caught instanceof ApiError && caught.isNetworkError) setRequestState("network-error");
-      else setRequestState("server-error");
+      else {
+        setServerError(getCheckoutErrorMessage(caught));
+        setRequestState("server-error");
+      }
     }
   }
 
@@ -136,7 +159,12 @@ export function CheckoutPageClient() {
     "aria-invalid": Boolean(errors[name]),
     "aria-describedby": errors[name] ? `${name}-error` : undefined,
     onBlur: handleBlur,
+    onChange: handleChange,
   });
+
+  const fieldError = (name: FieldName) => errors[name]
+    ? <small id={`${name}-error`} className="form-field__error" role="alert">{errors[name]}</small>
+    : null;
 
   return (
     <>
@@ -170,20 +198,19 @@ export function CheckoutPageClient() {
                 <section className="checkout-panel" aria-labelledby="receiver-title">
                   <div className="checkout-panel__heading"><span>۱</span><div><h2 id="receiver-title">اطلاعات گیرنده</h2><p>نام و شماره تماس فرد تحویل‌گیرنده</p></div></div>
                   <div className="form-grid">
-                    <label className="form-field"><span>نام و نام خانوادگی *</span><input name="fullName" autoComplete="name" {...field("fullName")} /></label>
-                    <label className="form-field"><span>شماره موبایل *</span><input name="mobile" type="tel" inputMode="numeric" autoComplete="tel" placeholder="مثال: ۰۹۱۲۱۲۳۴۵۶۷" {...field("mobile")} /></label>
-                    <label className="form-field"><span>ایمیل <small>اختیاری</small></span><input name="email" type="email" autoComplete="email" {...field("email")} /></label>
+                    <label className="form-field"><span>نام و نام خانوادگی *</span><input name="fullName" autoComplete="name" {...field("fullName")} />{fieldError("fullName")}</label>
+                    <label className="form-field"><span>شماره موبایل *</span><input name="mobile" type="tel" inputMode="tel" autoComplete="tel" placeholder="۰۹۱۲... یا +۹۸۹۱۲..." value={mobile} readOnly={verifiedMobile} aria-readonly={verifiedMobile} {...field("mobile")} onChange={event => { setMobile(event.target.value); handleChange(event); }} />{fieldError("mobile")}{verifiedMobile && <small>این شماره قبلاً تأیید شده است.</small>}</label>
                   </div>
                 </section>
 
                 <section className="checkout-panel" aria-labelledby="address-title">
                   <div className="checkout-panel__heading"><span>۲</span><div><h2 id="address-title">آدرس ارسال</h2><p>نشانی دقیق محل تحویل سفارش</p></div></div>
                   <div className="form-grid">
-                    <label className="form-field"><span>استان *</span><input name="province" autoComplete="address-level1" {...field("province")} /></label>
-                    <label className="form-field"><span>شهر *</span><input name="city" autoComplete="address-level2" {...field("city")} /></label>
-                    <label className="form-field form-field--full"><span>آدرس کامل *</span><textarea name="address" rows={4} autoComplete="street-address" {...field("address")} /></label>
-                    <label className="form-field"><span>کد پستی *</span><input name="postalCode" inputMode="numeric" autoComplete="postal-code" {...field("postalCode")} /></label>
-                    <label className="form-field"><span>توضیحات سفارش <small>اختیاری</small></span><input name="notes" /></label>
+                    <label className="form-field"><span>استان *</span><input name="province" autoComplete="address-level1" {...field("province")} />{fieldError("province")}</label>
+                    <label className="form-field"><span>شهر *</span><input name="city" autoComplete="address-level2" {...field("city")} />{fieldError("city")}</label>
+                    <label className="form-field form-field--full"><span>آدرس کامل *</span><textarea name="address" rows={4} autoComplete="street-address" {...field("address")} />{fieldError("address")}</label>
+                    <label className="form-field"><span>کد پستی *</span><input name="postalCode" inputMode="numeric" autoComplete="postal-code" {...field("postalCode")} />{fieldError("postalCode")}</label>
+                    <label className="form-field form-field--full"><span>توضیحات سفارش (اختیاری)</span><textarea name="customerNotes" rows={3} placeholder="نکته یا درخواستی درباره این سفارش دارید، بنویسید..." /></label>
                   </div>
                 </section>
 
@@ -199,11 +226,11 @@ export function CheckoutPageClient() {
                   </div>
                 )}
                 {requestState === "server-error" && (
-                  <div className="network-error" role="alert"><div><strong>ثبت سفارش انجام نشد.</strong><p>موجودی، آدرس یا اتصال سرویس را بررسی کنید و دوباره تلاش کنید.</p></div><button type="button" onClick={() => formRef.current?.requestSubmit()}>تلاش دوباره</button></div>
+                  <div className="network-error" role="alert"><div><strong>ثبت سفارش انجام نشد.</strong><p>{serverError}</p></div><button type="button" onClick={() => formRef.current?.requestSubmit()}>تلاش دوباره</button></div>
                 )}
                 <button className="button button--primary checkout-submit" type="submit" disabled={requestState === "submitting"}>
                   {requestState === "submitting" && <span className="button-spinner" aria-hidden="true" />}
-                  {requestState === "submitting" ? "در حال ارسال درخواست…" : "ثبت آزمایشی سفارش"}
+                  {requestState === "submitting" ? "در حال ارسال درخواست…" : "ثبت سفارش"}
                 </button>
                 <p className="checkout-test-note">این نسخه به درگاه بانکی واقعی متصل نیست.</p>
               </form>
@@ -265,4 +292,16 @@ export function CheckoutPageClient() {
       <Footer />
     </>
   );
+}
+
+function getCheckoutErrorMessage(error: unknown) {
+  if (!(error instanceof ApiError)) return "خطای پیش‌بینی‌نشده‌ای رخ داد. دوباره تلاش کنید.";
+  if (error.isNetworkError) return "ارتباط با سرویس برقرار نشد. اتصال اینترنت و اجرای API را بررسی کنید.";
+  if (error.status === 409) return "شماره موبایل سفارش باید با شماره تأییدشده حساب شما یکسان باشد.";
+  const detail = `${error.problem?.detail ?? ""} ${error.message}`.toLowerCase();
+  if (detail.includes("available") || detail.includes("inventory") || detail.includes("stock")) {
+    return "موجودی یکی از محصولات کافی نیست. سبد خرید را بررسی کنید.";
+  }
+  if (error.status === 400) return "اطلاعات سفارش معتبر نیست. موارد مشخص‌شده را بررسی کنید.";
+  return "سرویس ثبت سفارش پاسخ مناسبی نداد. چند لحظه دیگر دوباره تلاش کنید.";
 }

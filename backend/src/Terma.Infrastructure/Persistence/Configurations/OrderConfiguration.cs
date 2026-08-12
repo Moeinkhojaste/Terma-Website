@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Terma.Domain.Entities;
+using Terma.Infrastructure.Identity;
 
 namespace Terma.Infrastructure.Persistence.Configurations;
 
@@ -21,12 +22,15 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(x => x.City).HasMaxLength(120).IsRequired();
         builder.Property(x => x.Address).HasMaxLength(1000).IsRequired();
         builder.Property(x => x.PostalCode).HasMaxLength(32).IsRequired();
+        builder.Property(x => x.CustomerNotes).HasMaxLength(1000);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(40);
         builder.Property(x => x.Subtotal).HasPrecision(18, 2);
         builder.Property(x => x.DiscountTotal).HasPrecision(18, 2);
         builder.Property(x => x.ShippingTotal).HasPrecision(18, 2);
         builder.Property(x => x.Total).HasPrecision(18, 2);
         builder.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => x.UserId);
+        builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasMany(x => x.Items).WithOne(x => x.Order).HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Cascade);
         builder.HasMany(x => x.History).WithOne(x => x.Order).HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Cascade);
     }
