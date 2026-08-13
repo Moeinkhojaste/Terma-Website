@@ -72,6 +72,45 @@ test("mobile product discovery, gallery, sticky purchase, cart, and checkout jou
   await expect(page.locator('.checkout-progress li[aria-current="step"]')).toContainText("اطلاعات ارسال");
 });
 
+for (const width of [375, 1440] as const) {
+  test(`checkout review is complete and responsive at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
+    await page.goto("/products");
+
+    const firstCard = page.locator(".product-card").first();
+    const productName = (await firstCard.getByRole("heading", { level: 3 }).textContent())!;
+    await firstCard.hover();
+    await firstCard.getByRole("button", { name: new RegExp(`مشاهده سریع ${productName}`) }).click();
+    const quickView = page.getByRole("dialog", { name: new RegExp(`مشاهده سریع ${productName}`) });
+    await quickView.getByRole("button", { name: "افزودن به سبد خرید" }).click();
+    await page.getByRole("dialog", { name: "سبد خرید سریع" }).getByRole("link", { name: "تسویه حساب و تکمیل خرید" }).click();
+
+    await page.getByLabel("نام و نام خانوادگی *").fill("مریم احمدی");
+    await page.getByLabel("شماره موبایل *").fill("۰۹۱۲۱۲۳۴۵۶۷");
+    await page.getByLabel("استان *").fill("تهران");
+    await page.getByLabel("شهر *").fill("تهران");
+    await page.getByLabel("آدرس کامل *").fill("خیابان ولیعصر، کوچه یازدهم، پلاک ۲۴");
+    await page.getByLabel("کد پستی *").fill("۱۲۳۴۵۶۷۸۹۰");
+    await page.getByRole("button", { name: "ثبت سفارش" }).click();
+
+    const review = page.getByRole("dialog", { name: "بازبینی و تأیید سفارش" });
+    await expect(review).toBeVisible();
+    await expect(page.locator("body")).toHaveClass(/dialog-open/);
+    await expect(review.getByRole("heading", { name: "اطلاعات سفارش را بررسی کنید" })).toBeVisible();
+    await expect(review.getByText("مریم احمدی")).toBeVisible();
+    await expect(review.getByText("ثبت نشده")).toBeVisible();
+    await expect(review.getByText(productName, { exact: true })).toBeVisible();
+    await expect(review.getByRole("button", { name: "بازگشت و ویرایش" })).toBeVisible();
+    await expect(review.getByRole("button", { name: "تأیید و ثبت سفارش" })).toBeVisible();
+    await expect.poll(() => review.locator(".checkout-review").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+    await page.keyboard.press("Escape");
+    await expect(review).not.toBeVisible();
+    await expect(page.locator("body")).not.toHaveClass(/dialog-open/);
+    await expect(page.getByLabel("نام و نام خانوادگی *")).toHaveValue("مریم احمدی");
+  });
+}
+
 test("natural search, URL filters, reduced motion, and accessibility work", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.emulateMedia({ reducedMotion: "reduce" });

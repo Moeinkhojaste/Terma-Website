@@ -2,23 +2,31 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type ChangeEvent, type FocusEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FocusEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/features/cart/cart-provider";
 import { Container } from "@/components/layout/container";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
+import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { formatPrice } from "@/lib/format";
 import { ApiError } from "@/lib/api-client";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
-import { createOrder, getQuote } from "@/features/checkout/checkout-api";
+import { createOrder, getQuote, type CheckoutRequest } from "@/features/checkout/checkout-api";
 import { getCustomerSession } from "@/features/account/account-api";
 import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
 
 type FieldName = "fullName" | "mobile" | "province" | "city" | "address" | "postalCode";
 type FormErrors = Partial<Record<FieldName, string>>;
 type RequestState = "idle" | "submitting" | "network-error" | "server-error";
+export type CheckoutReviewSnapshot = {
+  request: CheckoutRequest;
+  products: Array<{ lineId: string; name: string; capacity: string; image: string; quantity: number; lineTotal: number }>;
+  subtotal: number;
+  discountTotal: number;
+  total: number;
+};
 
 const fieldLabels: Record<FieldName, string> = {
   fullName: "نام و نام خانوادگی",
@@ -55,11 +63,12 @@ function validateForm(formData: FormData) {
 
 export function CheckoutPageClient() {
   const router = useRouter();
-  const formRef = useRef<HTMLFormElement>(null);
+  const submissionLockRef = useRef(false);
   const { items, hydrated, clearCart } = useCart();
   const [errors, setErrors] = useState<FormErrors>({});
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [serverError, setServerError] = useState("");
+  const [review, setReview] = useState<CheckoutReviewSnapshot | null>(null);
   const [mobile, setMobile] = useState("");
   const [verifiedMobile, setVerifiedMobile] = useState(false);
   useEffect(() => { getCustomerSession().then(session => { setMobile(session.phone); setVerifiedMobile(true); }).catch(() => undefined); }, []);
@@ -124,9 +133,10 @@ export function CheckoutPageClient() {
     setCouponMessage(null);
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formErrors = validateForm(new FormData(event.currentTarget));
+    const form = new FormData(event.currentTarget);
+    const formErrors = validateForm(form);
     setErrors(formErrors);
     const firstError = (Object.keys(fieldLabels) as FieldName[]).find((name) => formErrors[name]);
     if (firstError) {
@@ -134,28 +144,65 @@ export function CheckoutPageClient() {
       return;
     }
 
+    const request: CheckoutRequest = {
+      items: items.map(({ productId, variantId, quantity }) => ({ productId, variantId, quantity })),
+      fullName: String(form.get("fullName") ?? "").trim(),
+      phone: normalizeIranianMobile(String(form.get("mobile") ?? ""))!,
+      province: String(form.get("province") ?? "").trim(),
+      city: String(form.get("city") ?? "").trim(),
+      address: String(form.get("address") ?? "").trim(),
+      postalCode: normalizeNumericText(String(form.get("postalCode") ?? "")),
+      customerNotes: String(form.get("customerNotes") ?? "").trim() || undefined,
+      couponCode: appliedCoupon ?? undefined,
+    };
+
+    setReview({
+      request,
+      products: items.map(({ lineId, product, quantity }) => ({
+        lineId,
+        name: product.name,
+        capacity: product.capacity,
+        image: product.image,
+        quantity,
+        lineTotal: product.priceValue * quantity,
+      })),
+      subtotal,
+      discountTotal,
+      total: Math.max(0, subtotal - discountTotal),
+    });
+    setRequestState("idle");
+    setServerError("");
+  }
+
+  async function confirmOrder() {
+    if (!review || submissionLockRef.current) return;
+    if (!window.navigator.onLine) {
+      setServerError("اتصال اینترنت را بررسی کنید. اطلاعات سفارش شما حفظ شده است.");
+      setRequestState("network-error");
+      return;
+    }
+
+    submissionLockRef.current = true;
     setRequestState("submitting");
     setServerError("");
-    if (!window.navigator.onLine) { setRequestState("network-error"); return; }
-    const form = new FormData(event.currentTarget);
     try {
-      const order = await createOrder({
-        items: items.map(({ productId, variantId, quantity }) => ({ productId, variantId, quantity })),
-        fullName: String(form.get("fullName") ?? "").trim(), phone: normalizeIranianMobile(String(form.get("mobile") ?? ""))!,
-        province: String(form.get("province") ?? "").trim(), city: String(form.get("city") ?? "").trim(), address: String(form.get("address") ?? "").trim(), postalCode: normalizeNumericText(String(form.get("postalCode") ?? "")),
-        customerNotes: String(form.get("customerNotes") ?? "").trim() || undefined,
-        couponCode: appliedCoupon ?? undefined,
-      });
+      const order = await createOrder(review.request);
       clearCart();
       router.replace(`/order/success?order=${encodeURIComponent(order.number)}&tracking=${encodeURIComponent(order.trackingToken)}`);
     } catch (caught) {
-      if (caught instanceof ApiError && caught.isNetworkError) setRequestState("network-error");
-      else {
-        setServerError(getCheckoutErrorMessage(caught));
-        setRequestState("server-error");
-      }
+      setServerError(getCheckoutErrorMessage(caught));
+      setRequestState(caught instanceof ApiError && caught.isNetworkError ? "network-error" : "server-error");
+    } finally {
+      submissionLockRef.current = false;
     }
   }
+
+  const editOrder = useCallback(() => {
+    if (submissionLockRef.current) return;
+    setReview(null);
+    setRequestState("idle");
+    setServerError("");
+  }, []);
 
   const field = (name: FieldName) => ({
     "aria-invalid": Boolean(errors[name]),
@@ -194,7 +241,7 @@ export function CheckoutPageClient() {
             </section><RecentlyViewedProducts title="محصولات پیشنهادی برای شروع" compact /></>
           ) : (
             <div className="checkout-layout">
-              <form ref={formRef} className="checkout-form" onSubmit={handleSubmit} noValidate aria-busy={requestState === "submitting"}>
+              <form className="checkout-form" onSubmit={handleSubmit} noValidate aria-busy={requestState === "submitting"}>
                 {Object.values(errors).some(Boolean) && (
                   <div className="checkout-form-errors" role="alert"><strong>لطفاً خطاهای مشخص‌شده در فرم را اصلاح کنید.</strong></div>
                 )}
@@ -222,18 +269,8 @@ export function CheckoutPageClient() {
                   <label className="shipping-option"><input type="radio" name="shipping" defaultChecked /><span><strong>ارسال پس از هماهنگی</strong><small>هماهنگی هزینه و زمان تحویل با شما</small></span></label>
                 </section>
 
-                {requestState === "network-error" && (
-                  <div className="network-error" role="alert">
-                    <div><strong>ارتباط با شبکه برقرار نشد.</strong><p>اتصال اینترنت را بررسی کنید. اطلاعات فرم شما حفظ شده است.</p></div>
-                    <button type="button" onClick={() => formRef.current?.requestSubmit()}>تلاش مجدد</button>
-                  </div>
-                )}
-                {requestState === "server-error" && (
-                  <div className="network-error" role="alert"><div><strong>ثبت سفارش انجام نشد.</strong><p>{serverError}</p></div><button type="button" onClick={() => formRef.current?.requestSubmit()}>تلاش دوباره</button></div>
-                )}
                 <button className="button button--primary checkout-submit" type="submit" disabled={requestState === "submitting"}>
-                  {requestState === "submitting" && <span className="button-spinner" aria-hidden="true" />}
-                  {requestState === "submitting" ? "در حال ارسال درخواست…" : "ثبت سفارش"}
+                  ثبت سفارش
                 </button>
                 <p className="checkout-test-note">این نسخه به درگاه بانکی واقعی متصل نیست.</p>
               </form>
@@ -292,8 +329,95 @@ export function CheckoutPageClient() {
           )}
         </Container>
       </main>
+      <CheckoutReviewDialog
+        review={review}
+        requestState={requestState}
+        error={serverError}
+        onEdit={editOrder}
+        onConfirm={confirmOrder}
+      />
       <Footer />
     </>
+  );
+}
+
+export function CheckoutReviewDialog({
+  review,
+  requestState,
+  error,
+  onEdit,
+  onConfirm,
+}: {
+  review: CheckoutReviewSnapshot | null;
+  requestState: RequestState;
+  error: string;
+  onEdit: () => void;
+  onConfirm: () => void;
+}) {
+  const submitting = requestState === "submitting";
+
+  return (
+    <AccessibleDialog open={Boolean(review)} onClose={onEdit} className="checkout-review-dialog" label="بازبینی و تأیید سفارش">
+      {review && (
+        <section className="checkout-review" dir="rtl" aria-busy={submitting}>
+          <header className="checkout-review__header">
+            <p className="section-eyebrow">مرحله نهایی</p>
+            <h2>اطلاعات سفارش را بررسی کنید</h2>
+            <p>اگر موردی اشتباه است، برگردید و آن را اصلاح کنید.</p>
+          </header>
+
+          <div className="checkout-review__body">
+            <section className="checkout-review__section" aria-labelledby="review-customer-title">
+              <h3 id="review-customer-title">مشخصات گیرنده</h3>
+              <dl className="checkout-review__details">
+                <div><dt>نام و نام خانوادگی</dt><dd>{review.request.fullName}</dd></div>
+                <div><dt>شماره موبایل</dt><dd dir="ltr">{review.request.phone}</dd></div>
+                <div><dt>استان</dt><dd>{review.request.province}</dd></div>
+                <div><dt>شهر</dt><dd>{review.request.city}</dd></div>
+                <div className="checkout-review__details-full"><dt>آدرس کامل</dt><dd>{review.request.address}</dd></div>
+                <div><dt>کد پستی</dt><dd dir="ltr">{review.request.postalCode}</dd></div>
+                <div className="checkout-review__details-full"><dt>توضیحات سفارش</dt><dd>{review.request.customerNotes || "ثبت نشده"}</dd></div>
+                <div className="checkout-review__details-full"><dt>روش ارسال</dt><dd>ارسال پس از هماهنگی</dd></div>
+              </dl>
+            </section>
+
+            <section className="checkout-review__section" aria-labelledby="review-products-title">
+              <h3 id="review-products-title">خلاصه سفارش</h3>
+              <div className="checkout-review__products">
+                {review.products.map((product) => (
+                  <div className="checkout-review__product" key={product.lineId}>
+                    <div className="checkout-review__image"><Image src={product.image} alt="" fill sizes="56px" /></div>
+                    <div><strong>{product.name}</strong><span>{product.capacity} · تعداد {new Intl.NumberFormat("fa-IR").format(product.quantity)}</span></div>
+                    <b>{formatPrice(product.lineTotal)}</b>
+                  </div>
+                ))}
+              </div>
+              <dl className="checkout-review__totals">
+                <div><dt>جمع محصولات</dt><dd>{formatPrice(review.subtotal)}</dd></div>
+                {review.discountTotal > 0 && <div className="checkout-review__discount"><dt>تخفیف</dt><dd>{formatPrice(review.discountTotal)}-</dd></div>}
+                <div><dt>هزینه ارسال</dt><dd>پس از بررسی آدرس</dd></div>
+                <div className="checkout-review__total"><dt>مبلغ نهایی</dt><dd>{formatPrice(review.total)}</dd></div>
+              </dl>
+            </section>
+
+            {(requestState === "network-error" || requestState === "server-error") && (
+              <div className="checkout-review__error" role="alert">
+                <strong>{requestState === "network-error" ? "ارتباط با شبکه برقرار نشد." : "ثبت سفارش انجام نشد."}</strong>
+                <p>{error}</p>
+              </div>
+            )}
+          </div>
+
+          <footer className="checkout-review__actions">
+            <button className="button button--secondary" type="button" onClick={onEdit} disabled={submitting}>بازگشت و ویرایش</button>
+            <button className="button button--primary" type="button" onClick={onConfirm} disabled={submitting}>
+              {submitting && <span className="button-spinner" aria-hidden="true" />}
+              {submitting ? "در حال ثبت سفارش…" : "تأیید و ثبت سفارش"}
+            </button>
+          </footer>
+        </section>
+      )}
+    </AccessibleDialog>
   );
 }
 
