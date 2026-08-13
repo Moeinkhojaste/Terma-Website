@@ -461,6 +461,7 @@ export function AdminProductsPage() {
                           ویرایش گروه و ظرفیت‌ها
                         </button>
                         <Link href={`/admin/products/${x.id}/variants`}>ظرفیت‌ها</Link>
+                        <Link href={`/admin/products/${x.id}/media`}>گالری تصاویر</Link>
                         <button type="button" onClick={() => removeProduct(x.id)}>
                           غیرفعال
                         </button>

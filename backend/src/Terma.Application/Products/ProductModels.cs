@@ -23,7 +23,14 @@ public sealed record ProductDto(
     string CategoryName,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
-    IReadOnlyList<ProductVariantDto>? Variants = null);
+    IReadOnlyList<ProductVariantDto>? Variants = null,
+    IReadOnlyList<ProductMediaDto>? Media = null);
+
+public sealed record ProductFacetsDto(
+    IReadOnlyList<string> Colors,
+    IReadOnlyList<int> TableCapacities,
+    decimal? MinimumPrice,
+    decimal? MaximumPrice);
 
 public class ProductWriteRequest
 {
@@ -53,6 +60,8 @@ public sealed class ProductListRequest
     public decimal? MinPrice { get; init; }
     public decimal? MaxPrice { get; init; }
     public int? TableCapacity { get; init; }
+    public string? Color { get; init; }
+    public bool? InStock { get; init; }
     public bool IsActive { get; init; } = true;
     public string? Search { get; init; }
     public int Page { get; init; } = 1;

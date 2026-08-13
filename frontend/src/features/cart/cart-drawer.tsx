@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { BagIcon, MinusIcon, PlusIcon, TrashIcon, XIcon } from "@/components/ui/icons";
 import { useCart } from "@/features/cart/cart-provider";
 
@@ -13,42 +13,11 @@ function formatToman(amount: number): string {
 export function CartDrawer() {
   const { items, itemCount, isCartOpen, closeCart, setQuantity, removeItem } = useCart();
 
-  // Close on escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isCartOpen) {
-        closeCart();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isCartOpen, closeCart]);
-
-  // Lock body scroll when open
-  useEffect(() => {
-    if (isCartOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isCartOpen]);
-
   const subtotal = items.reduce((sum, item) => sum + item.product.priceValue * item.quantity, 0);
 
-  if (!isCartOpen) return null;
-
   return (
-    <div className="cart-drawer-wrapper" aria-live="polite">
-      <div className="cart-drawer-backdrop" onClick={closeCart} aria-hidden="true" />
-      <aside
-        className="cart-drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-label="سبد خرید سریع"
-      >
+    <AccessibleDialog open={isCartOpen} onClose={closeCart} className="cart-drawer-dialog sheet-dialog" label="سبد خرید سریع">
+      <div className="cart-drawer" aria-live="polite">
         <header className="cart-drawer__header">
           <div className="cart-drawer__title">
             <BagIcon className="size-5" />
@@ -74,22 +43,18 @@ export function CartDrawer() {
                 <BagIcon className="size-8" />
               </div>
               <p>سبد خرید شما در حال حاضر خالی است.</p>
-              <button
-                type="button"
-                className="button button--primary"
-                onClick={closeCart}
-              >
+              <Link href="/products" className="button button--primary" onClick={closeCart}>
                 مشاهده و خرید محصولات
-              </button>
+              </Link>
             </div>
           ) : (
             <ul className="cart-drawer__list">
-              {items.map(({ product, quantity }) => {
+              {items.map(({ lineId, product, quantity }) => {
                 const atLimit = quantity >= product.stockQuantity;
                 const lineTotal = product.priceValue * quantity;
 
                 return (
-                  <li key={product.id} className="cart-drawer-item">
+                  <li key={lineId} className="cart-drawer-item">
                     <div className="cart-drawer-item__image">
                       <Image
                         src={product.image}
@@ -104,7 +69,7 @@ export function CartDrawer() {
                         <button
                           type="button"
                           className="cart-drawer-item__remove"
-                          onClick={() => removeItem(product.id)}
+                          onClick={() => removeItem(lineId)}
                           aria-label={`حذف ${product.name} از سبد`}
                           title="حذف محصول"
                         >
@@ -112,7 +77,7 @@ export function CartDrawer() {
                         </button>
                       </div>
 
-                      <p className="cart-drawer-item__spec">{product.dimensions}</p>
+                      <p className="cart-drawer-item__spec">{product.capacity} · {product.dimensions}</p>
 
                       <div className="cart-drawer-item__bottom">
                         <div className="cart-drawer-item__quantity">
@@ -120,8 +85,8 @@ export function CartDrawer() {
                             type="button"
                             onClick={() =>
                               quantity === 1
-                                ? removeItem(product.id)
-                                : setQuantity(product.id, quantity - 1)
+                                ? removeItem(lineId)
+                                : setQuantity(lineId, quantity - 1)
                             }
                             aria-label="کاهش تعداد"
                           >
@@ -130,7 +95,7 @@ export function CartDrawer() {
                           <span>{new Intl.NumberFormat("fa-IR").format(quantity)}</span>
                           <button
                             type="button"
-                            onClick={() => setQuantity(product.id, quantity + 1)}
+                            onClick={() => setQuantity(lineId, quantity + 1)}
                             disabled={atLimit}
                             aria-label="افزایش تعداد"
                           >
@@ -178,7 +143,7 @@ export function CartDrawer() {
             </div>
           </footer>
         )}
-      </aside>
-    </div>
+      </div>
+    </AccessibleDialog>
   );
 }

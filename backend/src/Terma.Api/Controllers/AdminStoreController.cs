@@ -51,6 +51,10 @@ public sealed class AdminStoreController(IStoreOperationsService service, IConfi
     [ValidateApiAntiforgeryToken]
     public Task<ProductMediaDto> AddMedia(Guid productId, ProductMediaWriteRequest request, CancellationToken ct) => service.AddMediaAsync(productId, request, ct);
 
+    [HttpPut("media/{id:guid}")]
+    [ValidateApiAntiforgeryToken]
+    public Task<ProductMediaDto> UpdateMedia(Guid id, ProductMediaWriteRequest request, CancellationToken ct) => service.UpdateMediaAsync(id, request, ct);
+
     [HttpDelete("media/{id:guid}")]
     [ValidateApiAntiforgeryToken]
     public async Task<IActionResult> DeleteMedia(Guid id, CancellationToken ct) { await service.DeleteMediaAsync(id, ct); return NoContent(); }

@@ -12,10 +12,13 @@ public sealed class CatalogMappingProfile : Profile
     {
         CreateMap<Category, CategoryDto>();
         CreateMap<ProductVariant, ProductVariantDto>();
+        CreateMap<ProductMedia, ProductMediaDto>();
         CreateMap<Product, ProductDto>()
             .ForMember(destination => destination.CategoryName,
                 options => options.MapFrom(source => source.Category.Name))
             .ForMember(destination => destination.Variants,
-                options => options.MapFrom(source => source.Variants));
+                options => options.MapFrom(source => source.Variants.OrderBy(variant => variant.TableCapacity)))
+            .ForMember(destination => destination.Media,
+                options => options.MapFrom(source => source.Media.OrderByDescending(media => media.IsPrimary).ThenBy(media => media.SortOrder)));
     }
 }

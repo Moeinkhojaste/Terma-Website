@@ -159,18 +159,18 @@ export default async function Home() {
         <section className="detail-section section-pad" id="جزئیات">
           <Container className="detail-grid">
             <div className="detail-image">
-              <Image src="/images/nila-folded.jpeg" alt="نمای نزدیک بافت، لبه‌دوزی و آستر ساتن سفره ترمه نیلا" fill sizes="(max-width: 767px) 92vw, 55vw" />
-              <span className="detail-label detail-label--fabric">بافت ترمه</span>
-              <span className="detail-label detail-label--lining">آستر ساتن</span>
+              <Image src="/images/nila-folded.jpeg" alt="سفره ترمه نیلا به‌صورت تاشده روی زمینه سفید" fill sizes="(max-width: 767px) 92vw, 55vw" />
+              <span className="detail-label detail-label--fabric">نقش رویه</span>
+              <span className="detail-label detail-label--lining">لبه محصول</span>
             </div>
             <div className="detail-copy">
               <p className="section-eyebrow">از نزدیک</p>
-              <h2>{craftContent?.title ?? "بافت، لبه و آستر؛ سه جزئی که دیده می‌شوند"}</h2>
-              <p>{craftContent?.body ?? "رنگ آبی زمینه در کنار نقش‌های کرم و سرمه‌ای قرار گرفته است. نوار باریک دور کار، مرز تمیزی میان رویه ترمه و آستر ساتن می‌سازد."}</p>
+              <h2>{craftContent?.title ?? "نمای تاشده و نقش‌های قابل‌مشاهده"}</h2>
+              <p>{craftContent?.body ?? "این عکس واقعی، محصول را در حالت تاشده نشان می‌دهد. برای دیدن نمای روی میز، گالری همان محصول را باز کنید."}</p>
               <ul>
                 <li><span>۰۱</span><div><strong>رویه ترمه</strong><p>نقوش بته‌جقه با جزئیات ریز و تکرار منظم</p></div></li>
                 <li><span>۰۲</span><div><strong>لبه‌دوزی</strong><p>نوار کرم‌طلایی در امتداد چهار طرف سفره</p></div></li>
-                <li><span>۰۳</span><div><strong>پشت کار</strong><p>آستر ساتن هماهنگ با رنگ اصلی هر محصول</p></div></li>
+                <li><span>۰۳</span><div><strong>نمای دیگر</strong><p>عکس واقعی محصول روی میز در گالری محصول</p></div></li>
               </ul>
             </div>
           </Container>

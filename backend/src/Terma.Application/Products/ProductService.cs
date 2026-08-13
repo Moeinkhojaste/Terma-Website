@@ -11,6 +11,9 @@ public interface IProductService
 {
     Task<PagedResult<ProductDto>> ListAsync(ProductListRequest request, CancellationToken cancellationToken);
     Task<ProductDto> GetAsync(Guid id, CancellationToken cancellationToken);
+    Task<ProductFacetsDto> FacetsAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<ProductDto>> LookupAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ProductDto>> RecommendationsAsync(Guid id, Guid? variantId, int limit, CancellationToken cancellationToken);
     Task<ProductDto> CreateAsync(CreateProductRequest request, CancellationToken cancellationToken);
     Task<ProductDto> UpdateAsync(Guid id, UpdateProductRequest request, CancellationToken cancellationToken);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
@@ -39,6 +42,54 @@ public sealed class ProductService(
     {
         var product = await GetProductAsync(id, cancellationToken);
         return mapper.Map<ProductDto>(product);
+    }
+
+    public Task<ProductFacetsDto> FacetsAsync(CancellationToken cancellationToken) =>
+        productRepository.FacetsAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<ProductDto>> LookupAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken)
+    {
+        var distinctIds = ids.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (distinctIds.Count > 8) throw new ValidationException("A maximum of 8 product IDs can be requested.");
+        return mapper.Map<IReadOnlyList<ProductDto>>(await productRepository.LookupAsync(distinctIds, cancellationToken));
+    }
+
+    public async Task<IReadOnlyList<ProductDto>> RecommendationsAsync(Guid id, Guid? variantId, int limit, CancellationToken cancellationToken)
+    {
+        if (limit is < 1 or > 12) throw new ValidationException("Recommendation limit must be between 1 and 12.");
+        var current = await GetProductAsync(id, cancellationToken);
+        var selected = variantId.HasValue
+            ? current.Variants.SingleOrDefault(variant => variant.Id == variantId.Value && variant.IsActive)
+                ?? throw new NotFoundException($"Variant '{variantId}' was not found for product '{id}'.")
+            : current.Variants.Where(variant => variant.IsActive && variant.AvailableQuantity > 0)
+                .OrderBy(variant => variant.Price).ThenBy(variant => variant.TableCapacity).FirstOrDefault();
+
+        var currentCapacity = selected?.TableCapacity ?? current.TableCapacity;
+        var currentPrice = selected?.Price ?? current.Price;
+        var currentColor = selected?.Color ?? current.Color;
+        var candidates = await productRepository.RecommendationCandidatesAsync(id, cancellationToken);
+
+        return candidates
+            .Select(candidate =>
+            {
+                var comparisonVariant = candidate.Variants
+                    .Where(variant => variant.IsActive && variant.AvailableQuantity > 0)
+                    .OrderByDescending(variant => variant.TableCapacity == currentCapacity)
+                    .ThenBy(variant => Math.Abs(variant.Price - currentPrice))
+                    .First();
+                var capacityScore = comparisonVariant.TableCapacity == currentCapacity ? 40d : 0d;
+                var patternScore = 25d * TokenSimilarity(current.Pattern, candidate.Pattern);
+                var colorScore = 20d * TokenSimilarity(currentColor, comparisonVariant.Color);
+                var priceScore = 15d * Math.Max(0d, 1d - (double)(Math.Abs(comparisonVariant.Price - currentPrice) / Math.Max(currentPrice, 1m)));
+                return new { Product = candidate, Score = capacityScore + patternScore + colorScore + priceScore, PriceDistance = Math.Abs(comparisonVariant.Price - currentPrice) };
+            })
+            .OrderByDescending(item => item.Score)
+            .ThenBy(item => item.PriceDistance)
+            .ThenBy(item => item.Product.Name)
+            .ThenBy(item => item.Product.Id)
+            .Take(limit)
+            .Select(item => mapper.Map<ProductDto>(item.Product))
+            .ToList();
     }
 
     public async Task<ProductDto> CreateAsync(CreateProductRequest request, CancellationToken cancellationToken)
@@ -113,5 +164,15 @@ public sealed class ProductService(
         return new Product(request.Name, request.Sku, request.Description, request.Price, request.StockQuantity,
             request.TableCapacity, request.Length, request.Width, request.FabricType, request.LiningType,
             request.Color, request.Pattern, request.CategoryId, request.DiscountPercent, request.IsActive);
+    }
+
+    private static double TokenSimilarity(string first, string second)
+    {
+        var firstTokens = PersianProductSearch.Normalize(first).Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        var secondTokens = PersianProductSearch.Normalize(second).Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        if (firstTokens.Count == 0 || secondTokens.Count == 0) return 0;
+        var intersection = firstTokens.Count(secondTokens.Contains);
+        var union = firstTokens.Union(secondTokens).Count();
+        return union == 0 ? 0 : (double)intersection / union;
     }
 }

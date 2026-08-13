@@ -10,6 +10,8 @@ import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { formatPrice } from "@/lib/format";
 import { ApiError } from "@/lib/api-client";
+import { CheckoutProgress } from "@/features/checkout/checkout-progress";
+import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 import { createOrder, getQuote } from "@/features/checkout/checkout-api";
 import { getCustomerSession } from "@/features/account/account-api";
 import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
@@ -94,7 +96,7 @@ export function CheckoutPageClient() {
     setCouponMessage(null);
     try {
       const quote = await getQuote({
-        items: items.map(({ product, quantity }) => ({ productId: product.id, quantity })),
+        items: items.map(({ productId, variantId, quantity }) => ({ productId, variantId, quantity })),
         couponCode: code,
       });
       if (quote.discountTotal > 0) {
@@ -138,7 +140,7 @@ export function CheckoutPageClient() {
     const form = new FormData(event.currentTarget);
     try {
       const order = await createOrder({
-        items: items.map(({ product, quantity }) => ({ productId: product.id, quantity })),
+        items: items.map(({ productId, variantId, quantity }) => ({ productId, variantId, quantity })),
         fullName: String(form.get("fullName") ?? "").trim(), phone: normalizeIranianMobile(String(form.get("mobile") ?? ""))!,
         province: String(form.get("province") ?? "").trim(), city: String(form.get("city") ?? "").trim(), address: String(form.get("address") ?? "").trim(), postalCode: normalizeNumericText(String(form.get("postalCode") ?? "")),
         customerNotes: String(form.get("customerNotes") ?? "").trim() || undefined,
@@ -175,6 +177,7 @@ export function CheckoutPageClient() {
           <nav className="breadcrumbs commerce-breadcrumbs" aria-label="مسیر صفحه">
             <Link href="/">خانه</Link><span>/</span><Link href="/cart">سبد خرید</Link><span>/</span><span aria-current="page">تکمیل سفارش</span>
           </nav>
+          <CheckoutProgress current={2} />
           <div className="commerce-heading">
             <p className="section-eyebrow">اطلاعات ارسال</p>
             <h1>تکمیل سفارش</h1>
@@ -184,11 +187,11 @@ export function CheckoutPageClient() {
           {!hydrated ? (
             <div className="cart-loading" role="status">در حال آماده‌کردن سفارش…</div>
           ) : items.length === 0 ? (
-            <section className="commerce-empty">
+            <><section className="commerce-empty">
               <h2>محصولی برای تکمیل سفارش وجود ندارد</h2>
               <p>ابتدا یک محصول به سبد خرید اضافه کنید.</p>
               <Link className="button button--primary" href="/products">مشاهده محصولات</Link>
-            </section>
+            </section><RecentlyViewedProducts title="محصولات پیشنهادی برای شروع" compact /></>
           ) : (
             <div className="checkout-layout">
               <form ref={formRef} className="checkout-form" onSubmit={handleSubmit} noValidate aria-busy={requestState === "submitting"}>
@@ -238,8 +241,8 @@ export function CheckoutPageClient() {
               <aside className="order-summary checkout-summary" aria-labelledby="checkout-summary-title">
                 <div className="checkout-summary__heading"><h2 id="checkout-summary-title">سفارش شما</h2><Link href="/cart">ویرایش سبد</Link></div>
                 <div className="checkout-products">
-                  {items.map(({ product, quantity }) => (
-                    <div className="checkout-product" key={product.id}>
+                  {items.map(({ lineId, product, quantity }) => (
+                    <div className="checkout-product" key={lineId}>
                       <div className="checkout-product__image"><Image src={product.image} alt="" fill sizes="72px" /></div>
                       <div><strong>{product.name}</strong><span>{product.capacity} · تعداد {new Intl.NumberFormat("fa-IR").format(quantity)}</span></div>
                       <b>{formatPrice(product.priceValue * quantity)}</b>

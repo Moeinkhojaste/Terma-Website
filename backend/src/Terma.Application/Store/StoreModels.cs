@@ -30,8 +30,8 @@ public sealed record CheckoutQuoteItemDto(Guid ProductId, Guid? VariantId, strin
 public sealed record CreatedOrderDto(Guid Id, string Number, string TrackingToken, decimal Total, DateTime ReservationExpiresAtUtc);
 public sealed record ProductVariantDto(Guid Id, Guid ProductId, string Title, string Sku, string Color, int TableCapacity, decimal Length, decimal Width, decimal Price, decimal? CompareAtPrice, int StockQuantity, int ReservedQuantity, int AvailableQuantity, int LowStockThreshold, bool IsActive);
 public sealed class ProductVariantWriteRequest { public string Title { get; init; } = string.Empty; public string Sku { get; init; } = string.Empty; public string Color { get; init; } = string.Empty; public int TableCapacity { get; init; } public decimal Length { get; init; } public decimal Width { get; init; } public decimal Price { get; init; } public decimal? CompareAtPrice { get; init; } public int StockQuantity { get; init; } public int LowStockThreshold { get; init; } = 2; public bool IsActive { get; init; } = true; }
-public sealed record ProductMediaDto(Guid Id, Guid ProductId, string PublicUrl, string AltText, int SortOrder, bool IsPrimary);
-public sealed class ProductMediaWriteRequest { public string PublicUrl { get; init; } = string.Empty; public string AltText { get; init; } = string.Empty; public int SortOrder { get; init; } public bool IsPrimary { get; init; } }
+public sealed record ProductMediaDto(Guid Id, Guid ProductId, string PublicUrl, string AltText, ProductMediaKind Kind, int SortOrder, bool IsPrimary);
+public sealed class ProductMediaWriteRequest { public string PublicUrl { get; init; } = string.Empty; public string AltText { get; init; } = string.Empty; public ProductMediaKind Kind { get; init; } = ProductMediaKind.Other; public int SortOrder { get; init; } public bool IsPrimary { get; init; } }
 public sealed class OrderStatusRequest { public OrderStatus Status { get; init; } }
 public sealed class PromotionWriteRequest { public string Name { get; init; } = string.Empty; public string? Code { get; init; } public PromotionType Type { get; init; } public DiscountType DiscountType { get; init; } public decimal Value { get; init; } public decimal? MinimumSubtotal { get; init; } public decimal? MaximumDiscount { get; init; } public int? UsageLimit { get; init; } public DateTime StartsAtUtc { get; init; } = DateTime.UtcNow; public DateTime? EndsAtUtc { get; init; } public bool IsActive { get; init; } = true; }
 public sealed class ShippingRuleWriteRequest { public string Name { get; init; } = string.Empty; public string? Province { get; init; } public string? City { get; init; } public decimal Cost { get; init; } public decimal? FreeAboveSubtotal { get; init; } public int Priority { get; init; } public bool IsActive { get; init; } = true; }
@@ -68,5 +68,6 @@ public interface IStoreOperationsService
     Task DeleteVariantAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<ProductMediaDto>> MediaAsync(Guid productId, CancellationToken cancellationToken);
     Task<ProductMediaDto> AddMediaAsync(Guid productId, ProductMediaWriteRequest request, CancellationToken cancellationToken);
+    Task<ProductMediaDto> UpdateMediaAsync(Guid id, ProductMediaWriteRequest request, CancellationToken cancellationToken);
     Task DeleteMediaAsync(Guid id, CancellationToken cancellationToken);
 }

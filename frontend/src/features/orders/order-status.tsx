@@ -3,24 +3,25 @@ import { CheckIcon, MinusIcon, XIcon } from "@/components/ui/icons";
 import { Container } from "@/components/layout/container";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
+import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 
 type StatusType = "success" | "failed" | "cancelled";
 
 const content = {
   success: {
-    eyebrow: "پرداخت موفق",
+    eyebrow: "ثبت سفارش موفق",
     title: "سفارش شما ثبت شد",
-    description: "اطلاعات سفارش آزمایشی با موفقیت آماده شد. برای ثبت واقعی، اتصال backend و درگاه بانکی لازم است.",
+    description: "اطلاعات سفارش شما با موفقیت ثبت شد. هماهنگی هزینه ارسال و ادامه فرایند از طریق اطلاعات تماس انجام می‌شود.",
   },
   failed: {
-    eyebrow: "پرداخت ناموفق",
-    title: "پرداخت انجام نشد",
-    description: "مبلغی از شما دریافت نشده است. می‌توانید اطلاعات سفارش را بررسی کرده و دوباره تلاش کنید.",
+    eyebrow: "ثبت سفارش ناموفق",
+    title: "سفارش ثبت نشد",
+    description: "اطلاعات سبد شما حفظ شده است. می‌توانید سفارش را بررسی کرده و دوباره تلاش کنید.",
   },
   cancelled: {
-    eyebrow: "پرداخت لغوشده",
-    title: "پرداخت را لغو کردید",
-    description: "سفارش شما پرداخت نشده و محصولات همچنان در سبد خرید باقی مانده‌اند.",
+    eyebrow: "سفارش لغوشده",
+    title: "ثبت سفارش را لغو کردید",
+    description: "محصولات همچنان در سبد خرید باقی مانده‌اند و هر زمان بخواهید می‌توانید ادامه دهید.",
   },
 } satisfies Record<StatusType, { eyebrow: string; title: string; description: string }>;
 
@@ -34,6 +35,7 @@ export function OrderStatus({ type, orderNumber }: { type: StatusType; orderNumb
       <Header />
       <main id="محتوا" className="status-page">
         <Container>
+          <CheckoutProgress current={type === "success" ? 3 : 2} />
           <section className={`status-card status-card--${type}`}>
             <span className="status-card__icon"><Icon className="size-7" /></span>
             <p className="section-eyebrow">{details.eyebrow}</p>

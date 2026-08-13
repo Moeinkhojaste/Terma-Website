@@ -39,6 +39,7 @@ public sealed class ProductListRequestValidator : AbstractValidator<ProductListR
             .GreaterThanOrEqualTo(request => request.MinPrice!.Value)
             .When(request => request.MinPrice.HasValue && request.MaxPrice.HasValue);
         RuleFor(request => request.TableCapacity).GreaterThan(0).When(request => request.TableCapacity.HasValue);
+        RuleFor(request => request.Color).MaximumLength(120);
         RuleFor(request => request.Search).MaximumLength(200);
         RuleFor(request => request.Page).GreaterThanOrEqualTo(1);
         RuleFor(request => request.PageSize).InclusiveBetween(1, 100);

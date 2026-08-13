@@ -11,6 +11,7 @@ public sealed class ProductMediaConfiguration : IEntityTypeConfiguration<Product
         builder.HasKey(x => x.Id);
         builder.Property(x => x.PublicUrl).HasMaxLength(1024).IsRequired();
         builder.Property(x => x.AltText).HasMaxLength(300).IsRequired();
+        builder.Property(x => x.Kind).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.HasIndex(x => new { x.ProductId, x.SortOrder });
         builder.HasOne(x => x.Product).WithMany(x => x.Media).HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Cascade);
     }

@@ -5,6 +5,7 @@ import type {
   PagedResponse,
   Product,
   ProductDto,
+  ProductFacets,
   ProductListQuery,
   ProductPage,
 } from "@/features/products/models";
@@ -15,6 +16,8 @@ function createProductQuery(query: ProductListQuery) {
   if (query.minPrice !== undefined) parameters.set("minPrice", String(query.minPrice));
   if (query.maxPrice !== undefined) parameters.set("maxPrice", String(query.maxPrice));
   if (query.tableCapacity !== undefined) parameters.set("tableCapacity", String(query.tableCapacity));
+  if (query.color?.trim()) parameters.set("color", query.color.trim());
+  if (query.inStock !== undefined) parameters.set("inStock", String(query.inStock));
   if (query.search?.trim()) parameters.set("search", query.search.trim());
   if (query.page !== undefined) parameters.set("page", String(query.page));
   if (query.pageSize !== undefined) parameters.set("pageSize", String(query.pageSize));
@@ -40,4 +43,26 @@ export async function getProduct(id: string, signal?: AbortSignal): Promise<Prod
 
 export function listCategories(signal?: AbortSignal) {
   return apiRequest<CategoryDto[]>("/api/categories", { signal, cache: "no-store" });
+}
+
+export function getProductFacets(signal?: AbortSignal) {
+  return apiRequest<ProductFacets>("/api/products/facets", { signal, cache: "no-store" });
+}
+
+export async function lookupProducts(ids: string[], signal?: AbortSignal) {
+  const parameters = new URLSearchParams();
+  ids.slice(0, 8).forEach((id) => parameters.append("ids", id));
+  if (ids.length === 0) return [];
+  const response = await apiRequest<ProductDto[]>(`/api/products/lookup?${parameters}`, { signal, cache: "no-store" });
+  return response.map(mapProduct);
+}
+
+export async function getRecommendations(productId: string, variantId?: string, limit = 4, signal?: AbortSignal) {
+  const parameters = new URLSearchParams({ limit: String(limit) });
+  if (variantId) parameters.set("variantId", variantId);
+  const response = await apiRequest<ProductDto[]>(
+    `/api/products/${encodeURIComponent(productId)}/recommendations?${parameters}`,
+    { signal, cache: "no-store" },
+  );
+  return response.map(mapProduct);
 }

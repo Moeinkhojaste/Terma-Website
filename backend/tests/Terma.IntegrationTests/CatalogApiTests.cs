@@ -1,14 +1,21 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Terma.Application.Categories;
 using Terma.Application.Common.Models;
 using Terma.Application.Products;
+using Terma.Application.Store;
+using Terma.Domain.Entities;
 
 namespace Terma.IntegrationTests;
 
 public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<TermaApiFactory>, IAsyncLifetime
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
     private HttpClient _client = null!;
 
     public async Task InitializeAsync() => _client = await factory.CreateAdminClientAsync();
@@ -172,6 +179,113 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
         Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync($"/api/products/{product.Id}")).StatusCode);
     }
 
+    [Fact]
+    public async Task ProductMedia_IsManagedAndIncludedInPublicProduct()
+    {
+        var category = await CreateCategoryAsync();
+        var product = await CreateProductAsync(category.Id, $"TER-MEDIA-{Guid.NewGuid():N}");
+        var createResponse = await _client.PostAsJsonAsync($"/api/admin/products/{product.Id}/media", new ProductMediaWriteRequest
+        {
+            PublicUrl = "/images/media-test.webp",
+            AltText = "نمای سفره روی میز",
+            Kind = ProductMediaKind.Table,
+            SortOrder = 2,
+            IsPrimary = true
+        });
+        var media = await ReadAsync<ProductMediaDto>(createResponse);
+
+        var updateResponse = await _client.PutAsJsonAsync($"/api/admin/media/{media.Id}", new ProductMediaWriteRequest
+        {
+            PublicUrl = media.PublicUrl,
+            AltText = "نمای کامل سفره روی میز",
+            Kind = ProductMediaKind.Full,
+            SortOrder = 0,
+            IsPrimary = true
+        });
+        var updated = await ReadAsync<ProductMediaDto>(updateResponse);
+        Assert.Equal(ProductMediaKind.Full, updated.Kind);
+
+        var publicProduct = await ReadAsync<ProductDto>(await _client.GetAsync($"/api/products/{product.Id}"));
+        var publicMedia = Assert.Single(publicProduct!.Media!);
+        Assert.Equal(updated.Id, publicMedia.Id);
+        Assert.Equal(ProductMediaKind.Full, publicMedia.Kind);
+        Assert.True(publicMedia.IsPrimary);
+    }
+
+    [Fact]
+    public async Task ProductSearch_UnderstandsPersianNaturalQueriesAndNewFilters()
+    {
+        var category = await CreateCategoryAsync();
+        var green = await CreatePersianProductAsync(category.Id, "سفره ترمه سبز نیلا", "سبز", "بته جقه", 1_500_000, 4, 3);
+        var blue = await CreatePersianProductAsync(category.Id, "سفره ترمه آبی لاجورد", "آبی", "بته جقه", 2_500_000, 6, 3);
+        var unavailable = await CreatePersianProductAsync(category.Id, "سفره ترمه خاکستری", "خاکستری", "هندسی", 1_800_000, 8, 0);
+
+        var byGreen = await ListAsync($"categoryId={category.Id}&search={Uri.EscapeDataString("سبز")}");
+        Assert.Contains(byGreen.Items, product => product.Id == green.Id);
+
+        var byCapacity = await ListAsync($"categoryId={category.Id}&search={Uri.EscapeDataString("سفره ۶ نفره")}");
+        Assert.Single(byCapacity.Items, product => product.Id == blue.Id);
+
+        var byFabricAndColor = await ListAsync($"categoryId={category.Id}&search={Uri.EscapeDataString("ترمه آبی")}");
+        Assert.Single(byFabricAndColor.Items, product => product.Id == blue.Id);
+
+        var underTwoMillion = await ListAsync($"categoryId={category.Id}&search={Uri.EscapeDataString("سفره زیر دو میلیون")}");
+        Assert.Contains(underTwoMillion.Items, product => product.Id == green.Id);
+        Assert.Contains(underTwoMillion.Items, product => product.Id == unavailable.Id);
+        Assert.DoesNotContain(underTwoMillion.Items, product => product.Id == blue.Id);
+
+        var filters = await ListAsync($"categoryId={category.Id}&color={Uri.EscapeDataString("خاکستری")}&inStock=false");
+        Assert.Single(filters.Items, product => product.Id == unavailable.Id);
+    }
+
+    [Fact]
+    public async Task FacetsLookupAndRecommendations_ReturnStableStorefrontData()
+    {
+        var category = await CreateCategoryAsync();
+        var current = await CreatePersianProductAsync(category.Id, "سفره ترمه مبنا", "آبی", "بته جقه", 2_000_000, 6, 3);
+        var best = await CreatePersianProductAsync(category.Id, "سفره ترمه مشابه", "آبی", "بته جقه", 2_100_000, 6, 3);
+        var other = await CreatePersianProductAsync(category.Id, "سفره ترمه متفاوت", "قرمز", "هندسی", 3_000_000, 8, 3);
+        await CreatePersianProductAsync(category.Id, "سفره ناموجود", "آبی", "بته جقه", 2_000_000, 6, 0);
+
+        var facets = await _client.GetFromJsonAsync<ProductFacetsDto>("/api/products/facets");
+        Assert.Contains("آبی", facets!.Colors);
+        Assert.Contains(6, facets.TableCapacities);
+
+        var lookup = await _client.GetFromJsonAsync<List<ProductDto>>($"/api/products/lookup?ids={other.Id}&ids={current.Id}");
+        Assert.Equal([other.Id, current.Id], lookup!.Select(product => product.Id));
+        var tooMany = string.Join("&", Enumerable.Range(0, 9).Select(_ => $"ids={Guid.NewGuid()}"));
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.GetAsync($"/api/products/lookup?{tooMany}")).StatusCode);
+
+        var recommendations = await _client.GetFromJsonAsync<List<ProductDto>>($"/api/products/{current.Id}/recommendations?limit=4");
+        Assert.Equal(best.Id, recommendations![0].Id);
+        Assert.DoesNotContain(recommendations, product => product.StockQuantity == 0);
+    }
+
+    private Task<PagedResult<ProductDto>> ListAsync(string query) =>
+        _client.GetFromJsonAsync<PagedResult<ProductDto>>($"/api/products?{query}")!;
+
+    private async Task<ProductDto> CreatePersianProductAsync(Guid categoryId, string name, string color, string pattern, decimal price, int capacity, int stock)
+    {
+        var response = await _client.PostAsJsonAsync("/api/products", new CreateProductRequest
+        {
+            Name = name,
+            Sku = $"TER-FA-{Guid.NewGuid():N}",
+            Description = "سفره ایرانی با دوخت دقیق",
+            Price = price,
+            StockQuantity = stock,
+            TableCapacity = capacity,
+            Length = 180,
+            Width = 110,
+            FabricType = "ترمه",
+            LiningType = "ساتن",
+            Color = color,
+            Pattern = pattern,
+            IsActive = true,
+            CategoryId = categoryId
+        });
+        return await ReadAsync<ProductDto>(response, HttpStatusCode.Created);
+    }
+
     private async Task<CategoryDto> CreateCategoryAsync()
     {
         var suffix = Guid.NewGuid().ToString("N")[..8];
@@ -222,6 +336,6 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
     private static async Task<T> ReadAsync<T>(HttpResponseMessage response, HttpStatusCode expected = HttpStatusCode.OK)
     {
         Assert.Equal(expected, response.StatusCode);
-        return (await response.Content.ReadFromJsonAsync<T>())!;
+        return (await response.Content.ReadFromJsonAsync<T>(JsonOptions))!;
     }
 }

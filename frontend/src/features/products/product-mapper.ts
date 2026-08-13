@@ -1,28 +1,57 @@
 import { formatPrice } from "@/lib/format";
-import type { Product, ProductDto, ProductPage, PagedResponse, ProductCapacityOption } from "@/features/products/models";
+import { getApiBaseUrl } from "@/lib/api-client";
+import type { Product, ProductDto, ProductPage, PagedResponse, ProductCapacityOption, ProductMedia, ProductMediaKind } from "@/features/products/models";
 
 const PRODUCT_PLACEHOLDER = "/images/product-placeholder.svg";
 
-const PRODUCT_MEDIA: Record<string, { image: string; tableImage: string; imageAlt: string; tableImageAlt: string }> = {
-  "TER-NIL-BLU-4P-001": {
-    image: "/images/nila-folded.jpeg",
-    tableImage: "/images/nila-table.png",
-    imageAlt: "سفره ترمه نیلا با زمینه آبی و نقش بته‌جقه روی زمینه سفید",
-    tableImageAlt: "سفره ترمه نیلا روی میز چهار نفره",
-  },
-  "TER-LAJ-NVY-6P-001": {
-    image: "/images/lajvard-folded.jpeg",
-    tableImage: "/images/lajvard-table.png",
-    imageAlt: "سفره ترمه لاجورد با زمینه سرمه‌ای و نقش‌های سفید و مسی روی زمینه سفید",
-    tableImageAlt: "سفره ترمه لاجورد روی میز شش نفره",
-  },
-  "TER-FIR-BLU-8P-001": {
-    image: "/images/firoozeh-folded.jpeg",
-    tableImage: "/images/firoozeh-table.png",
-    imageAlt: "سفره ترمه فیروزه با زمینه آبی و نقش‌های کرم و مسی روی زمینه سفید",
-    tableImageAlt: "سفره ترمه فیروزه روی میز هشت نفره",
-  },
+const PRODUCT_MEDIA: Record<string, ProductMedia[]> = {
+  "TER-NIL-BLU-4P-001": [
+    { id: "static-nila-folded", src: "/images/nila-folded.jpeg", alt: "سفره ترمه نیلا با زمینه آبی و نقش بته‌جقه روی زمینه سفید", kind: "folded", sortOrder: 0, isPrimary: true },
+    { id: "static-nila-table", src: "/images/nila-table.png", alt: "سفره ترمه نیلا روی میز چهار نفره", kind: "table", sortOrder: 1, isPrimary: false },
+  ],
+  "TER-LAJ-NVY-6P-001": [
+    { id: "static-lajvard-folded", src: "/images/lajvard-folded.jpeg", alt: "سفره ترمه لاجورد با زمینه سرمه‌ای و نقش‌های سفید و مسی روی زمینه سفید", kind: "folded", sortOrder: 0, isPrimary: true },
+    { id: "static-lajvard-table", src: "/images/lajvard-table.png", alt: "سفره ترمه لاجورد روی میز شش نفره", kind: "table", sortOrder: 1, isPrimary: false },
+  ],
+  "TER-FIR-BLU-8P-001": [
+    { id: "static-firoozeh-folded", src: "/images/firoozeh-folded.jpeg", alt: "سفره ترمه فیروزه با زمینه آبی و نقش‌های کرم و مسی روی زمینه سفید", kind: "folded", sortOrder: 0, isPrimary: true },
+    { id: "static-firoozeh-table", src: "/images/firoozeh-table.png", alt: "سفره ترمه فیروزه روی میز هشت نفره", kind: "table", sortOrder: 1, isPrimary: false },
+  ],
 };
+
+const MEDIA_KINDS = new Set<ProductMediaKind>(["full", "table", "folded", "texture", "stitching", "lining", "other"]);
+
+function mediaUrl(value: string) {
+  if (/^https?:\/\//i.test(value) || value.startsWith("/images/")) return value;
+  if (value.startsWith("/api/")) return `${getApiBaseUrl()}${value}`;
+  return value;
+}
+
+function buildMedia(dto: ProductDto): ProductMedia[] {
+  if (dto.media && dto.media.length > 0) {
+    return dto.media
+      .map((item) => {
+        const normalizedKind = item.kind.toLowerCase() as ProductMediaKind;
+        return {
+          id: item.id,
+          src: mediaUrl(item.publicUrl),
+          alt: item.altText,
+          kind: MEDIA_KINDS.has(normalizedKind) ? normalizedKind : "other" as const,
+          sortOrder: item.sortOrder,
+          isPrimary: item.isPrimary,
+        };
+      })
+      .sort((first, second) => Number(second.isPrimary) - Number(first.isPrimary) || first.sortOrder - second.sortOrder);
+  }
+  return PRODUCT_MEDIA[dto.sku] ?? [{
+    id: `placeholder-${dto.id}`,
+    src: PRODUCT_PLACEHOLDER,
+    alt: `تصویر ${dto.name} هنوز بارگذاری نشده است`,
+    kind: "other",
+    sortOrder: 0,
+    isPrimary: true,
+  }];
+}
 
 function formatDecimal(value: number) {
   return new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 2 }).format(value);
@@ -111,12 +140,9 @@ function buildCapacitiesList(dto: ProductDto): ProductCapacityOption[] {
 
 export function mapProduct(dto: ProductDto): Product {
   const description = dto.description?.trim() || "اطلاعات تکمیلی این محصول به‌زودی ثبت می‌شود.";
-  const media = PRODUCT_MEDIA[dto.sku] ?? {
-    image: PRODUCT_PLACEHOLDER,
-    tableImage: PRODUCT_PLACEHOLDER,
-    imageAlt: `تصویر ${dto.name} هنوز بارگذاری نشده است`,
-    tableImageAlt: `تصویر دوم ${dto.name} هنوز بارگذاری نشده است`,
-  };
+  const media = buildMedia(dto);
+  const primaryMedia = media.find((item) => item.isPrimary) ?? media[0];
+  const tableMedia = media.find((item) => item.kind === "table") ?? media[1] ?? primaryMedia;
   const capacities = buildCapacitiesList(dto);
 
   const availableCapacities = capacities.filter((c) => c.isAvailable);
@@ -137,6 +163,7 @@ export function mapProduct(dto: ProductDto): Product {
 
   return {
     id: dto.id,
+    variantId: minCapacity?.id,
     name: dto.name,
     size: minCapacity ? minCapacity.tableCapacity : dto.tableCapacity,
     capacity: minCapacity ? minCapacity.capacityLabel : `${new Intl.NumberFormat("fa-IR").format(dto.tableCapacity)} نفره`,
@@ -154,7 +181,11 @@ export function mapProduct(dto: ProductDto): Product {
     lining: dto.liningType,
     colors: dto.color,
     pattern: dto.pattern,
-    ...media,
+    image: primaryMedia.src,
+    tableImage: tableMedia.src,
+    imageAlt: primaryMedia.alt,
+    tableImageAlt: tableMedia.alt,
+    media,
     description,
     longDescription: description,
     categoryId: dto.categoryId,

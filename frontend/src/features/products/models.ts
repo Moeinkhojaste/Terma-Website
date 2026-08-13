@@ -38,6 +38,28 @@ export type ProductDto = {
   createdAt: string;
   updatedAt: string | null;
   variants?: ProductVariantDto[] | null;
+  media?: ProductMediaDto[] | null;
+};
+
+export type ProductMediaKind = "full" | "table" | "folded" | "texture" | "stitching" | "lining" | "other";
+
+export type ProductMediaDto = {
+  id: string;
+  productId: string;
+  publicUrl: string;
+  altText: string;
+  kind: string;
+  sortOrder: number;
+  isPrimary: boolean;
+};
+
+export type ProductMedia = {
+  id: string;
+  src: string;
+  alt: string;
+  kind: ProductMediaKind;
+  sortOrder: number;
+  isPrimary: boolean;
 };
 
 export type CategoryDto = {
@@ -77,6 +99,7 @@ export type ProductCapacityOption = {
 
 export type Product = {
   id: string;
+  variantId?: string;
   name: string;
   size: number;
   capacity: string;
@@ -98,6 +121,7 @@ export type Product = {
   tableImage: string;
   imageAlt: string;
   tableImageAlt: string;
+  media: ProductMedia[];
   description: string;
   longDescription: string;
   categoryId: string;
@@ -111,9 +135,18 @@ export type ProductListQuery = {
   minPrice?: number;
   maxPrice?: number;
   tableCapacity?: number;
+  color?: string;
+  inStock?: boolean;
   search?: string;
   page?: number;
   pageSize?: number;
+};
+
+export type ProductFacets = {
+  colors: string[];
+  tableCapacities: number[];
+  minimumPrice: number | null;
+  maximumPrice: number | null;
 };
 
 export type ProductPage = Omit<PagedResponse<ProductDto>, "items"> & {

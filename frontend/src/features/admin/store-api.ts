@@ -8,6 +8,9 @@ export type ShippingRule = { id: string; name: string; province: string | null; 
 export type StoreContent = { id: string; pageKey: string; sectionKey: string; title: string; body: string; linkUrl: string | null; imageUrl: string | null; seoTitle: string | null; seoDescription: string | null; isPublished: boolean };
 export type ContactMessage = { id: string; name: string; phone: string; email: string | null; topic: string; body: string; status: string; createdAt: string };
 export type ProductVariant = { id:string; productId:string; title:string; sku:string; color:string; tableCapacity:number; length:number; width:number; price:number; compareAtPrice:number|null; stockQuantity:number; reservedQuantity:number; availableQuantity:number; lowStockThreshold:number; isActive:boolean };
+export type ProductMediaKind = "Full" | "Table" | "Folded" | "Texture" | "Stitching" | "Lining" | "Other";
+export type ProductMedia = { id:string; productId:string; publicUrl:string; altText:string; kind:ProductMediaKind; sortOrder:number; isPrimary:boolean };
+export type ProductMediaInput = { publicUrl:string; altText:string; kind:ProductMediaKind; sortOrder:number; isPrimary:boolean };
 
 export const getDashboard = () => apiRequest<Dashboard>("/api/admin/dashboard", { cache: "no-store" });
 export const getOrders = () => apiRequest<AdminOrder[]>("/api/admin/orders", { cache: "no-store" });
@@ -24,3 +27,7 @@ export const getVariants = (productId:string) => apiRequest<ProductVariant[]>(`/
 export const createVariant = (productId:string, body:Partial<ProductVariant>) => apiRequest<ProductVariant>(`/api/admin/products/${productId}/variants`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
 export const updateVariant = (id:string, body:Partial<ProductVariant>) => apiRequest<ProductVariant>(`/api/admin/variants/${id}`, {method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
 export const deleteVariant = (id:string) => apiRequest(`/api/admin/variants/${id}`, {method:"DELETE"});
+export const getProductMedia = (productId:string) => apiRequest<ProductMedia[]>(`/api/admin/products/${productId}/media`, {cache:"no-store"});
+export const createProductMedia = (productId:string, body:ProductMediaInput) => apiRequest<ProductMedia>(`/api/admin/products/${productId}/media`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+export const updateProductMedia = (id:string, body:ProductMediaInput) => apiRequest<ProductMedia>(`/api/admin/media/${id}`, {method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+export const deleteProductMedia = (id:string) => apiRequest<void>(`/api/admin/media/${id}`, {method:"DELETE"});

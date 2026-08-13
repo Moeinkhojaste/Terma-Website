@@ -28,6 +28,8 @@ public sealed class ProductsController(IProductService service) : ControllerBase
                 MinPrice = request.MinPrice,
                 MaxPrice = request.MaxPrice,
                 TableCapacity = request.TableCapacity,
+                Color = request.Color,
+                InStock = request.InStock,
                 IsActive = true,
                 Search = request.Search,
                 Page = request.Page,
@@ -36,6 +38,29 @@ public sealed class ProductsController(IProductService service) : ControllerBase
         }
         return Ok(await service.ListAsync(request, cancellationToken));
     }
+
+    [HttpGet("facets")]
+    [ProducesResponseType<ProductFacetsDto>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<ProductFacetsDto>> Facets(CancellationToken cancellationToken) =>
+        Ok(await service.FacetsAsync(cancellationToken));
+
+    [HttpGet("lookup")]
+    [ProducesResponseType<IReadOnlyList<ProductDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<ProductDto>>> Lookup(
+        [FromQuery] Guid[] ids,
+        CancellationToken cancellationToken) =>
+        Ok(await service.LookupAsync(ids, cancellationToken));
+
+    [HttpGet("{id:guid}/recommendations")]
+    [ProducesResponseType<IReadOnlyList<ProductDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<ProductDto>>> Recommendations(
+        Guid id,
+        [FromQuery] Guid? variantId,
+        [FromQuery] int limit = 4,
+        CancellationToken cancellationToken = default) =>
+        Ok(await service.RecommendationsAsync(id, variantId, limit, cancellationToken));
 
     [HttpGet("{id:guid}", Name = nameof(GetProduct))]
     [ProducesResponseType<ProductDto>(StatusCodes.Status200OK)]

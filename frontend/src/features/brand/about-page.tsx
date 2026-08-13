@@ -8,7 +8,7 @@ import { getPublicContent, type PublicContent } from "@/features/content/content
 
 const principles = [
   { number: "۰۱", icon: PaisleyIcon, title: "ریشه در نقش ایرانی", description: "انتخاب محصولاتی با نقش‌های آشنا و رنگ‌هایی که در خانه امروز هم جای خود را پیدا می‌کنند." },
-  { number: "۰۲", icon: StitchIcon, title: "توجه به جزئیات", description: "نمایش روشن بافت، لبه‌دوزی و پشت محصول تا انتخاب شما فقط بر اساس یک تصویر دور نباشد." },
+  { number: "۰۲", icon: StitchIcon, title: "توجه به جزئیات", description: "نمایش تصویرهای واقعی موجود و مشخص‌کردن نماهایی که هنوز عکاسی نشده‌اند." },
   { number: "۰۳", icon: FabricIcon, title: "اطلاعات بدون ابهام", description: "اندازه، ظرفیت، جنس و نکات نگهداری هر محصول باید ساده و قابل‌مقایسه نوشته شود." },
 ];
 
@@ -37,7 +37,7 @@ export async function AboutPage() {
                 <Image src="/images/lajvard-table.png" alt="سفره ترمه لاجورد روی میز در فضای خانه" fill priority sizes="(max-width: 767px) 92vw, 45vw" />
               </figure>
               <figure className="brand-page-hero__image brand-page-hero__image--detail">
-                <Image src="/images/nila-folded.jpeg" alt="نمای نزدیک سفره ترمه نیلا و جزئیات بافت آن" fill sizes="(max-width: 767px) 45vw, 18vw" />
+                <Image src="/images/nila-folded.jpeg" alt="سفره ترمه نیلا به‌صورت تاشده" fill sizes="(max-width: 767px) 45vw, 18vw" />
               </figure>
               <span className="brand-page-hero__note">انتخاب آگاهانه، با دیدن جزئیات واقعی</span>
             </div>
@@ -79,13 +79,13 @@ export async function AboutPage() {
         <section className="about-journey section-pad section-rule">
           <Container className="about-journey__grid">
             <div className="about-journey__image">
-              <Image src="/images/firoozeh-folded.jpeg" alt="سفره ترمه فیروزه تا‌شده با لبه‌دوزی و آستر مشخص" fill sizes="(max-width: 767px) 92vw, 45vw" />
+              <Image src="/images/firoozeh-folded.jpeg" alt="سفره ترمه فیروزه به‌صورت تاشده" fill sizes="(max-width: 767px) 92vw, 45vw" />
             </div>
             <div className="about-journey__copy">
               <p className="section-eyebrow">از دیدن تا انتخاب</p>
               <h2>مسیر ساده خرید در ترما</h2>
               <ol>
-                <li><span>۱</span><div><strong>محصول را از نزدیک ببینید</strong><p>تصاویر، رنگ، نقش و جزئیات دوخت را بررسی کنید.</p></div></li>
+                <li><span>۱</span><div><strong>تصاویر واقعی محصول را ببینید</strong><p>نمای تاشده و نمای روی میز را بررسی کنید.</p></div></li>
                 <li><span>۲</span><div><strong>اندازه مناسب را پیدا کنید</strong><p>فضای موردنظر را اندازه بگیرید و با مشخصات محصول مقایسه کنید.</p></div></li>
                 <li><span>۳</span><div><strong>با اطمینان انتخاب کنید</strong><p>اگر پرسشی دارید، پیش از خرید از صفحه ارتباط با ما پیام بفرستید.</p></div></li>
               </ol>
