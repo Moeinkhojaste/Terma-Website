@@ -20,7 +20,7 @@ public sealed class StoreController(
 
     [HttpPost("messages")]
     [EnableRateLimiting("contact-message")]
-    [ValidateApiAntiforgeryToken]
+    [ValidateApiAntiforgeryToken(RequireAuthenticatedOnly = false)]
     public async Task<ContactMessageDto> CreateMessage(ContactMessageWriteRequest request, CancellationToken ct)
     {
         var result = await service.CreateMessageAsync(request, ct);

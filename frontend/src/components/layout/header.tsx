@@ -34,7 +34,7 @@ export function Header() {
           </nav>
           <div className="header-actions">
             <ProductSearch />
-            <Link className="icon-button" href="/account" aria-label="حساب کاربری"><UserIcon /></Link>
+            <Link className="icon-button header-account-button" href="/account" aria-label="حساب کاربری"><UserIcon /></Link>
             <CartLink />
           </div>
         </Container>

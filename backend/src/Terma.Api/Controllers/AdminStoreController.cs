@@ -44,8 +44,8 @@ public sealed class AdminStoreController(
     [ValidateApiAntiforgeryToken]
     public async Task<AdminOrderDto> ChangeOrderStatus(Guid id, [FromBody] OrderStatusRequest request, CancellationToken ct)
     {
-        var result = await service.ChangeOrderStatusAsync(id, request.Status, ct);
-        await auditService.LogAsync(GetActor(), "ChangeOrderStatus", $"{id} -> {request.Status}", "Success", HttpContext.TraceIdentifier, GetClientIp(), ct);
+        var result = await service.ChangeOrderStatusAsync(id, request.Status, request.PostalTrackingCode, ct);
+        await auditService.LogAsync(GetActor(), "ChangeOrderStatus", $"{id} -> {request.Status} (tracking: {request.PostalTrackingCode ?? "none"})", "Success", HttpContext.TraceIdentifier, GetClientIp(), ct);
         return result;
     }
 

@@ -30,6 +30,7 @@ public sealed class Order : BaseEntity
     public decimal Total { get; private set; }
     public DateTime ReservationExpiresAtUtc { get; private set; }
     public string? TrackingTokenHash { get; private set; }
+    public string? PostalTrackingCode { get; private set; }
     public string? IdempotencyKey { get; private set; }
     public string? RequestFingerprint { get; private set; }
     public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
@@ -91,6 +92,14 @@ public sealed class Order : BaseEntity
     {
         if (Status == next) return;
         Status = next;
+        MarkUpdated();
+    }
+
+    public void SetPostalTrackingCode(string? trackingCode)
+    {
+        var normalized = string.IsNullOrWhiteSpace(trackingCode) ? null : trackingCode.Trim();
+        if (PostalTrackingCode == normalized) return;
+        PostalTrackingCode = normalized;
         MarkUpdated();
     }
 }

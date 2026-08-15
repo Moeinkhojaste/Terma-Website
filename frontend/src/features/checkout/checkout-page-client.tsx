@@ -14,7 +14,6 @@ import { ApiError } from "@/lib/api-client";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 import { createOrder, getQuote, type CheckoutRequest } from "@/features/checkout/checkout-api";
-import { getCustomerSession } from "@/features/account/account-api";
 import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
 
 type FieldName = "fullName" | "mobile" | "province" | "city" | "address" | "postalCode";
@@ -61,6 +60,8 @@ function validateForm(formData: FormData) {
   return errors;
 }
 
+import { getCustomerSession, getCustomerAddresses, type CustomerAddress } from "@/features/account/account-api";
+
 export function CheckoutPageClient() {
   const router = useRouter();
   const submissionLockRef = useRef(false);
@@ -71,7 +72,49 @@ export function CheckoutPageClient() {
   const [review, setReview] = useState<CheckoutReviewSnapshot | null>(null);
   const [mobile, setMobile] = useState("");
   const [verifiedMobile, setVerifiedMobile] = useState(false);
-  useEffect(() => { getCustomerSession().then(session => { setMobile(session.phone); setVerifiedMobile(true); }).catch(() => undefined); }, []);
+  const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("manual");
+  const [fullName, setFullName] = useState("");
+  const [province, setProvince] = useState("");
+  const [city, setCity] = useState("");
+  const [address, setAddress] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+
+  useEffect(() => {
+    getCustomerSession()
+      .then((session) => {
+        setMobile(session.phone);
+        setVerifiedMobile(true);
+        return getCustomerAddresses();
+      })
+      .then((userAddresses) => {
+        if (userAddresses && userAddresses.length > 0) {
+          setAddresses(userAddresses);
+          const defaultAddr = userAddresses.find((a) => a.isDefault) || userAddresses[0];
+          setSelectedAddressId(defaultAddr.id);
+          setFullName(defaultAddr.receiverName);
+          setProvince(defaultAddr.province);
+          setCity(defaultAddr.city);
+          setAddress(defaultAddr.address);
+          setPostalCode(defaultAddr.postalCode);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  function selectAddress(addr: CustomerAddress) {
+    setSelectedAddressId(addr.id);
+    setFullName(addr.receiverName);
+    setProvince(addr.province);
+    setCity(addr.city);
+    setAddress(addr.address);
+    setPostalCode(addr.postalCode);
+    setErrors({});
+  }
+
+  function selectManual() {
+    setSelectedAddressId("manual");
+  }
   
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
@@ -90,8 +133,16 @@ export function CheckoutPageClient() {
 
   function handleChange(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const name = event.currentTarget.name as FieldName;
+    const val = event.currentTarget.value;
+    if (name === "fullName") setFullName(val);
+    else if (name === "mobile") setMobile(val);
+    else if (name === "province") setProvince(val);
+    else if (name === "city") setCity(val);
+    else if (name === "address") setAddress(val);
+    else if (name === "postalCode") setPostalCode(val);
+
     if (!(name in fieldLabels)) return;
-    const error = validateField(name, event.currentTarget.value);
+    const error = validateField(name, val);
     setErrors((current) => ({ ...current, [name]: error || undefined }));
     setRequestState("idle");
     setServerError("");
@@ -245,21 +296,77 @@ export function CheckoutPageClient() {
                 {Object.values(errors).some(Boolean) && (
                   <div className="checkout-form-errors" role="alert"><strong>لطفاً خطاهای مشخص‌شده در فرم را اصلاح کنید.</strong></div>
                 )}
+                {addresses.length > 0 && (
+                  <section className="checkout-panel checkout-saved-addresses-panel" aria-labelledby="saved-addresses-title">
+                    <div className="checkout-panel__heading">
+                      <span>📍</span>
+                      <div>
+                        <h2 id="saved-addresses-title">انتخاب از آدرس‌های ذخیره‌شده</h2>
+                        <p>می‌توانید یکی از آدرس‌های حساب خود را انتخاب کنید یا آدرس جدیدی وارد نمایید.</p>
+                      </div>
+                    </div>
+
+                    <div className="checkout-saved-addresses-grid">
+                      {addresses.map((addr) => (
+                        <label
+                          key={addr.id}
+                          className={`checkout-address-card ${selectedAddressId === addr.id ? "checkout-address-card--selected" : ""}`}
+                        >
+                          <input
+                            type="radio"
+                            name="savedAddressSelector"
+                            checked={selectedAddressId === addr.id}
+                            onChange={() => selectAddress(addr)}
+                          />
+                          <div className="checkout-address-card-body">
+                            <div className="checkout-address-card-header">
+                              <strong>{addr.title}</strong>
+                              {addr.isDefault && <span className="address-default-badge">پیش‌فرض</span>}
+                            </div>
+                            <p className="checkout-address-card-recipient">
+                              {addr.receiverName} ({addr.receiverPhone})
+                            </p>
+                            <p className="checkout-address-card-text">
+                              {addr.province}، {addr.city}، {addr.address}
+                            </p>
+                            <small>کد پستی: {addr.postalCode}</small>
+                          </div>
+                        </label>
+                      ))}
+
+                      <label
+                        className={`checkout-address-card checkout-address-card--custom ${selectedAddressId === "manual" ? "checkout-address-card--selected" : ""}`}
+                      >
+                        <input
+                          type="radio"
+                          name="savedAddressSelector"
+                          checked={selectedAddressId === "manual"}
+                          onChange={selectManual}
+                        />
+                        <div className="checkout-address-card-body">
+                          <strong>+ وارد کردن آدرس دیگر</strong>
+                          <p>نوشتن مشخصات تحویل‌گیرنده و آدرس به صورت دستی</p>
+                        </div>
+                      </label>
+                    </div>
+                  </section>
+                )}
+
                 <section className="checkout-panel" aria-labelledby="receiver-title">
                   <div className="checkout-panel__heading"><span>۱</span><div><h2 id="receiver-title">اطلاعات گیرنده</h2><p>نام و شماره تماس فرد تحویل‌گیرنده</p></div></div>
                   <div className="form-grid">
-                    <label className="form-field"><span>نام و نام خانوادگی *</span><input name="fullName" autoComplete="name" {...field("fullName")} />{fieldError("fullName")}</label>
-                    <label className="form-field"><span>شماره موبایل *</span><input name="mobile" type="tel" inputMode="tel" autoComplete="tel" placeholder="۰۹۱۲... یا +۹۸۹۱۲..." value={mobile} readOnly={verifiedMobile} aria-readonly={verifiedMobile} {...field("mobile")} onChange={event => { setMobile(event.target.value); handleChange(event); }} />{fieldError("mobile")}{verifiedMobile && <small>این شماره قبلاً تأیید شده است.</small>}</label>
+                    <label className="form-field"><span>نام و نام خانوادگی *</span><input name="fullName" autoComplete="name" value={fullName} {...field("fullName")} />{fieldError("fullName")}</label>
+                    <label className="form-field"><span>شماره موبایل *</span><input name="mobile" type="tel" inputMode="tel" autoComplete="tel" placeholder="۰۹۱۲... یا +۹۸۹۱۲..." value={mobile} readOnly={verifiedMobile} aria-readonly={verifiedMobile} {...field("mobile")} />{fieldError("mobile")}{verifiedMobile && <small>این شماره قبلاً تأیید شده است.</small>}</label>
                   </div>
                 </section>
 
                 <section className="checkout-panel" aria-labelledby="address-title">
                   <div className="checkout-panel__heading"><span>۲</span><div><h2 id="address-title">آدرس ارسال</h2><p>نشانی دقیق محل تحویل سفارش</p></div></div>
                   <div className="form-grid">
-                    <label className="form-field"><span>استان *</span><input name="province" autoComplete="address-level1" {...field("province")} />{fieldError("province")}</label>
-                    <label className="form-field"><span>شهر *</span><input name="city" autoComplete="address-level2" {...field("city")} />{fieldError("city")}</label>
-                    <label className="form-field form-field--full"><span>آدرس کامل *</span><textarea name="address" rows={4} autoComplete="street-address" {...field("address")} />{fieldError("address")}</label>
-                    <label className="form-field"><span>کد پستی *</span><input name="postalCode" inputMode="numeric" autoComplete="postal-code" {...field("postalCode")} />{fieldError("postalCode")}</label>
+                    <label className="form-field"><span>استان *</span><input name="province" autoComplete="address-level1" value={province} {...field("province")} />{fieldError("province")}</label>
+                    <label className="form-field"><span>شهر *</span><input name="city" autoComplete="address-level2" value={city} {...field("city")} />{fieldError("city")}</label>
+                    <label className="form-field form-field--full"><span>آدرس کامل *</span><textarea name="address" rows={4} autoComplete="street-address" value={address} {...field("address")} />{fieldError("address")}</label>
+                    <label className="form-field"><span>کد پستی *</span><input name="postalCode" inputMode="numeric" autoComplete="postal-code" value={postalCode} {...field("postalCode")} />{fieldError("postalCode")}</label>
                     <label className="form-field form-field--full"><span>توضیحات سفارش (اختیاری)</span><textarea name="customerNotes" rows={3} placeholder="نکته یا درخواستی درباره این سفارش دارید، بنویسید..." /></label>
                   </div>
                 </section>

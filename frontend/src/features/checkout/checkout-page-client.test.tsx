@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   createOrder: vi.fn(),
   getQuote: vi.fn(),
   getCustomerSession: vi.fn(),
+  getCustomerAddresses: vi.fn(),
   useCart: vi.fn(),
   clearCart: vi.fn(),
   replace: vi.fn(),
@@ -15,7 +16,10 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: mocks.replace }
 vi.mock("next/link", () => ({ default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a href={String(href)} {...props}>{children}</a> }));
 vi.mock("@/features/cart/cart-provider", () => ({ useCart: mocks.useCart }));
 vi.mock("@/features/checkout/checkout-api", () => ({ createOrder: mocks.createOrder, getQuote: mocks.getQuote }));
-vi.mock("@/features/account/account-api", () => ({ getCustomerSession: mocks.getCustomerSession }));
+vi.mock("@/features/account/account-api", () => ({
+  getCustomerSession: mocks.getCustomerSession,
+  getCustomerAddresses: mocks.getCustomerAddresses,
+}));
 vi.mock("@/components/layout/header", () => ({ Header: () => null }));
 vi.mock("@/components/layout/footer", () => ({ Footer: () => null }));
 vi.mock("@/components/layout/container", () => ({ Container: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));

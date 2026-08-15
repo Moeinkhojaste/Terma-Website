@@ -17,6 +17,8 @@ public class TermaDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Gu
     public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
     public DbSet<ProductMedia> ProductMedia => Set<ProductMedia>();
     public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<CustomerAddress> CustomerAddresses => Set<CustomerAddress>();
+    public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();

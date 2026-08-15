@@ -13,6 +13,7 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(x => x.Number).HasMaxLength(32).IsRequired();
         builder.HasIndex(x => x.Number).IsUnique();
         builder.Property(x => x.TrackingTokenHash).HasMaxLength(128);
+        builder.Property(x => x.PostalTrackingCode).HasMaxLength(64);
         builder.Property(x => x.IdempotencyKey).HasMaxLength(128);
         builder.Property(x => x.RequestFingerprint).HasMaxLength(128);
         builder.HasIndex(x => x.IdempotencyKey).IsUnique().HasFilter("[IdempotencyKey] IS NOT NULL");

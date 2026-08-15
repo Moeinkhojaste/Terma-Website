@@ -60,7 +60,7 @@ async function readJson(response: Response) {
   if (!contentType.toLowerCase().includes("json")) return undefined;
 
   try {
-    return await response.json() as unknown;
+    return (await response.json()) as unknown;
   } catch (cause) {
     throw new ApiError("پاسخ سرویس بک‌اند قابل خواندن نیست.", {
       status: response.status,
@@ -128,13 +128,13 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}, isR
   const body = await readJson(response);
   if (!response.ok) {
     const problem = isProblemDetails(body) ? body : undefined;
-    if (!isRetry && response.status === 400 && problem?.title === "Invalid antiforgery token") {
+    if (!isRetry && response.status === 400 && (problem?.title === "Invalid antiforgery token" || problem?.detail?.includes("antiforgery"))) {
       resetAntiforgeryToken();
       const retryHeaders = new Headers(init.headers);
       retryHeaders.set("X-CSRF-TOKEN", await getAntiforgeryToken());
       return apiRequest<T>(path, { ...init, headers: retryHeaders }, true);
     }
-    if (response.status === 401) resetAntiforgeryToken();
+    if (response.status === 401 || response.status === 403) resetAntiforgeryToken();
     const fieldErrors = problem?.errors
       ? Object.values(problem.errors).flat().join(" ")
       : undefined;

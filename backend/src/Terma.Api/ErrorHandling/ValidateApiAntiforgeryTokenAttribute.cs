@@ -9,7 +9,7 @@ namespace Terma.Api.ErrorHandling;
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
 public sealed class ValidateApiAntiforgeryTokenAttribute : Attribute, IAsyncAuthorizationFilter
 {
-    public bool RequireAuthenticatedOnly { get; set; }
+    public bool RequireAuthenticatedOnly { get; set; } = true;
 
     public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
     {

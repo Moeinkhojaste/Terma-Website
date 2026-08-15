@@ -5,7 +5,7 @@ namespace Terma.Application.Store;
 public sealed record DashboardDto(int ProductCount, int CategoryCount, int LowStockCount, int PendingOrderCount, int UnreadMessageCount, int CustomerCount, decimal OrderValue);
 public sealed record SalesReportDto(DateTime FromUtc, DateTime ToUtc, int OrderCount, decimal GrossSales, decimal CancelledSales, IReadOnlyList<ReportBucketDto> ByStatus);
 public sealed record ReportBucketDto(string Status, int Count, decimal Total);
-public sealed record AdminOrderDto(Guid Id, string Number, string CustomerName, string Phone, OrderStatus Status, decimal Total, DateTime CreatedAt, DateTime ReservationExpiresAtUtc, string Province, string City, string Address, string PostalCode, string? CustomerNotes, IReadOnlyList<AdminOrderItemDto> Items);
+public sealed record AdminOrderDto(Guid Id, string Number, string CustomerName, string Phone, OrderStatus Status, decimal Total, DateTime CreatedAt, DateTime ReservationExpiresAtUtc, string Province, string City, string Address, string PostalCode, string? CustomerNotes, string? PostalTrackingCode, IReadOnlyList<AdminOrderItemDto> Items);
 public sealed record AdminOrderItemDto(Guid ProductId, Guid? VariantId, string ProductName, string? VariantTitle, int? TableCapacity, string Sku, decimal UnitPrice, int Quantity);
 public sealed record AdminCustomerDto(Guid Id, string FullName, string Phone, string? Email, int OrderCount, decimal TotalOrderValue, DateTime CreatedAt);
 public sealed record PromotionDto(Guid Id, string Name, string? Code, PromotionType Type, DiscountType DiscountType, decimal Value, decimal? MinimumSubtotal, decimal? MaximumDiscount, int? UsageLimit, int UsageCount, DateTime StartsAtUtc, DateTime? EndsAtUtc, bool IsActive);
@@ -32,7 +32,7 @@ public sealed record ProductVariantDto(Guid Id, Guid ProductId, string Title, st
 public sealed class ProductVariantWriteRequest { public string Title { get; init; } = string.Empty; public string Sku { get; init; } = string.Empty; public string Color { get; init; } = string.Empty; public int TableCapacity { get; init; } public decimal Length { get; init; } public decimal Width { get; init; } public decimal Price { get; init; } public decimal? CompareAtPrice { get; init; } public int StockQuantity { get; init; } public int LowStockThreshold { get; init; } = 2; public bool IsActive { get; init; } = true; }
 public sealed record ProductMediaDto(Guid Id, Guid ProductId, string PublicUrl, string AltText, ProductMediaKind Kind, int SortOrder, bool IsPrimary);
 public sealed class ProductMediaWriteRequest { public string PublicUrl { get; init; } = string.Empty; public string AltText { get; init; } = string.Empty; public ProductMediaKind Kind { get; init; } = ProductMediaKind.Other; public int SortOrder { get; init; } public bool IsPrimary { get; init; } }
-public sealed class OrderStatusRequest { public OrderStatus Status { get; init; } }
+public sealed class OrderStatusRequest { public OrderStatus Status { get; init; } public string? PostalTrackingCode { get; init; } }
 public sealed class PromotionWriteRequest { public string Name { get; init; } = string.Empty; public string? Code { get; init; } public PromotionType Type { get; init; } public DiscountType DiscountType { get; init; } public decimal Value { get; init; } public decimal? MinimumSubtotal { get; init; } public decimal? MaximumDiscount { get; init; } public int? UsageLimit { get; init; } public DateTime StartsAtUtc { get; init; } = DateTime.UtcNow; public DateTime? EndsAtUtc { get; init; } public bool IsActive { get; init; } = true; }
 public sealed class ShippingRuleWriteRequest { public string Name { get; init; } = string.Empty; public string? Province { get; init; } public string? City { get; init; } public decimal Cost { get; init; } public decimal? FreeAboveSubtotal { get; init; } public int Priority { get; init; } public bool IsActive { get; init; } = true; }
 public sealed class StoreContentWriteRequest { public string PageKey { get; init; } = string.Empty; public string SectionKey { get; init; } = string.Empty; public string Title { get; init; } = string.Empty; public string Body { get; init; } = string.Empty; public string? LinkUrl { get; init; } public string? ImageUrl { get; init; } public string? SeoTitle { get; init; } public string? SeoDescription { get; init; } public bool IsPublished { get; init; } = true; }
@@ -43,7 +43,7 @@ public interface IStoreOperationsService
     Task<DashboardDto> DashboardAsync(CancellationToken cancellationToken);
     Task<SalesReportDto> SalesReportAsync(DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken);
     Task<IReadOnlyList<AdminOrderDto>> OrdersAsync(OrderStatus? status, CancellationToken cancellationToken);
-    Task<AdminOrderDto> ChangeOrderStatusAsync(Guid id, OrderStatus status, CancellationToken cancellationToken);
+    Task<AdminOrderDto> ChangeOrderStatusAsync(Guid id, OrderStatus status, string? postalTrackingCode, CancellationToken cancellationToken);
     Task<IReadOnlyList<AdminCustomerDto>> CustomersAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<PromotionDto>> PromotionsAsync(CancellationToken cancellationToken);
     Task<PromotionDto> CreatePromotionAsync(PromotionWriteRequest request, CancellationToken cancellationToken);

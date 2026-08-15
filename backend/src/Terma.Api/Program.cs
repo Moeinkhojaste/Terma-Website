@@ -383,6 +383,20 @@ app.Use(async (context, next) =>
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();
+
+app.Use(async (context, next) =>
+{
+    if (!(context.User.Identity?.IsAuthenticated ?? false))
+    {
+        var customerAuth = await context.AuthenticateAsync(CustomerAuthorization.AuthenticationScheme);
+        if (customerAuth.Succeeded && customerAuth.Principal is not null)
+        {
+            context.User = customerAuth.Principal;
+        }
+    }
+    await next();
+});
+
 app.UseAuthorization();
 app.MapControllers();
 

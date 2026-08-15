@@ -43,10 +43,15 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
         return await MapOrdersAsync(orders, cancellationToken);
     }
 
-    public async Task<AdminOrderDto> ChangeOrderStatusAsync(Guid id, OrderStatus status, CancellationToken cancellationToken)
+    public async Task<AdminOrderDto> ChangeOrderStatusAsync(Guid id, OrderStatus status, string? postalTrackingCode, CancellationToken cancellationToken)
     {
         var order = await db.Orders.Include(x => x.Items).Include(x => x.History).SingleOrDefaultAsync(x => x.Id == id, cancellationToken)
             ?? throw new NotFoundException($"Order '{id}' was not found.");
+
+        if (postalTrackingCode is not null)
+        {
+            order.SetPostalTrackingCode(postalTrackingCode);
+        }
 
         if (order.Status != status)
         {
@@ -123,9 +128,9 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
 
             order.ChangeStatus(status);
             await db.OrderStatusHistories.AddAsync(new OrderStatusHistory(order.Id, status, DateTime.UtcNow), cancellationToken);
-            await db.SaveChangesAsync(cancellationToken);
         }
 
+        await db.SaveChangesAsync(cancellationToken);
         var mapped = await MapOrdersAsync([order], cancellationToken);
         return mapped.Single();
     }
@@ -550,7 +555,7 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
                 return new AdminOrderItemDto(i.ProductId, i.VariantId, i.ProductName, formattedTitle, capacity, i.Sku, i.UnitPrice, i.Quantity);
             }).ToList();
 
-            result.Add(new AdminOrderDto(x.Id, x.Number, x.FullNameSnapshot, x.PhoneSnapshot, x.Status, x.Total, x.CreatedAt, x.ReservationExpiresAtUtc, x.Province, x.City, x.Address, x.PostalCode, x.CustomerNotes, items));
+            result.Add(new AdminOrderDto(x.Id, x.Number, x.FullNameSnapshot, x.PhoneSnapshot, x.Status, x.Total, x.CreatedAt, x.ReservationExpiresAtUtc, x.Province, x.City, x.Address, x.PostalCode, x.CustomerNotes, x.PostalTrackingCode, items));
         }
         return result;
     }

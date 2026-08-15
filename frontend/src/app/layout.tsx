@@ -3,6 +3,7 @@ import { Cairo } from "next/font/google";
 import { CartProvider } from "@/features/cart/cart-provider";
 import { CartDrawer } from "@/features/cart/cart-drawer";
 import { FeedbackProvider } from "@/components/ui/feedback-provider";
+import { WishlistProvider } from "@/features/account/wishlist-context";
 import "./globals.css";
 
 const cairo = Cairo({
@@ -69,10 +70,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className={cairo.className} suppressHydrationWarning>
         <FeedbackProvider>
-          <CartProvider>
-            {children}
-            <CartDrawer />
-          </CartProvider>
+          <WishlistProvider>
+            <CartProvider>
+              {children}
+              <CartDrawer />
+            </CartProvider>
+          </WishlistProvider>
         </FeedbackProvider>
       </body>
     </html>
