@@ -16,6 +16,7 @@ namespace Terma.IntegrationTests;
 public sealed class TermaApiFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
+    private static int _clientCounter;
     public AdjustableTimeProvider Clock { get; } = new();
 
     public const string AdminEmail = "admin@example.test";
@@ -53,19 +54,23 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
     public HttpClient CreateHttpsClient()
     {
         Clock.Reset();
-        return CreateClient(new WebApplicationFactoryClientOptions
+        var client = CreateClient(new WebApplicationFactoryClientOptions
         {
             BaseAddress = new Uri("https://localhost")
         });
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", $"10.0.0.{Interlocked.Increment(ref _clientCounter)}");
+        return client;
     }
 
     public HttpClient CreateHttpClient()
     {
         Clock.Reset();
-        return CreateClient(new WebApplicationFactoryClientOptions
+        var client = CreateClient(new WebApplicationFactoryClientOptions
         {
             BaseAddress = new Uri("http://localhost")
         });
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", $"10.0.0.{Interlocked.Increment(ref _clientCounter)}");
+        return client;
     }
 
     public async Task<HttpClient> CreateAuthenticatedClientAsync(string email, string password)

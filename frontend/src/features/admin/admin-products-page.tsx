@@ -52,8 +52,8 @@ export function AdminProductsPage() {
 
   const load = useCallback(() => {
     return Promise.all([
-      apiRequest<PagedResponse<ProductDto>>("/api/products?pageSize=100", { cache: "no-store" }),
-      apiRequest<CategoryDto[]>("/api/categories", { cache: "no-store" }),
+      apiRequest<PagedResponse<ProductDto>>("/api/admin/products?pageSize=100", { cache: "no-store" }),
+      apiRequest<CategoryDto[]>("/api/admin/categories", { cache: "no-store" }),
     ])
       .then(([p, c]) => {
         setItems(p.items);
@@ -96,7 +96,7 @@ export function AdminProductsPage() {
       color: item.color,
       pattern: item.pattern,
       categoryId: item.categoryId,
-      isActive: item.isActive,
+      isActive: item.isActive ?? true,
     });
     setEditingVariantId(null);
     setVariantForm(emptyVariantForm);
@@ -126,7 +126,7 @@ export function AdminProductsPage() {
       width: Number(form.width),
     };
     try {
-      await apiRequest<ProductDto>(editingId ? `/api/products/${editingId}` : "/api/products", {
+      await apiRequest<ProductDto>(editingId ? `/api/admin/products/${editingId}` : "/api/admin/products", {
         method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -147,7 +147,7 @@ export function AdminProductsPage() {
   async function removeProduct(id: string) {
     if (!window.confirm("این گروه محصول غیرفعال شود؟")) return;
     try {
-      await apiRequest(`/api/products/${id}`, { method: "DELETE" });
+      await apiRequest(`/api/admin/products/${id}`, { method: "DELETE" });
       await load();
     } catch (e) {
       setError(getApiErrorMessage(e));
@@ -225,10 +225,10 @@ export function AdminProductsPage() {
   function calculateTotalStock(item: ProductDto): number {
     if (item.variants && item.variants.length > 0) {
       return item.variants
-        .filter((v) => v.isActive)
-        .reduce((sum, v) => sum + (v.availableQuantity ?? v.stockQuantity), 0);
+        .filter((v) => v.isActive !== false)
+        .reduce((sum, v) => sum + (v.availableQuantity ?? v.stockQuantity ?? 0), 0);
     }
-    return item.stockQuantity;
+    return item.availableQuantity ?? item.stockQuantity ?? 0;
   }
 
   return (

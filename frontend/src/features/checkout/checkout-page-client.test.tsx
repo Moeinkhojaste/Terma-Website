@@ -87,7 +87,7 @@ describe("checkout order review", () => {
   });
 
   it("creates one order only after confirmation and clears the cart on success", async () => {
-    let resolveOrder!: (value: { number: string; trackingToken: string }) => void;
+    let resolveOrder!: (value: { number: string; total?: number }) => void;
     mocks.createOrder.mockImplementation(() => new Promise((resolve) => { resolveOrder = resolve; }));
     render(<CheckoutPageClient />);
     fillValidCheckout();
@@ -107,9 +107,9 @@ describe("checkout order review", () => {
     }));
     expect(within(dialog).getByRole("button", { name: "در حال ثبت سفارش…" })).toBeDisabled();
 
-    resolveOrder({ number: "TRM-12345678", trackingToken: "tracking-token" });
+    resolveOrder({ number: "TRM-12345678-123456" });
     await waitFor(() => expect(mocks.clearCart).toHaveBeenCalledTimes(1));
-    expect(mocks.replace).toHaveBeenCalledWith("/order/success?order=TRM-12345678&tracking=tracking-token");
+    expect(mocks.replace).toHaveBeenCalledWith("/order/success?order=TRM-12345678-123456");
   });
 
   it("keeps the review and cart available when order creation fails", async () => {

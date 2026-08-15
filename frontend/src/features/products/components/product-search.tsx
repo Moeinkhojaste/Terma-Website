@@ -38,7 +38,7 @@ export function ProductSearch() {
     setOpen(false);
     router.push(`/products?search=${encodeURIComponent(clean)}`);
   };
-  const openProduct = (product: Product) => { setOpen(false); router.push(`/products/${product.id}`); };
+  const openProduct = (product: Product) => { setOpen(false); router.push(`/products/${encodeURIComponent(product.slug || product.id)}`); };
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "ArrowDown" && results.length) { event.preventDefault(); setActiveIndex((value) => Math.min(results.length - 1, value + 1)); }
     if (event.key === "ArrowUp" && results.length) { event.preventDefault(); setActiveIndex((value) => Math.max(-1, value - 1)); }

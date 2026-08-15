@@ -34,7 +34,8 @@ export async function listProducts(query: ProductListQuery = {}, signal?: AbortS
 }
 
 export async function getProduct(id: string, signal?: AbortSignal): Promise<Product> {
-  const response = await apiRequest<ProductDto>(`/api/products/${encodeURIComponent(id)}`, {
+  const safeId = encodeURIComponent(decodeURIComponent(id));
+  const response = await apiRequest<ProductDto>(`/api/products/${safeId}`, {
     signal,
     cache: "no-store",
   });
@@ -43,6 +44,11 @@ export async function getProduct(id: string, signal?: AbortSignal): Promise<Prod
 
 export function listCategories(signal?: AbortSignal) {
   return apiRequest<CategoryDto[]>("/api/categories", { signal, cache: "no-store" });
+}
+
+export function getCategory(identifier: string, signal?: AbortSignal) {
+  const safeId = encodeURIComponent(decodeURIComponent(identifier));
+  return apiRequest<CategoryDto>(`/api/categories/${safeId}`, { signal, cache: "no-store" });
 }
 
 export function getProductFacets(signal?: AbortSignal) {

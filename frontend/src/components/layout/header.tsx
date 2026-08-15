@@ -19,8 +19,12 @@ export function Header() {
                 fill
                 sizes="(max-width: 768px) 160px, 300px"
                 priority
-                quality={75}
+                quality={90}
               />
+            </span>
+            <span className="brand-text">
+              <span className="brand-name">ترما</span>
+              <span className="brand-tagline">ترمه فاخر ایرانی</span>
             </span>
           </Link>
           <nav className="desktop-nav" aria-label="ناوبری اصلی">

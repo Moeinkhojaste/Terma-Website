@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Terma.Api.ErrorHandling;
 using Terma.Application.Common.Authorization;
+using Terma.Application.Common.Interfaces;
 using Terma.Application.Customers;
 using Terma.Infrastructure.Identity;
 
@@ -16,31 +18,45 @@ public sealed class CustomerAuthController(
     ICustomerAccountService accounts,
     UserManager<ApplicationUser> userManager,
     IUserClaimsPrincipalFactory<ApplicationUser> claimsFactory,
+    ISecurityAuditService auditService,
     TimeProvider timeProvider) : ControllerBase
 {
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(30);
 
     [AllowAnonymous]
     [HttpPost("otp/request")]
+    [EnableRateLimiting("otp-request")]
     [ValidateApiAntiforgeryToken]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<ActionResult<RequestOtpResponse>> RequestOtp(RequestOtpRequest request, CancellationToken cancellationToken)
     {
-        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        return Ok(await accounts.RequestOtpAsync(request.Phone, ip, cancellationToken));
+        var ip = GetClientIp();
+        var response = await accounts.RequestOtpAsync(request.Phone, ip, cancellationToken);
+        await auditService.LogAsync("Anonymous", "OtpRequest", request.Phone, "Success", HttpContext.TraceIdentifier, ip, cancellationToken);
+        return Ok(response);
     }
 
     [AllowAnonymous]
     [HttpPost("otp/verify")]
+    [EnableRateLimiting("otp-verify")]
     [ValidateApiAntiforgeryToken]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<ActionResult<CustomerSessionDto>> VerifyOtp(VerifyOtpRequest request, CancellationToken cancellationToken)
     {
+        var ip = GetClientIp();
         var result = await accounts.VerifyOtpAsync(request.ChallengeId, request.Code, cancellationToken);
         if (result.Failure != VerifyOtpFailure.None || !result.UserId.HasValue)
+        {
+            await auditService.LogAsync("Anonymous", "OtpVerify", request.ChallengeId.ToString(), $"Failure: {result.Failure}", HttpContext.TraceIdentifier, ip, cancellationToken);
             return VerificationProblem(result.Failure);
+        }
 
         var user = await userManager.FindByIdAsync(result.UserId.Value.ToString());
         if (user is null || user.AccountType != ApplicationUserType.Customer)
+        {
+            await auditService.LogAsync("Anonymous", "OtpVerify", request.ChallengeId.ToString(), "Failure: User not found", HttpContext.TraceIdentifier, ip, cancellationToken);
             return VerificationProblem(VerifyOtpFailure.NotFound);
+        }
 
         var principal = await claimsFactory.CreateAsync(user);
         var expiresAt = timeProvider.GetUtcNow().Add(SessionLifetime);
@@ -50,17 +66,14 @@ public sealed class CustomerAuthController(
             ExpiresUtc = expiresAt,
             IsPersistent = true
         });
-        // Antiforgery tokens include the current identity. The token issued
-        // before OTP verification belongs to the anonymous principal, so
-        // expire its cookie and let the next mutation fetch a customer-bound
-        // token pair.
-        Response.Cookies.Delete("Terma.Antiforgery.Dev");
-        Response.Cookies.Delete("__Host-Terma.Antiforgery");
+
+        await auditService.LogAsync(user.PhoneNumber ?? user.Id.ToString(), "OtpVerify", "CustomerSession", "Success", HttpContext.TraceIdentifier, ip, cancellationToken);
         return Ok(new CustomerSessionDto(user.Id, result.Phone!, expiresAt, result.ClaimedOrderCount));
     }
 
     [Authorize(Policy = CustomerAuthorization.Policy)]
     [HttpGet("me")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<ActionResult<CustomerSessionDto>> Me()
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -71,12 +84,13 @@ public sealed class CustomerAuthController(
 
     [Authorize(Policy = CustomerAuthorization.Policy)]
     [HttpPost("logout")]
+    [ValidateApiAntiforgeryToken]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Logout()
     {
-        // Logout only invalidates this user's authentication cookie. It does
-        // not change server-side business data, so it is intentionally safe
-        // to call even when an anonymous/stale antiforgery token is present.
+        var phone = User.FindFirstValue(ClaimTypes.MobilePhone) ?? "Customer";
         await HttpContext.SignOutAsync(CustomerAuthorization.AuthenticationScheme);
+        await auditService.LogAsync(phone, "CustomerLogout", "CustomerSession", "Success", HttpContext.TraceIdentifier, GetClientIp());
         return NoContent();
     }
 
@@ -91,4 +105,12 @@ public sealed class CustomerAuthController(
 
     private bool TryGetUserId(out Guid userId) => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
     private static string ToLocalPhone(string normalized) => normalized.StartsWith("98", StringComparison.Ordinal) ? $"0{normalized[2..]}" : normalized;
+
+    private string GetClientIp()
+    {
+        var forwarded = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        return !string.IsNullOrWhiteSpace(forwarded)
+            ? forwarded.Split(',')[0].Trim()
+            : HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    }
 }

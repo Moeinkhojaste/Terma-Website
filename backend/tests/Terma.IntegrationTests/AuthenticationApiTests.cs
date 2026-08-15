@@ -23,7 +23,7 @@ public sealed class AuthenticationApiTests(TermaApiFactory factory) : IClassFixt
     }
 
     [Fact]
-    public async Task AdminProvisioner_CreatesRoleAndCanResetPassword()
+    public async Task AdminProvisioner_CreatesRoleAndRejectsSilentOverwrite()
     {
         var email = $"provisioned-{Guid.NewGuid():N}@example.test";
         const string firstPassword = "FirstAdmin!123";
@@ -33,11 +33,11 @@ public sealed class AuthenticationApiTests(TermaApiFactory factory) : IClassFixt
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
         await provisioner.ProvisionAsync(email, firstPassword);
-        await provisioner.ProvisionAsync(email, secondPassword);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => provisioner.ProvisionAsync(email, secondPassword));
 
         var user = await users.FindByEmailAsync(email);
         Assert.NotNull(user);
-        Assert.True(await users.CheckPasswordAsync(user, secondPassword));
+        Assert.True(await users.CheckPasswordAsync(user, firstPassword));
         Assert.True(await users.IsInRoleAsync(user, AdminAuthorization.Role));
     }
 
@@ -128,7 +128,7 @@ public sealed class AuthenticationApiTests(TermaApiFactory factory) : IClassFixt
         using var client = factory.CreateHttpsClient();
         await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
 
-        var response = await client.PostAsJsonAsync("/api/categories", ValidCategory());
+        var response = await client.PostAsJsonAsync("/api/admin/categories", ValidCategory());
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -140,7 +140,7 @@ public sealed class AuthenticationApiTests(TermaApiFactory factory) : IClassFixt
             TermaApiFactory.UserEmail,
             TermaApiFactory.UserPassword);
 
-        var response = await client.PostAsJsonAsync("/api/categories", ValidCategory());
+        var response = await client.PostAsJsonAsync("/api/admin/categories", ValidCategory());
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -151,7 +151,7 @@ public sealed class AuthenticationApiTests(TermaApiFactory factory) : IClassFixt
         using var client = await factory.CreateAdminClientAsync();
         client.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");
 
-        var response = await client.PostAsJsonAsync("/api/categories", ValidCategory());
+        var response = await client.PostAsJsonAsync("/api/admin/categories", ValidCategory());
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());

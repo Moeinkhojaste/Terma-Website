@@ -19,34 +19,50 @@ namespace Terma.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, bool isDevelopment = false)
     {
         var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
+            ?? (isDevelopment ? "Server=(localdb)\\MSSQLLocalDB;Database=TermaDb;Trusted_Connection=True;TrustServerCertificate=True" : null);
 
-        services.AddDbContext<TermaDbContext>(options => options.UseSqlServer(connectionString));
+        if (string.IsNullOrWhiteSpace(connectionString) && !isDevelopment)
+        {
+            throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            services.AddDbContext<TermaDbContext>(options => options.UseSqlServer(connectionString));
+        }
+
         services.AddIdentityCore<ApplicationUser>(options =>
             {
                 options.User.RequireUniqueEmail = true;
-                options.Password.RequiredLength = 6;
+                options.Password.RequiredLength = 12;
                 options.Password.RequireUppercase = false;
                 options.Password.RequireLowercase = false;
                 options.Password.RequireDigit = false;
                 options.Password.RequireNonAlphanumeric = false;
                 options.Lockout.MaxFailedAccessAttempts = 5;
-                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
                 options.Lockout.AllowedForNewUsers = true;
             })
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<TermaDbContext>()
             .AddSignInManager()
             .AddDefaultTokenProviders();
+
         services.RemoveAll<IUserValidator<ApplicationUser>>();
         services.AddScoped<IUserValidator<ApplicationUser>, ApplicationUserValidator>();
         services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, ApplicationUserClaimsPrincipalFactory>();
         services.AddScoped<AdminAccountProvisioner>();
         services.Configure<OtpOptions>(configuration.GetSection(OtpOptions.SectionName));
-        services.AddScoped<IPhoneOtpSender, DevelopmentPhoneOtpSender>();
+
+        if (isDevelopment)
+        {
+            services.AddScoped<IPhoneOtpSender, DevelopmentPhoneOtpSender>();
+        }
+
+        services.AddScoped<ISecurityAuditService, SecurityAuditService>();
         services.AddScoped<ICustomerAccountService, CustomerAccountService>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IProductRepository, ProductRepository>();

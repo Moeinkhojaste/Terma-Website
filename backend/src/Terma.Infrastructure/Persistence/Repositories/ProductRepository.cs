@@ -24,6 +24,8 @@ public sealed class ProductRepository(TermaDbContext dbContext) : IProductReposi
 
         if (request.IsActive) query = query.Where(product => product.Category.IsActive);
         if (request.CategoryId.HasValue) query = query.Where(product => product.CategoryId == request.CategoryId.Value);
+        if (!string.IsNullOrWhiteSpace(request.CategorySlug)) query = query.Where(product => product.Category.Slug == request.CategorySlug.Trim());
+
         var color = request.Color?.Trim();
         if (minimumPrice.HasValue || maximumPrice.HasValue || tableCapacity.HasValue || !string.IsNullOrWhiteSpace(color) || request.InStock == true)
         {
@@ -68,6 +70,10 @@ public sealed class ProductRepository(TermaDbContext dbContext) : IProductReposi
         dbContext.Products.Include(product => product.Category).Include(product => product.Variants).Include(product => product.Media)
             .SingleOrDefaultAsync(product => product.Id == id, cancellationToken);
 
+    public Task<Product?> GetBySlugAsync(string slug, CancellationToken cancellationToken) =>
+        dbContext.Products.Include(product => product.Category).Include(product => product.Variants).Include(product => product.Media)
+            .SingleOrDefaultAsync(product => product.Slug == slug, cancellationToken);
+
     public async Task<ProductFacetsDto> FacetsAsync(CancellationToken cancellationToken)
     {
         var variants = await dbContext.ProductVariants.AsNoTracking()
@@ -103,6 +109,19 @@ public sealed class ProductRepository(TermaDbContext dbContext) : IProductReposi
             product => product.Sku == sku && (!excludedProductId.HasValue || product.Id != excludedProductId.Value),
             cancellationToken);
 
+    public Task<bool> SlugExistsAsync(string slug, Guid? excludedProductId, CancellationToken cancellationToken) =>
+        dbContext.Products.AnyAsync(
+            product => product.Slug == slug && (!excludedProductId.HasValue || product.Id != excludedProductId.Value),
+            cancellationToken);
+
+    public async Task<IReadOnlyList<Product>> GetAllActiveForSitemapAsync(CancellationToken cancellationToken) =>
+        await dbContext.Products.AsNoTracking()
+            .Include(p => p.Category)
+            .Include(p => p.Media)
+            .Where(p => p.IsActive && p.Category.IsActive)
+            .OrderBy(p => p.Name)
+            .ToListAsync(cancellationToken);
+
     public async Task AddAsync(Product product, CancellationToken cancellationToken) =>
         await dbContext.Products.AddAsync(product, cancellationToken);
 
@@ -116,6 +135,10 @@ public sealed class ProductRepository(TermaDbContext dbContext) : IProductReposi
         {
             throw new ConflictException("A product with this SKU already exists.");
         }
+        catch (DbUpdateException exception) when (IsSlugConflict(exception))
+        {
+            throw new ConflictException("A product with this slug already exists.");
+        }
     }
 
     private static bool IsSkuConflict(DbUpdateException exception)
@@ -124,6 +147,14 @@ public sealed class ProductRepository(TermaDbContext dbContext) : IProductReposi
         return message.Contains("IX_Products_Sku", StringComparison.OrdinalIgnoreCase)
             || message.Contains("Products.Sku", StringComparison.OrdinalIgnoreCase)
             || message.Contains("Products', column 'Sku", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsSlugConflict(DbUpdateException exception)
+    {
+        var message = exception.ToString();
+        return message.Contains("IX_Products_Slug", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Products.Slug", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Products', column 'Slug", StringComparison.OrdinalIgnoreCase);
     }
 
     private static decimal? Max(decimal? first, decimal? second) => first.HasValue && second.HasValue

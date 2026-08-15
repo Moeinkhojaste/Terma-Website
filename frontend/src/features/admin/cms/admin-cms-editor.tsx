@@ -335,12 +335,27 @@ export function AdminCmsEditor({ id }: { id: string }) {
         <Link href="/admin/content" className="text-link">
           بازگشت به صفحات
         </Link>
-        <a
-          href={`/api/cms/preview?id=${encodeURIComponent(page.id)}&slug=${encodeURIComponent(page.slug)}`}
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              const res = await fetch("/api/cms/preview", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: page.id, slug: page.slug }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data.url) window.open(data.url, "_blank");
+              }
+            } catch {
+              // ignore
+            }
+          }}
           className="button button--secondary"
         >
           پیش‌نمایش کامل
-        </a>
+        </button>
         <div className="cms-save-state" role="status">
           {saveState === "saving"
             ? "در حال ذخیره…"

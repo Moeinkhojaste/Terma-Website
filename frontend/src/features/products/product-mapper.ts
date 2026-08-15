@@ -59,14 +59,14 @@ function formatDecimal(value: number) {
 
 function buildCapacitiesList(dto: ProductDto): ProductCapacityOption[] {
   const standardCapacities = [4, 6, 8];
-  const activeVariants = (dto.variants ?? []).filter((v) => v.isActive);
+  const activeVariants = (dto.variants ?? []).filter((v) => v.isActive !== false);
 
   return standardCapacities
     .map((cap) => {
       // 1) Search in registered active variants
       const foundVariant = activeVariants.find((v) => v.tableCapacity === cap);
       if (foundVariant) {
-        const avail = foundVariant.availableQuantity ?? foundVariant.stockQuantity;
+        const avail = foundVariant.availableQuantity ?? foundVariant.stockQuantity ?? 0;
         const hasDiscount = Boolean(foundVariant.compareAtPrice && foundVariant.compareAtPrice > foundVariant.price);
         const compareAtPriceFormatted = hasDiscount && foundVariant.compareAtPrice ? formatPrice(foundVariant.compareAtPrice) : null;
         const discountPercent = hasDiscount && foundVariant.compareAtPrice
@@ -94,6 +94,7 @@ function buildCapacitiesList(dto: ProductDto): ProductCapacityOption[] {
 
       // 2) If matches dto main product (when no variants array or single legacy variant)
       if (dto.tableCapacity === cap) {
+        const mainStock = dto.availableQuantity ?? dto.stockQuantity ?? 0;
         const hasDiscount = Boolean(dto.compareAtPrice && dto.compareAtPrice > dto.price);
         const compareAtPriceFormatted = hasDiscount && dto.compareAtPrice ? formatPrice(dto.compareAtPrice) : null;
         const discountPercent = dto.discountPercent ?? (hasDiscount && dto.compareAtPrice ? Math.round(((dto.compareAtPrice - dto.price) / dto.compareAtPrice) * 100) : null);
@@ -110,8 +111,8 @@ function buildCapacitiesList(dto: ProductDto): ProductCapacityOption[] {
           compareAtPriceValue: dto.compareAtPrice ?? null,
           discountPercent,
           hasDiscount,
-          stockQuantity: dto.stockQuantity,
-          isAvailable: dto.stockQuantity > 0,
+          stockQuantity: Math.max(0, mainStock),
+          isAvailable: mainStock > 0,
           sku: dto.sku,
         };
       }
@@ -158,11 +159,12 @@ export function mapProduct(dto: ProductDto): Product {
   const finalHasDiscount = minCapacity ? Boolean(minCapacity.hasDiscount) : Boolean(dto.compareAtPrice && dto.compareAtPrice > dto.price);
 
   const totalStockQuantity = dto.variants && dto.variants.length > 0
-    ? dto.variants.filter((v) => v.isActive).reduce((sum, v) => sum + (v.availableQuantity ?? v.stockQuantity), 0)
-    : dto.stockQuantity;
+    ? dto.variants.filter((v) => v.isActive !== false).reduce((sum, v) => sum + (v.availableQuantity ?? v.stockQuantity ?? 0), 0)
+    : (dto.availableQuantity ?? dto.stockQuantity ?? 0);
 
   return {
     id: dto.id,
+    slug: dto.slug || dto.id,
     variantId: minCapacity?.id,
     name: dto.name,
     size: minCapacity ? minCapacity.tableCapacity : dto.tableCapacity,
@@ -190,7 +192,8 @@ export function mapProduct(dto: ProductDto): Product {
     longDescription: description,
     categoryId: dto.categoryId,
     categoryName: dto.categoryName,
-    isActive: dto.isActive,
+    categorySlug: dto.categorySlug,
+    isActive: dto.isActive ?? true,
     capacities,
   };
 }

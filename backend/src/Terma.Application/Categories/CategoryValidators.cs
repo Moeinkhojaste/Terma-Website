@@ -7,6 +7,7 @@ public sealed class CreateCategoryRequestValidator : AbstractValidator<CreateCat
     public CreateCategoryRequestValidator()
     {
         RuleFor(request => request.Name).NotEmpty().MaximumLength(150);
+        RuleFor(request => request.Slug).MaximumLength(160);
         RuleFor(request => request.Description).MaximumLength(1000);
     }
 }
@@ -16,6 +17,7 @@ public sealed class UpdateCategoryRequestValidator : AbstractValidator<UpdateCat
     public UpdateCategoryRequestValidator()
     {
         RuleFor(request => request.Name).NotEmpty().MaximumLength(150);
+        RuleFor(request => request.Slug).MaximumLength(160);
         RuleFor(request => request.Description).MaximumLength(1000);
     }
 }

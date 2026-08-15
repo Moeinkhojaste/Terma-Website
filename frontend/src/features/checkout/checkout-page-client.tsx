@@ -188,7 +188,7 @@ export function CheckoutPageClient() {
     try {
       const order = await createOrder(review.request);
       clearCart();
-      router.replace(`/order/success?order=${encodeURIComponent(order.number)}&tracking=${encodeURIComponent(order.trackingToken)}`);
+      router.replace(`/order/success?order=${encodeURIComponent(order.number)}`);
     } catch (caught) {
       setServerError(getCheckoutErrorMessage(caught));
       setRequestState(caught instanceof ApiError && caught.isNetworkError ? "network-error" : "server-error");

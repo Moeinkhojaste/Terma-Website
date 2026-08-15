@@ -10,6 +10,7 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
     {
         builder.HasKey(p => p.Id);
         builder.Property(p => p.Name).IsRequired().HasMaxLength(200);
+        builder.Property(p => p.Slug).IsRequired().HasMaxLength(160);
         builder.Property(p => p.Sku).IsRequired().HasMaxLength(64);
         builder.Property(p => p.Description).HasMaxLength(4000);
         builder.Property(p => p.Price).HasPrecision(18, 2);
@@ -22,6 +23,7 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.Color).IsRequired().HasMaxLength(300);
         builder.Property(p => p.Pattern).IsRequired().HasMaxLength(500);
 
+        builder.HasIndex(p => p.Slug).IsUnique();
         builder.HasIndex(p => p.Sku).IsUnique();
         builder.HasIndex(p => p.CategoryId);
         builder.HasIndex(p => new { p.IsActive, p.CategoryId });

@@ -8,6 +8,7 @@ public abstract class ProductWriteRequestValidator<TRequest> : AbstractValidator
     protected ProductWriteRequestValidator()
     {
         RuleFor(request => request.Name).NotEmpty().MaximumLength(200);
+        RuleFor(request => request.Slug).MaximumLength(160);
         RuleFor(request => request.Sku).NotEmpty().MaximumLength(64);
         RuleFor(request => request.Description).MaximumLength(4000);
         RuleFor(request => request.Price).GreaterThan(0);
@@ -41,6 +42,7 @@ public sealed class ProductListRequestValidator : AbstractValidator<ProductListR
         RuleFor(request => request.TableCapacity).GreaterThan(0).When(request => request.TableCapacity.HasValue);
         RuleFor(request => request.Color).MaximumLength(120);
         RuleFor(request => request.Search).MaximumLength(200);
+        RuleFor(request => request.CategorySlug).MaximumLength(160);
         RuleFor(request => request.Page).GreaterThanOrEqualTo(1);
         RuleFor(request => request.PageSize).InclusiveBetween(1, 100);
     }

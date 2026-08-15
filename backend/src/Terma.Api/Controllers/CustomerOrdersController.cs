@@ -10,6 +10,7 @@ namespace Terma.Api.Controllers;
 [ApiController]
 [Route("api/customer/orders")]
 [Authorize(Policy = CustomerAuthorization.Policy)]
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class CustomerOrdersController(ICustomerAccountService accounts) : ControllerBase
 {
     [HttpGet]

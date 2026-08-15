@@ -35,7 +35,7 @@ export function ProductQuickView({ product, open, onClose }: { product: Product;
             </div>
           </fieldset>
           <AddToCartButton product={activeProduct} onOpenCart={onClose} />
-          <Link className="text-link quick-view__details" href={`/products/${product.id}`} onClick={onClose}>مشاهده همه جزئیات محصول</Link>
+          <Link className="text-link quick-view__details" href={`/products/${product.slug || product.id}`} onClick={onClose}>مشاهده همه جزئیات محصول</Link>
         </div>
       </div>
     </AccessibleDialog>

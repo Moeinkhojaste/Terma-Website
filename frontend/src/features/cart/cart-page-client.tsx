@@ -45,13 +45,13 @@ export function CartPageClient() {
               <section className="cart-items" aria-label="محصولات سبد خرید">
                 {items.map(({ lineId, product, quantity }) => (
                   <article className="cart-item" key={lineId}>
-                    <Link className="cart-item__image" href={`/products/${product.id}`} aria-label={`مشاهده ${product.name}`}>
+                    <Link className="cart-item__image" href={`/products/${product.slug || product.id}`} aria-label={`مشاهده ${product.name}`}>
                       <Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 34vw, 180px" />
                     </Link>
                     <div className="cart-item__content">
                       <div>
                         <span className="cart-item__capacity">{product.capacity}</span>
-                        <h2><Link href={`/products/${product.id}`}>{product.name}</Link></h2>
+                        <h2><Link href={`/products/${product.slug || product.id}`}>{product.name}</Link></h2>
                         <p>{product.dimensions}</p>
                       </div>
                       <div className="cart-item__actions">

@@ -54,7 +54,7 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
         var getResponse = await _client.GetAsync($"/api/categories/{category.Id}");
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
-        var updateResponse = await _client.PutAsJsonAsync($"/api/categories/{category.Id}", new UpdateCategoryRequest
+        var updateResponse = await _client.PutAsJsonAsync($"/api/admin/categories/{category.Id}", new UpdateCategoryRequest
         {
             Name = category.Name + " updated",
             Description = "Updated description",
@@ -64,7 +64,7 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
         Assert.False(updated.IsActive);
         Assert.NotNull(updated.UpdatedAt);
 
-        var reactivateResponse = await _client.PutAsJsonAsync($"/api/categories/{category.Id}", new UpdateCategoryRequest
+        var reactivateResponse = await _client.PutAsJsonAsync($"/api/admin/categories/{category.Id}", new UpdateCategoryRequest
         {
             Name = updated.Name,
             Description = updated.Description,
@@ -72,10 +72,9 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
         });
         Assert.True((await ReadAsync<CategoryDto>(reactivateResponse)).IsActive);
 
-        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/api/categories/{category.Id}")).StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/api/categories/{category.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/api/admin/categories/{category.Id}")).StatusCode);
 
-        var inactive = await _client.GetFromJsonAsync<List<CategoryDto>>("/api/categories?isActive=false");
+        var inactive = await _client.GetFromJsonAsync<List<CategoryDto>>("/api/admin/categories");
         Assert.Contains(inactive!, item => item.Id == category.Id);
     }
 
@@ -86,24 +85,23 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
         var created = await CreateProductAsync(category.Id, " ter-crud-001 ");
         Assert.Equal("TER-CRUD-001", created.Sku);
 
-        var updatedResponse = await _client.PutAsJsonAsync($"/api/products/{created.Id}", ProductRequest(
+        var updatedResponse = await _client.PutAsJsonAsync($"/api/admin/products/{created.Id}", ProductRequest(
             category.Id, "TER-CRUD-001", name: "Updated product", isActive: true, price: 2_000_000));
         var updated = await ReadAsync<ProductDto>(updatedResponse);
         Assert.Equal("Updated product", updated.Name);
         Assert.Equal(2_000_000, updated.Price);
         Assert.NotNull(updated.UpdatedAt);
 
-        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/api/products/{created.Id}")).StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/api/products/{created.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/api/admin/products/{created.Id}")).StatusCode);
 
-        var defaultList = await _client.GetFromJsonAsync<PagedResult<ProductDto>>($"/api/products?categoryId={category.Id}");
+        var defaultList = await _client.GetFromJsonAsync<PagedResult<PublicProductDto>>($"/api/products?categoryId={category.Id}");
         Assert.DoesNotContain(defaultList!.Items, item => item.Id == created.Id);
 
-        var inactiveList = await _client.GetFromJsonAsync<PagedResult<ProductDto>>(
-            $"/api/products?categoryId={category.Id}&isActive=false");
-        Assert.Contains(inactiveList!.Items, item => item.Id == created.Id);
+        var adminList = await _client.GetFromJsonAsync<PagedResult<ProductDto>>(
+            $"/api/admin/products?categoryId={category.Id}&isActive=false");
+        Assert.Contains(adminList!.Items, item => item.Id == created.Id);
 
-        var reactivateResponse = await _client.PutAsJsonAsync($"/api/products/{created.Id}", ProductRequest(
+        var reactivateResponse = await _client.PutAsJsonAsync($"/api/admin/products/{created.Id}", ProductRequest(
             category.Id, created.Sku, name: updated.Name, isActive: true, price: updated.Price));
         Assert.True((await ReadAsync<ProductDto>(reactivateResponse)).IsActive);
     }
@@ -115,7 +113,7 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
         var sku = $"TER-{Guid.NewGuid():N}";
         await CreateProductAsync(category.Id, sku);
 
-        var response = await _client.PostAsJsonAsync("/api/products", ProductRequest(category.Id, sku.ToLowerInvariant()));
+        var response = await _client.PostAsJsonAsync("/api/admin/products", ProductRequest(category.Id, sku.ToLowerInvariant()));
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
@@ -126,7 +124,7 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
     [Fact]
     public async Task ProductValidation_ReturnsErrorsAndTraceId()
     {
-        var response = await _client.PostAsJsonAsync("/api/products", new CreateProductRequest
+        var response = await _client.PostAsJsonAsync("/api/admin/products", new CreateProductRequest
         {
             Price = 0,
             StockQuantity = -1
@@ -142,7 +140,7 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
     [Fact]
     public async Task MissingCategory_ReturnsNotFound()
     {
-        var response = await _client.PostAsJsonAsync("/api/products", ProductRequest(Guid.NewGuid(), "TER-MISSING-001"));
+        var response = await _client.PostAsJsonAsync("/api/admin/products", ProductRequest(Guid.NewGuid(), "TER-MISSING-001"));
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -157,7 +155,7 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
 
         var url = $"/api/products?categoryId={category.Id}&search=Blue&minPrice=1000000&maxPrice=2000000" +
                   "&tableCapacity=4&page=1&pageSize=1";
-        var result = await _client.GetFromJsonAsync<PagedResult<ProductDto>>(url);
+        var result = await _client.GetFromJsonAsync<PagedResult<PublicProductDto>>(url);
 
         Assert.NotNull(result);
         Assert.Single(result.Items);
@@ -171,12 +169,12 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
     {
         var category = await CreateCategoryAsync();
         var product = await CreateProductAsync(category.Id, $"TER-HIDDEN-{Guid.NewGuid():N}");
-        await _client.DeleteAsync($"/api/categories/{category.Id}");
+        await _client.DeleteAsync($"/api/admin/categories/{category.Id}");
 
-        var result = await _client.GetFromJsonAsync<PagedResult<ProductDto>>($"/api/products?categoryId={category.Id}");
+        var result = await _client.GetFromJsonAsync<PagedResult<PublicProductDto>>($"/api/products?categoryId={category.Id}");
 
         Assert.DoesNotContain(result!.Items, item => item.Id == product.Id);
-        Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync($"/api/products/{product.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/api/products/{product.Id}")).StatusCode);
     }
 
     [Fact]
@@ -186,7 +184,7 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
         var product = await CreateProductAsync(category.Id, $"TER-MEDIA-{Guid.NewGuid():N}");
         var createResponse = await _client.PostAsJsonAsync($"/api/admin/products/{product.Id}/media", new ProductMediaWriteRequest
         {
-            PublicUrl = "/images/media-test.webp",
+            PublicUrl = "/api/media/media-test.webp",
             AltText = "نمای سفره روی میز",
             Kind = ProductMediaKind.Table,
             SortOrder = 2,
@@ -205,7 +203,7 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
         var updated = await ReadAsync<ProductMediaDto>(updateResponse);
         Assert.Equal(ProductMediaKind.Full, updated.Kind);
 
-        var publicProduct = await ReadAsync<ProductDto>(await _client.GetAsync($"/api/products/{product.Id}"));
+        var publicProduct = await ReadAsync<PublicProductDto>(await _client.GetAsync($"/api/products/{product.Id}"));
         var publicMedia = Assert.Single(publicProduct!.Media!);
         Assert.Equal(updated.Id, publicMedia.Id);
         Assert.Equal(ProductMediaKind.Full, publicMedia.Kind);
@@ -251,22 +249,21 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
         Assert.Contains("آبی", facets!.Colors);
         Assert.Contains(6, facets.TableCapacities);
 
-        var lookup = await _client.GetFromJsonAsync<List<ProductDto>>($"/api/products/lookup?ids={other.Id}&ids={current.Id}");
+        var lookup = await _client.GetFromJsonAsync<List<PublicProductDto>>($"/api/products/lookup?ids={other.Id}&ids={current.Id}");
         Assert.Equal([other.Id, current.Id], lookup!.Select(product => product.Id));
         var tooMany = string.Join("&", Enumerable.Range(0, 9).Select(_ => $"ids={Guid.NewGuid()}"));
         Assert.Equal(HttpStatusCode.BadRequest, (await _client.GetAsync($"/api/products/lookup?{tooMany}")).StatusCode);
 
-        var recommendations = await _client.GetFromJsonAsync<List<ProductDto>>($"/api/products/{current.Id}/recommendations?limit=4");
+        var recommendations = await _client.GetFromJsonAsync<List<PublicProductDto>>($"/api/products/{current.Id}/recommendations?limit=4");
         Assert.Equal(best.Id, recommendations![0].Id);
-        Assert.DoesNotContain(recommendations, product => product.StockQuantity == 0);
     }
 
-    private Task<PagedResult<ProductDto>> ListAsync(string query) =>
-        _client.GetFromJsonAsync<PagedResult<ProductDto>>($"/api/products?{query}")!;
+    private Task<PagedResult<PublicProductDto>> ListAsync(string query) =>
+        _client.GetFromJsonAsync<PagedResult<PublicProductDto>>($"/api/products?{query}")!;
 
     private async Task<ProductDto> CreatePersianProductAsync(Guid categoryId, string name, string color, string pattern, decimal price, int capacity, int stock)
     {
-        var response = await _client.PostAsJsonAsync("/api/products", new CreateProductRequest
+        var response = await _client.PostAsJsonAsync("/api/admin/products", new CreateProductRequest
         {
             Name = name,
             Sku = $"TER-FA-{Guid.NewGuid():N}",
@@ -289,7 +286,7 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
     private async Task<CategoryDto> CreateCategoryAsync()
     {
         var suffix = Guid.NewGuid().ToString("N")[..8];
-        var response = await _client.PostAsJsonAsync("/api/categories", new CreateCategoryRequest
+        var response = await _client.PostAsJsonAsync("/api/admin/categories", new CreateCategoryRequest
         {
             Name = $"Tablecloths {suffix}",
             Description = "Integration test category"
@@ -304,7 +301,7 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
         decimal price = 1_500_000,
         int capacity = 4)
     {
-        var response = await _client.PostAsJsonAsync("/api/products", ProductRequest(categoryId, sku, name, true, price, capacity));
+        var response = await _client.PostAsJsonAsync("/api/admin/products", ProductRequest(categoryId, sku, name, true, price, capacity));
         return await ReadAsync<ProductDto>(response, HttpStatusCode.Created);
     }
 

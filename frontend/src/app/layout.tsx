@@ -12,14 +12,62 @@ const cairo = Cairo({
 });
 
 export const metadata: Metadata = {
-  title: "ترما | سفره‌های ترمه ایرانی",
-  description: "سفره‌های ترمه با نقش ایرانی، دوخت دقیق و آستر ساتن در دسته‌های چهار، شش و هشت نفره.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://terma.ir"),
+  title: {
+    default: "ترما | سفره‌های ترمه ایرانی",
+    template: "%s | ترما",
+  },
+  description: "سفره‌های ترمه با نقش اصیل ایرانی، دوخت دقیق و آستر ساتن در دسته‌های چهار، شش و هشت نفره.",
+  openGraph: {
+    type: "website",
+    locale: "fa_IR",
+    siteName: "ترما",
+    title: "ترما | سفره‌های ترمه ایرانی",
+    description: "سفره‌های ترمه با نقش اصیل ایرانی، دوخت دقیق و آستر ساتن در دسته‌های چهار، شش و هشت نفره.",
+  },
+};
+
+const websiteStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "ترما",
+  url: "https://terma.ir",
+  potentialAction: {
+    "@type": "SearchAction",
+    target: "https://terma.ir/products?search={search_term_string}",
+    "query-input": "required name=search_term_string",
+  },
+};
+
+const organizationStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "ترما",
+  url: "https://terma.ir",
+  logo: "https://terma.ir/icon.jpeg",
+  contactPoint: {
+    "@type": "ContactPoint",
+    telephone: "+98-21-12345678",
+    contactType: "customer service",
+    areaServed: "IR",
+    availableLanguage: "Persian",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fa" dir="rtl" className={cairo.variable}>
-      <body className={cairo.className}>
+    <html lang="fa" dir="rtl" className={cairo.variable} data-scroll-behavior="smooth">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteStructuredData) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationStructuredData) }}
+        />
+      </head>
+      <body className={cairo.className} suppressHydrationWarning>
         <FeedbackProvider>
           <CartProvider>
             {children}

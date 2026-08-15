@@ -19,13 +19,14 @@ public sealed class CustomerAccountsApiTests(TermaApiFactory factory) : IClassFi
     {
         var phone = $"0912{Random.Shared.Next(1_000_000, 9_999_999)}";
         using var admin = await factory.CreateAdminClientAsync();
-        var categoryResponse = await admin.PostAsJsonAsync("/api/categories", new CreateCategoryRequest { Name = $"Account {Guid.NewGuid():N}" });
+        var categoryResponse = await admin.PostAsJsonAsync("/api/admin/categories", new CreateCategoryRequest { Name = $"Account {Guid.NewGuid():N}" });
         var category = (await categoryResponse.Content.ReadFromJsonAsync<CategoryDto>())!;
-        var productResponse = await admin.PostAsJsonAsync("/api/products", new CreateProductRequest { Name = "Account product", Sku = $"ACCOUNT-{Guid.NewGuid():N}", Description = "test", Price = 2500, StockQuantity = 3, TableCapacity = 4, Length = 150, Width = 180, FabricType = "Termeh", LiningType = "Satin", Color = "Blue", Pattern = "Pattern", CategoryId = category.Id });
+        var productResponse = await admin.PostAsJsonAsync("/api/admin/products", new CreateProductRequest { Name = "Account product", Sku = $"ACCOUNT-{Guid.NewGuid():N}", Description = "test", Price = 2500, StockQuantity = 3, TableCapacity = 4, Length = 150, Width = 180, FabricType = "Termeh", LiningType = "Satin", Color = "Blue", Pattern = "Pattern", CategoryId = category.Id });
         var product = (await productResponse.Content.ReadFromJsonAsync<ProductDto>())!;
 
         using var customer = factory.CreateHttpsClient();
         await TermaApiFactory.SetAntiforgeryHeaderAsync(customer);
+        customer.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
         var orderResponse = await customer.PostAsJsonAsync("/api/orders", new CheckoutRequest { Items = [new CheckoutItemRequest(product.Id, null, 1)], FullName = "OTP Customer", Phone = phone, Province = "Tehran", City = "Tehran", Address = "A complete customer address", PostalCode = "1234567890" });
         orderResponse.EnsureSuccessStatusCode();
         var createdOrder = (await orderResponse.Content.ReadFromJsonAsync<CreatedOrderDto>())!;
@@ -101,6 +102,7 @@ public sealed class CustomerAccountsApiTests(TermaApiFactory factory) : IClassFi
         var challenge = (await (await client.PostAsJsonAsync("/api/customer-auth/otp/request", new RequestOtpRequest(phone))).Content.ReadFromJsonAsync<RequestOtpResponse>())!;
         (await client.PostAsJsonAsync("/api/customer-auth/otp/verify", new VerifyOtpRequest(challenge.ChallengeId, challenge.DevelopmentCode!))).EnsureSuccessStatusCode();
 
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync("/api/customer-auth/logout", null)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/customer-auth/me")).StatusCode);
     }

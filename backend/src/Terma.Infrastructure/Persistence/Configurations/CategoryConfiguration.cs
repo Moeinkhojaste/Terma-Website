@@ -10,7 +10,9 @@ public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
     {
         builder.HasKey(category => category.Id);
         builder.Property(category => category.Name).IsRequired().HasMaxLength(150);
+        builder.Property(category => category.Slug).IsRequired().HasMaxLength(160);
         builder.Property(category => category.Description).HasMaxLength(1000);
+        builder.HasIndex(category => category.Slug).IsUnique();
         builder.HasIndex(category => category.IsActive);
         builder.HasIndex(category => category.Name);
         builder.Navigation(category => category.Products)

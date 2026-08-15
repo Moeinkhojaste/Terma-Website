@@ -25,7 +25,7 @@ public static class IranianPhoneNumber
             ? $"0{normalized[2..]}"
             : normalized;
 
-    private static char ToEnglishDigit(char value) => value switch
+    public static char ToEnglishDigit(char value) => value switch
     {
         >= '\u06F0' and <= '\u06F9' => (char)('0' + value - '\u06F0'),
         >= '\u0660' and <= '\u0669' => (char)('0' + value - '\u0660'),

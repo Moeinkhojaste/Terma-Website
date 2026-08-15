@@ -12,7 +12,7 @@ export function ProductCard({ product, unavailable = false }: { product: Product
   unavailable = unavailable || product.stockQuantity === 0;
   return (
     <article className="product-card" id={`product-${product.id}`}>
-      <Link className="product-card__link" href={`/products/${product.id}`}>
+      <Link className="product-card__link" href={`/products/${product.slug || product.id}`}>
         <div className="product-image-wrap">
           <Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 92vw, (max-width: 1100px) 45vw, 31vw" className="product-image" />
         </div>

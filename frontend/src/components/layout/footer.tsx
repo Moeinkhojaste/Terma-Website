@@ -13,10 +13,13 @@ export function Footer() {
               alt="لوگوی ترما"
               fill
               sizes="(max-width: 768px) 120px, 160px"
-              quality={75}
+              quality={90}
             />
           </span>
-          <div><strong>ترما</strong><p>سفره‌های ترمه برای خانه‌های ایرانی امروز</p></div>
+          <div className="footer-brand-text">
+            <strong>ترما</strong>
+            <p>سفره‌های ترمه برای خانه‌های ایرانی امروز</p>
+          </div>
         </div>
         <div>
           <h2>راهنمای خرید</h2>

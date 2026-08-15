@@ -40,7 +40,7 @@ public sealed class ApiExceptionHandler(
             PreconditionFailedException => Create(StatusCodes.Status412PreconditionFailed, "Content changed", exception.Message),
             TooManyRequestsException => Create(StatusCodes.Status429TooManyRequests, "Too many requests", exception.Message),
             DomainException => Create(StatusCodes.Status400BadRequest, "Domain rule violation", exception.Message),
-            _ => Create(StatusCodes.Status500InternalServerError, "Server error", "An unexpected error occurred.")
+            _ => Create(StatusCodes.Status500InternalServerError, "Server error", exception.ToString())
         };
 
         problem.Instance = context.Request.Path;

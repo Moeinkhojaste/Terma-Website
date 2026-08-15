@@ -9,22 +9,24 @@ export type ProductVariantDto = {
   width: number;
   price: number;
   compareAtPrice?: number | null;
-  stockQuantity: number;
-  reservedQuantity: number;
-  availableQuantity: number;
-  lowStockThreshold: number;
-  isActive: boolean;
+  stockQuantity?: number;
+  reservedQuantity?: number;
+  availableQuantity?: number;
+  lowStockThreshold?: number;
+  isActive?: boolean;
 };
 
 export type ProductDto = {
   id: string;
   name: string;
+  slug?: string;
   sku: string;
   description: string | null;
   price: number;
   compareAtPrice?: number | null;
   discountPercent?: number | null;
-  stockQuantity: number;
+  stockQuantity?: number;
+  availableQuantity?: number;
   tableCapacity: number;
   length: number;
   width: number;
@@ -32,11 +34,12 @@ export type ProductDto = {
   liningType: string;
   color: string;
   pattern: string;
-  isActive: boolean;
+  isActive?: boolean;
   categoryId: string;
   categoryName: string;
-  createdAt: string;
-  updatedAt: string | null;
+  categorySlug?: string;
+  createdAt?: string;
+  updatedAt?: string | null;
   variants?: ProductVariantDto[] | null;
   media?: ProductMediaDto[] | null;
 };
@@ -65,6 +68,7 @@ export type ProductMedia = {
 export type CategoryDto = {
   id: string;
   name: string;
+  slug?: string;
   description: string | null;
   isActive: boolean;
   createdAt: string;
@@ -99,6 +103,7 @@ export type ProductCapacityOption = {
 
 export type Product = {
   id: string;
+  slug: string;
   variantId?: string;
   name: string;
   size: number;
@@ -126,6 +131,7 @@ export type Product = {
   longDescription: string;
   categoryId: string;
   categoryName: string;
+  categorySlug?: string;
   isActive: boolean;
   capacities: ProductCapacityOption[];
 };

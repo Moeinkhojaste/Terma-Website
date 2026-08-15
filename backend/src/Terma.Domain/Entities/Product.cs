@@ -1,5 +1,6 @@
 using Terma.Domain.Common;
 using Terma.Domain.Exceptions;
+using Terma.Domain.Services;
 
 namespace Terma.Domain.Entities;
 
@@ -8,6 +9,7 @@ public class Product : BaseEntity
     private readonly List<ProductVariant> _variants = [];
     private readonly List<ProductMedia> _media = [];
     public string Name { get; private set; } = string.Empty;
+    public string Slug { get; private set; } = string.Empty;
     public string Sku { get; private set; } = string.Empty;
     public string? Description { get; private set; }
     public decimal Price { get; private set; }
@@ -44,8 +46,10 @@ public class Product : BaseEntity
         string pattern,
         Guid categoryId,
         int? discountPercent = null,
-        bool isActive = true)
+        bool isActive = true,
+        string? slug = null)
     {
+        Slug = string.IsNullOrWhiteSpace(slug) ? PersianSlugHelper.GenerateSlug(name) : PersianSlugHelper.NormalizeSlug(slug);
         ApplyChanges(name, sku, description, price, stockQuantity, tableCapacity, length, width,
             fabricType, liningType, color, pattern, categoryId, discountPercent, isActive);
         _variants.Add(new ProductVariant(Id, "تنوع پیش‌فرض", Sku, Color, TableCapacity, Length, Width, Price, CompareAtPrice, StockQuantity, 2, isActive));
@@ -66,10 +70,21 @@ public class Product : BaseEntity
         string pattern,
         Guid categoryId,
         int? discountPercent = null,
-        bool isActive = true)
+        bool isActive = true,
+        string? slug = null)
     {
+        if (!string.IsNullOrWhiteSpace(slug))
+        {
+            Slug = PersianSlugHelper.NormalizeSlug(slug);
+        }
         ApplyChanges(name, sku, description, price, stockQuantity, tableCapacity, length, width,
             fabricType, liningType, color, pattern, categoryId, discountPercent, isActive);
+        MarkUpdated();
+    }
+
+    public void SetSlug(string slug)
+    {
+        Slug = PersianSlugHelper.NormalizeSlug(slug);
         MarkUpdated();
     }
 

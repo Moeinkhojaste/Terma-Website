@@ -29,8 +29,9 @@ public sealed class Order : BaseEntity
     public decimal ShippingTotal { get; private set; }
     public decimal Total { get; private set; }
     public DateTime ReservationExpiresAtUtc { get; private set; }
-    public string TrackingTokenHash { get; private set; } = string.Empty;
+    public string? TrackingTokenHash { get; private set; }
     public string? IdempotencyKey { get; private set; }
+    public string? RequestFingerprint { get; private set; }
     public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
     public IReadOnlyCollection<OrderStatusHistory> History => _history.AsReadOnly();
 
@@ -38,9 +39,9 @@ public sealed class Order : BaseEntity
 
     public Order(string number, Customer customer, string province, string city, string address,
         string postalCode, decimal subtotal, decimal discountTotal, decimal shippingTotal,
-        DateTime reservationExpiresAtUtc, string trackingTokenHash, string? customerNotes = null)
+        DateTime reservationExpiresAtUtc, string? trackingTokenHash = null, string? customerNotes = null)
     {
-        Number = number;
+        Number = number.Trim();
         Customer = customer;
         CustomerId = customer.Id;
         FullNameSnapshot = customer.FullName;
@@ -61,7 +62,19 @@ public sealed class Order : BaseEntity
     }
 
     public void AddItem(OrderItem item) => _items.Add(item);
-    public void SetIdempotencyKey(string key) { IdempotencyKey = key.Trim(); }
+
+    public void SetIdempotency(string key, string requestFingerprint)
+    {
+        IdempotencyKey = key.Trim();
+        RequestFingerprint = requestFingerprint.Trim();
+        MarkUpdated();
+    }
+
+    public void SetIdempotencyKey(string key)
+    {
+        IdempotencyKey = key.Trim();
+        MarkUpdated();
+    }
 
     public void AttachToUser(Guid userId)
     {
@@ -72,11 +85,28 @@ public sealed class Order : BaseEntity
         MarkUpdated();
     }
 
+    public bool CanTransitionTo(OrderStatus next)
+    {
+        if (Status == next) return true;
+        return Status switch
+        {
+            OrderStatus.PendingConfirmation => next is OrderStatus.Confirmed or OrderStatus.Cancelled or OrderStatus.Expired,
+            OrderStatus.Confirmed => next is OrderStatus.Preparing or OrderStatus.Cancelled,
+            OrderStatus.Preparing => next is OrderStatus.Shipped or OrderStatus.Cancelled,
+            OrderStatus.Shipped => next is OrderStatus.Delivered or OrderStatus.Cancelled,
+            OrderStatus.Delivered => false,
+            OrderStatus.Cancelled => false,
+            OrderStatus.Expired => false,
+            _ => false
+        };
+    }
+
     public void ChangeStatus(OrderStatus next)
     {
         if (Status == next) return;
+        if (!CanTransitionTo(next))
+            throw new DomainException($"Cannot transition order status from '{Status}' to '{next}'.");
         Status = next;
-        _history.Add(new OrderStatusHistory(Id, next, DateTime.UtcNow));
         MarkUpdated();
     }
 }
@@ -105,5 +135,5 @@ public sealed class OrderStatusHistory : BaseEntity
     public Order Order { get; private set; } = null!;
     public OrderStatus Status { get; private set; }
     private OrderStatusHistory() { }
-    public OrderStatusHistory(Guid orderId, OrderStatus status, DateTime createdAt) { Id = Guid.Empty; OrderId = orderId; Status = status; }
+    public OrderStatusHistory(Guid orderId, OrderStatus status, DateTime createdAt) { Id = Guid.NewGuid(); OrderId = orderId; Status = status; }
 }

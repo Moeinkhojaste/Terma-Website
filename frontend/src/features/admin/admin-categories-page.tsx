@@ -4,4 +4,122 @@ import { AdminShell } from "@/features/admin/admin-shell";
 import { apiRequest, getApiErrorMessage } from "@/lib/api-client";
 import type { CategoryDto } from "@/features/products/models";
 
-export function AdminCategoriesPage(){const [items,setItems]=useState<CategoryDto[]>([]);const [name,setName]=useState("");const [description,setDescription]=useState("");const [editing,setEditing]=useState<string>();const [error,setError]=useState<string>();const load=()=>apiRequest<CategoryDto[]>("/api/categories",{cache:"no-store"}).then(setItems).catch(e=>setError(getApiErrorMessage(e)));useEffect(()=>{void load();},[]);async function submit(e:FormEvent){e.preventDefault();try{await apiRequest(`/api/categories${editing?`/${editing}`:""}`,{method:editing?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,description,isActive:true})});setName("");setDescription("");setEditing(undefined);load();}catch(e){setError(getApiErrorMessage(e));}}async function remove(id:string){if(!confirm("این دسته‌بندی غیرفعال شود؟"))return;try{await apiRequest(`/api/categories/${id}`,{method:"DELETE"});load();}catch(e){setError(getApiErrorMessage(e));}}return <AdminShell title="دسته‌بندی‌ها"><div className="admin-two-col"> <form className="admin-panel admin-form" onSubmit={submit}><h2>{editing?"ویرایش دسته‌بندی":"دسته‌بندی جدید"}</h2>{error&&<div className="admin-alert admin-alert--error" role="alert">{error}</div>}<label className="form-field">نام<input value={name} onChange={e=>setName(e.target.value)} required/></label><label className="form-field">توضیحات<textarea value={description} onChange={e=>setDescription(e.target.value)} rows={4}/></label><button className="button button--primary" type="submit">{editing?"ذخیره":"ایجاد دسته‌بندی"}</button>{editing&&<button className="button button--secondary" type="button" onClick={()=>{setEditing(undefined);setName("");setDescription("");}}>لغو</button>}</form><div className="admin-panel admin-table-wrap"><table className="admin-table"><thead><tr><th>نام</th><th>توضیحات</th><th>عملیات</th></tr></thead><tbody>{items.map(x=><tr key={x.id}><td>{x.name}</td><td>{x.description||"—"}</td><td><div className="admin-row-actions"><button type="button" onClick={()=>{setEditing(x.id);setName(x.name);setDescription(x.description??"");}}>ویرایش</button><button type="button" onClick={()=>remove(x.id)}>غیرفعال</button></div></td></tr>)}</tbody></table>{items.length===0&&<div className="admin-empty">دسته‌بندی فعالی وجود ندارد.</div>}</div></div></AdminShell>}
+export function AdminCategoriesPage() {
+  const [items, setItems] = useState<CategoryDto[]>([]);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [editing, setEditing] = useState<string>();
+  const [error, setError] = useState<string>();
+
+  const load = () =>
+    apiRequest<CategoryDto[]>("/api/admin/categories", { cache: "no-store" })
+      .then(setItems)
+      .catch((e) => setError(getApiErrorMessage(e)));
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    try {
+      await apiRequest(`/api/admin/categories${editing ? `/${editing}` : ""}`, {
+        method: editing ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, description, isActive: true }),
+      });
+      setName("");
+      setDescription("");
+      setEditing(undefined);
+      load();
+    } catch (e) {
+      setError(getApiErrorMessage(e));
+    }
+  }
+
+  async function remove(id: string) {
+    if (!confirm("این دسته‌بندی غیرفعال شود؟")) return;
+    try {
+      await apiRequest(`/api/admin/categories/${id}`, { method: "DELETE" });
+      load();
+    } catch (e) {
+      setError(getApiErrorMessage(e));
+    }
+  }
+
+  return (
+    <AdminShell title="دسته‌بندی‌ها">
+      <div className="admin-two-col">
+        <form className="admin-panel admin-form" onSubmit={submit}>
+          <h2>{editing ? "ویرایش دسته‌بندی" : "دسته‌بندی جدید"}</h2>
+          {error && (
+            <div className="admin-alert admin-alert--error" role="alert">
+              {error}
+            </div>
+          )}
+          <label className="form-field">
+            نام
+            <input value={name} onChange={(e) => setName(e.target.value)} required />
+          </label>
+          <label className="form-field">
+            توضیحات
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
+          </label>
+          <button className="button button--primary" type="submit">
+            {editing ? "ذخیره" : "ایجاد دسته‌بندی"}
+          </button>
+          {editing && (
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => {
+                setEditing(undefined);
+                setName("");
+                setDescription("");
+              }}
+            >
+              لغو
+            </button>
+          )}
+        </form>
+        <div className="admin-panel admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>نام</th>
+                <th>توضیحات</th>
+                <th>عملیات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((x) => (
+                <tr key={x.id}>
+                  <td>{x.name}</td>
+                  <td>{x.description || "—"}</td>
+                  <td>
+                    <div className="admin-row-actions">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditing(x.id);
+                          setName(x.name);
+                          setDescription(x.description ?? "");
+                        }}
+                      >
+                        ویرایش
+                      </button>
+                      <button type="button" onClick={() => remove(x.id)}>
+                        غیرفعال
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {items.length === 0 && <div className="admin-empty">دسته‌بندی فعالی وجود ندارد.</div>}
+        </div>
+      </div>
+    </AdminShell>
+  );
+}

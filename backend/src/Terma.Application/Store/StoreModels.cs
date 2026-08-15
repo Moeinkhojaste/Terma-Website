@@ -27,7 +27,7 @@ public sealed class CheckoutRequest
 }
 public sealed record CheckoutQuoteDto(decimal Subtotal, decimal DiscountTotal, decimal ShippingTotal, decimal Total, IReadOnlyList<CheckoutQuoteItemDto> Items, DateTime ReservedUntilUtc);
 public sealed record CheckoutQuoteItemDto(Guid ProductId, Guid? VariantId, string ProductName, string Sku, decimal UnitPrice, int Quantity, int AvailableQuantity);
-public sealed record CreatedOrderDto(Guid Id, string Number, string TrackingToken, decimal Total, DateTime ReservationExpiresAtUtc);
+public sealed record CreatedOrderDto(Guid Id, string Number, decimal Total, DateTime ReservationExpiresAtUtc);
 public sealed record ProductVariantDto(Guid Id, Guid ProductId, string Title, string Sku, string Color, int TableCapacity, decimal Length, decimal Width, decimal Price, decimal? CompareAtPrice, int StockQuantity, int ReservedQuantity, int AvailableQuantity, int LowStockThreshold, bool IsActive);
 public sealed class ProductVariantWriteRequest { public string Title { get; init; } = string.Empty; public string Sku { get; init; } = string.Empty; public string Color { get; init; } = string.Empty; public int TableCapacity { get; init; } public decimal Length { get; init; } public decimal Width { get; init; } public decimal Price { get; init; } public decimal? CompareAtPrice { get; init; } public int StockQuantity { get; init; } public int LowStockThreshold { get; init; } = 2; public bool IsActive { get; init; } = true; }
 public sealed record ProductMediaDto(Guid Id, Guid ProductId, string PublicUrl, string AltText, ProductMediaKind Kind, int SortOrder, bool IsPrimary);

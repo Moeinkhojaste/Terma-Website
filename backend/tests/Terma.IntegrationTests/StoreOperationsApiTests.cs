@@ -35,10 +35,11 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
     {
         using var admin = await factory.CreateAdminClientAsync();
         var category = await CreateCategory(admin);
-        var productResponse = await admin.PostAsJsonAsync("/api/products", new CreateProductRequest { Name = "Checkout product", Sku = $"CHECK-{Guid.NewGuid():N}", Description = "test", Price = 1000, StockQuantity = 3, TableCapacity = 4, Length = 150, Width = 180, FabricType = "Termeh", LiningType = "Satin", Color = "Blue", Pattern = "Pattern", CategoryId = category.Id });
+        var productResponse = await admin.PostAsJsonAsync("/api/admin/products", new CreateProductRequest { Name = "Checkout product", Sku = $"CHECK-{Guid.NewGuid():N}", Description = "test", Price = 1000, StockQuantity = 3, TableCapacity = 4, Length = 150, Width = 180, FabricType = "Termeh", LiningType = "Satin", Color = "Blue", Pattern = "Pattern", CategoryId = category.Id });
         var product = (await productResponse.Content.ReadFromJsonAsync<ProductDto>())!;
         using var guest = factory.CreateHttpsClient();
         await TermaApiFactory.SetAntiforgeryHeaderAsync(guest);
+        guest.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
         var request = new CheckoutRequest { Items = [new CheckoutItemRequest(product.Id, null, 1)], FullName = "Guest Buyer", Phone = "09121234567", Province = "Tehran", City = "Tehran", Address = "A sufficiently long address", PostalCode = "1234567890" };
         var created = await guest.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.OK, created.StatusCode);
@@ -47,7 +48,7 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
         var orders = await admin.GetFromJsonAsync<List<AdminOrderDto>>("/api/admin/orders");
         Assert.Contains(orders!, x => x.Number == order!.Number);
 
-        var updatedProduct = await admin.GetFromJsonAsync<ProductDto>($"/api/products/{product.Id}");
+        var updatedProduct = await admin.GetFromJsonAsync<ProductDto>($"/api/admin/products/{product.Id}");
         Assert.NotNull(updatedProduct);
         Assert.Equal(2, updatedProduct.StockQuantity);
         await using (var scope = factory.Services.CreateAsyncScope())
@@ -65,15 +66,18 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
     {
         using var admin = await factory.CreateAdminClientAsync();
         var category = await CreateCategory(admin);
-        var productResponse = await admin.PostAsJsonAsync("/api/products", new CreateProductRequest { Name = "Status product", Sku = $"STATUS-{Guid.NewGuid():N}", Description = "test", Price = 1000, StockQuantity = 5, TableCapacity = 4, Length = 150, Width = 180, FabricType = "Termeh", LiningType = "Satin", Color = "Blue", Pattern = "Pattern", CategoryId = category.Id });
+        var productResponse = await admin.PostAsJsonAsync("/api/admin/products", new CreateProductRequest { Name = "Status product", Sku = $"STATUS-{Guid.NewGuid():N}", Description = "test", Price = 1000, StockQuantity = 5, TableCapacity = 4, Length = 150, Width = 180, FabricType = "Termeh", LiningType = "Satin", Color = "Blue", Pattern = "Pattern", CategoryId = category.Id });
         var product = (await productResponse.Content.ReadFromJsonAsync<ProductDto>())!;
         using var guest = factory.CreateHttpsClient();
         await TermaApiFactory.SetAntiforgeryHeaderAsync(guest);
-        var request = new CheckoutRequest { Items = [new CheckoutItemRequest(product.Id, null, 1)], FullName = "Status Buyer", Phone = "09121234567", Province = "Tehran", City = "Tehran", Address = "Address info", PostalCode = "1234567890" };
+        guest.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
+        var request = new CheckoutRequest { Items = [new CheckoutItemRequest(product.Id, null, 1)], FullName = "Status Buyer", Phone = "09121234567", Province = "Tehran", City = "Tehran", Address = "A sufficiently long address", PostalCode = "1234567890" };
         var created = await guest.PostAsJsonAsync("/api/orders", request);
         var order = (await created.Content.ReadFromJsonAsync<CreatedOrderDto>())!;
 
         var updateResponse = await admin.PutAsJsonAsync($"/api/admin/orders/{order.Id}/status", new { status = "Confirmed" });
+        var content = await updateResponse.Content.ReadAsStringAsync();
+        Assert.True(updateResponse.IsSuccessStatusCode, content);
         Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
         var updatedOrder = await updateResponse.Content.ReadFromJsonAsync<AdminOrderDto>();
         Assert.NotNull(updatedOrder);
@@ -90,7 +94,7 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
 
     private static async Task<CategoryDto> CreateCategory(HttpClient client)
     {
-        var response = await client.PostAsJsonAsync("/api/categories", new CreateCategoryRequest { Name = $"Checkout {Guid.NewGuid():N}" });
+        var response = await client.PostAsJsonAsync("/api/admin/categories", new CreateCategoryRequest { Name = $"Checkout {Guid.NewGuid():N}" });
         return (await response.Content.ReadFromJsonAsync<CategoryDto>())!;
     }
 }

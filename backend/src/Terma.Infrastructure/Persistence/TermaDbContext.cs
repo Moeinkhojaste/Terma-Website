@@ -28,6 +28,7 @@ public class TermaDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Gu
     public DbSet<CmsRevision> CmsRevisions => Set<CmsRevision>();
     public DbSet<MediaAsset> MediaAssets => Set<MediaAsset>();
     public DbSet<PhoneOtpChallenge> PhoneOtpChallenges => Set<PhoneOtpChallenge>();
+    public DbSet<SecurityAuditEvent> SecurityAuditEvents => Set<SecurityAuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

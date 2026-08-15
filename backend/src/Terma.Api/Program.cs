@@ -1,13 +1,17 @@
+using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.RateLimiting;
 using Terma.Api.ErrorHandling;
 using Terma.Application;
 using Terma.Application.Common.Authorization;
@@ -15,16 +19,46 @@ using Terma.Infrastructure;
 using Terma.Infrastructure.Identity;
 using Terma.Infrastructure.Persistence;
 
-using System.Text.Json.Serialization;
-
 var builder = WebApplication.CreateBuilder(args);
-var useSecureCookies = !builder.Environment.IsDevelopment();
+var isDevelopment = builder.Environment.IsDevelopment();
+var useSecureCookies = !isDevelopment;
+
+// Validate production configuration
+if (!isDevelopment)
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrWhiteSpace(connectionString) || connectionString.Contains("(localdb)", StringComparison.OrdinalIgnoreCase))
+    {
+        throw new InvalidOperationException("A valid production SQL Server connection string is required.");
+    }
+
+    var otpHashKey = builder.Configuration["Otp:HashKey"];
+    if (string.IsNullOrWhiteSpace(otpHashKey) || otpHashKey.Length < 32 || otpHashKey.StartsWith("Terma-development-only", StringComparison.Ordinal))
+    {
+        throw new InvalidOperationException("A secure production Otp:HashKey (at least 32 characters) is required.");
+    }
+}
+
+// Data Protection Key Persistence
+var dataProtectionBuilder = builder.Services.AddDataProtection()
+    .SetApplicationName("TermaStore");
+var dataProtectionKeyPath = builder.Configuration["DataProtection:KeyPath"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeyPath))
+{
+    dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath));
+}
+else if (!isDevelopment)
+{
+    var defaultKeysPath = Path.Combine(AppContext.BaseDirectory, "dataprotection-keys");
+    dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(defaultKeysPath));
+}
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
+
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -41,29 +75,131 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         return new BadRequestObjectResult(details);
     };
 });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+
+// Partitioned Rate Limiter (by Client IP)
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddFixedWindowLimiter("public-write", limiter =>
+    options.OnRejected = async (context, token) =>
     {
-        limiter.PermitLimit = 30;
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueLimit = 0;
-    });
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = ((int)retryAfter.TotalSeconds).ToString();
+        }
+        else
+        {
+            context.HttpContext.Response.Headers.RetryAfter = "60";
+        }
+        await Results.Problem(
+            statusCode: StatusCodes.Status429TooManyRequests,
+            title: "Too many requests",
+            detail: "Rate limit exceeded. Please try again later.",
+            type: "https://httpstatuses.com/429",
+            instance: context.HttpContext.Request.Path,
+            extensions: new Dictionary<string, object?>
+            {
+                ["traceId"] = context.HttpContext.TraceIdentifier
+            }).ExecuteAsync(context.HttpContext);
+    };
+
+    // Partition by IP Helper
+    static string GetClientPartitionKey(HttpContext httpContext)
+    {
+        var forwardedFor = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(forwardedFor))
+        {
+            var ip = forwardedFor.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(ip)) return ip;
+        }
+        return httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    }
+
+    options.AddPolicy("auth-login", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(15),
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("otp-request", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("otp-verify", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("order-create", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("checkout-quote", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("contact-message", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("public-write", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
 
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, isDevelopment);
 builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
     .AddIdentityCookies();
 builder.Services.AddAuthentication()
     .AddCookie(CustomerAuthorization.AuthenticationScheme);
+
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(AdminAuthorization.Policy, policy =>
@@ -81,6 +217,7 @@ builder.Services.AddAuthorization(options =>
         policy.RequireClaim(CustomerAuthorization.AccountTypeClaim, CustomerAuthorization.AccountType);
     });
 });
+
 builder.Services.AddAntiforgery(options =>
 {
     options.HeaderName = "X-CSRF-TOKEN";
@@ -90,6 +227,7 @@ builder.Services.AddAntiforgery(options =>
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Cookie.SecurePolicy = useSecureCookies ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
 });
+
 builder.Services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme)
     .Configure<TimeProvider>((options, timeProvider) =>
     {
@@ -98,9 +236,7 @@ builder.Services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.Appli
         options.Cookie.IsEssential = true;
         options.Cookie.Path = "/";
         options.Cookie.SameSite = SameSiteMode.Lax;
-        options.Cookie.SecurePolicy = useSecureCookies
-            ? CookieSecurePolicy.Always
-            : CookieSecurePolicy.SameAsRequest;
+        options.Cookie.SecurePolicy = useSecureCookies ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
         options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
         options.SlidingExpiration = false;
         options.TimeProvider = timeProvider;
@@ -115,6 +251,7 @@ builder.Services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.Appli
             "Access denied",
             "The signed-in account does not have permission to perform this action.");
     });
+
 builder.Services.AddOptions<CookieAuthenticationOptions>(CustomerAuthorization.AuthenticationScheme)
     .Configure<TimeProvider>((options, timeProvider) =>
     {
@@ -127,8 +264,16 @@ builder.Services.AddOptions<CookieAuthenticationOptions>(CustomerAuthorization.A
         options.ExpireTimeSpan = TimeSpan.FromDays(30);
         options.SlidingExpiration = false;
         options.TimeProvider = timeProvider;
-        options.Events.OnRedirectToLogin = context => WriteAuthenticationProblemAsync(context, StatusCodes.Status401Unauthorized, "Authentication required", "The customer session is missing or has expired.");
-        options.Events.OnRedirectToAccessDenied = context => WriteAuthenticationProblemAsync(context, StatusCodes.Status403Forbidden, "Access denied", "The signed-in customer cannot access this resource.");
+        options.Events.OnRedirectToLogin = context => WriteAuthenticationProblemAsync(
+            context,
+            StatusCodes.Status401Unauthorized,
+            "Authentication required",
+            "The customer session is missing or has expired.");
+        options.Events.OnRedirectToAccessDenied = context => WriteAuthenticationProblemAsync(
+            context,
+            StatusCodes.Status403Forbidden,
+            "Access denied",
+            "The signed-in customer cannot access this resource.");
     });
 
 builder.Services.AddHealthChecks()
@@ -143,42 +288,98 @@ builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
 
 var app = builder.Build();
 
-await using (var scope = app.Services.CreateAsyncScope())
+// CLI Migration Command
+if (args.Contains("--migrate", StringComparer.OrdinalIgnoreCase))
 {
+    await using var scope = app.Services.CreateAsyncScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
     if (dbContext.Database.IsSqlServer())
     {
         await dbContext.Database.MigrateAsync();
+        app.Logger.LogInformation("Database migration completed successfully.");
     }
-    await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();
+    return;
 }
 
+// CLI Admin Seeding Command (Requires explicit external credentials)
 if (args.Contains("--seed-admin", StringComparer.OrdinalIgnoreCase))
 {
     await using var scope = app.Services.CreateAsyncScope();
     var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
     var provisioner = scope.ServiceProvider.GetRequiredService<AdminAccountProvisioner>();
-    var pass = configuration["AdminSeed:Password"] ?? "AdminPassword123!";
-    var email = configuration["AdminSeed:Email"] ?? "admin@terma.local";
-    await provisioner.ProvisionAsync(email, pass);
-    if (!string.Equals(email, "admin@terma.ir", StringComparison.OrdinalIgnoreCase))
+
+    string? email = null;
+    string? pass = null;
+
+    for (int i = 0; i < args.Length; i++)
     {
-        await provisioner.ProvisionAsync("admin@terma.ir", pass);
+        if (string.Equals(args[i], "--email", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+            email = args[i + 1];
+        if (string.Equals(args[i], "--password", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+            pass = args[i + 1];
     }
-    app.Logger.LogInformation("The admin accounts were provisioned successfully.");
+
+    email ??= configuration["ADMIN_SEED_EMAIL"] ?? configuration["AdminSeed:Email"];
+    pass ??= configuration["ADMIN_SEED_PASSWORD"] ?? configuration["AdminSeed:Password"];
+
+    if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(pass))
+    {
+        app.Logger.LogError("Missing required administrator credentials. Provide --email <email> and --password <password>.");
+        return;
+    }
+
+    await provisioner.ProvisionAsync(email, pass);
+    app.Logger.LogInformation("The admin account '{Email}' was provisioned successfully.", email);
     return;
 }
 
+// Startup seeding in development
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
+    if (isDevelopment && dbContext.Database.IsSqlServer())
+    {
+        try
+        {
+            await dbContext.Database.ExecuteSqlRawAsync("IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Orders]') AND name = 'TrackingTokenHash') BEGIN ALTER TABLE [Orders] ALTER COLUMN [TrackingTokenHash] nvarchar(128) NULL; END");
+        }
+        catch
+        {
+            // ignore
+        }
+        await dbContext.Database.MigrateAsync();
+    }
+    await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();
+}
+
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
 app.UseExceptionHandler();
 
-if (app.Environment.IsDevelopment())
+if (isDevelopment)
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-if (!app.Environment.IsDevelopment())
+else
+{
+    app.UseHsts();
     app.UseHttpsRedirection();
+}
+
+// Security Headers Middleware
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    await next();
+});
+
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();

@@ -11,14 +11,24 @@ public sealed class CatalogMappingProfile : Profile
     public CatalogMappingProfile()
     {
         CreateMap<Category, CategoryDto>();
+        CreateMap<Category, PublicCategoryDto>();
+
         CreateMap<ProductVariant, ProductVariantDto>();
+        CreateMap<ProductVariant, PublicProductVariantDto>();
+
         CreateMap<ProductMedia, ProductMediaDto>();
+
         CreateMap<Product, ProductDto>()
-            .ForMember(destination => destination.CategoryName,
-                options => options.MapFrom(source => source.Category.Name))
-            .ForMember(destination => destination.Variants,
-                options => options.MapFrom(source => source.Variants.OrderBy(variant => variant.TableCapacity)))
-            .ForMember(destination => destination.Media,
-                options => options.MapFrom(source => source.Media.OrderByDescending(media => media.IsPrimary).ThenBy(media => media.SortOrder)));
+            .ForMember(d => d.CategoryName, opt => opt.MapFrom(s => s.Category != null ? s.Category.Name : string.Empty))
+            .ForMember(d => d.CategorySlug, opt => opt.MapFrom(s => s.Category != null ? s.Category.Slug : string.Empty))
+            .ForMember(d => d.Variants, opt => opt.MapFrom(s => s.Variants.OrderBy(v => v.TableCapacity)))
+            .ForMember(d => d.Media, opt => opt.MapFrom(s => s.Media.OrderByDescending(m => m.IsPrimary).ThenBy(m => m.SortOrder)));
+
+        CreateMap<Product, PublicProductDto>()
+            .ForMember(d => d.AvailableQuantity, opt => opt.MapFrom(s => s.StockQuantity))
+            .ForMember(d => d.CategoryName, opt => opt.MapFrom(s => s.Category != null ? s.Category.Name : string.Empty))
+            .ForMember(d => d.CategorySlug, opt => opt.MapFrom(s => s.Category != null ? s.Category.Slug : string.Empty))
+            .ForMember(d => d.Variants, opt => opt.MapFrom(s => s.Variants.Where(v => v.IsActive).OrderBy(v => v.TableCapacity)))
+            .ForMember(d => d.Media, opt => opt.MapFrom(s => s.Media.OrderByDescending(m => m.IsPrimary).ThenBy(m => m.SortOrder)));
     }
 }

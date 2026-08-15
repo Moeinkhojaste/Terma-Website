@@ -9,11 +9,11 @@ public sealed class AdminAccountProvisioner(
 {
     public async Task ProvisionAsync(string email, string password)
     {
-        if (string.IsNullOrWhiteSpace(email))
-            throw new InvalidOperationException("AdminSeed:Email is required.");
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            throw new InvalidOperationException("A valid administrator email address is required.");
 
-        if (string.IsNullOrWhiteSpace(password))
-            throw new InvalidOperationException("AdminSeed:Password is required.");
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 12 || password.Length > 128)
+            throw new InvalidOperationException("Administrator password must be between 12 and 128 characters long.");
 
         if (!await roleManager.RoleExistsAsync(AdminAuthorization.Role))
         {
@@ -23,35 +23,21 @@ public sealed class AdminAccountProvisioner(
 
         var normalizedEmail = email.Trim();
         var user = await userManager.FindByEmailAsync(normalizedEmail);
-        if (user is null)
+        if (user is not null)
         {
-            user = new ApplicationUser
-            {
-                UserName = normalizedEmail,
-                Email = normalizedEmail,
-                EmailConfirmed = true,
-                AccountType = ApplicationUserType.Admin
-            };
-
-            EnsureSucceeded(await userManager.CreateAsync(user, password), "Could not create the admin account.");
-        }
-        else
-        {
-            user.AccountType = ApplicationUserType.Admin;
-            EnsureSucceeded(await userManager.UpdateAsync(user), "Could not update the admin account type.");
-            var resetToken = await userManager.GeneratePasswordResetTokenAsync(user);
-            EnsureSucceeded(
-                await userManager.ResetPasswordAsync(user, resetToken, password),
-                "Could not update the admin password.");
+            throw new InvalidOperationException($"An administrator account for '{normalizedEmail}' already exists. Refusing to overwrite existing account.");
         }
 
-        await userManager.SetLockoutEndDateAsync(user, null);
-        await userManager.ResetAccessFailedCountAsync(user);
+        user = new ApplicationUser
+        {
+            UserName = normalizedEmail,
+            Email = normalizedEmail,
+            EmailConfirmed = true,
+            AccountType = ApplicationUserType.Admin
+        };
 
-        if (!await userManager.IsInRoleAsync(user, AdminAuthorization.Role))
-            EnsureSucceeded(
-                await userManager.AddToRoleAsync(user, AdminAuthorization.Role),
-                "Could not assign the Admin role.");
+        EnsureSucceeded(await userManager.CreateAsync(user, password), "Could not create the admin account.");
+        EnsureSucceeded(await userManager.AddToRoleAsync(user, AdminAuthorization.Role), "Could not assign the Admin role.");
     }
 
     private static void EnsureSucceeded(IdentityResult result, string message)

@@ -3,6 +3,7 @@ import type { Product } from "@/features/products/models";
 export function createProduct(overrides: Partial<Product> = {}): Product {
   return {
     id: "product-1",
+    slug: "سفره-ترمه-آبی",
     variantId: "variant-6",
     name: "سفره ترمه آبی",
     size: 6,
