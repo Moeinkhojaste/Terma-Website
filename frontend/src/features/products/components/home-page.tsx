@@ -19,9 +19,9 @@ const sizes = [
 ];
 
 const heroImages = [
-  { src: "/images/firoozeh-folded.jpeg", alt: "سفره ترمه فیروزه با نقش‌های آبی، کرم و مسی" },
-  { src: "/images/lajvard-folded.jpeg", alt: "سفره ترمه لاجورد با نقش‌های سفید و مسی" },
-  { src: "/images/nila-folded.jpeg", alt: "سفره ترمه نیلا با نقش‌های بته‌جقه آبی" },
+  { src: "/images/firoozeh-folded.webp", alt: "سفره ترمه فیروزه با نقش‌های آبی، کرم و مسی" },
+  { src: "/images/lajvard-folded.webp", alt: "سفره ترمه لاجورد با نقش‌های سفید و مسی" },
+  { src: "/images/nila-folded.webp", alt: "سفره ترمه نیلا با نقش‌های بته‌جقه آبی" },
 ];
 
 export default async function Home() {
@@ -159,7 +159,7 @@ export default async function Home() {
         <section className="detail-section section-pad" id="جزئیات">
           <Container className="detail-grid">
             <div className="detail-image">
-              <Image src="/images/nila-folded.jpeg" alt="سفره ترمه نیلا به‌صورت تاشده روی زمینه سفید" fill sizes="(max-width: 767px) 92vw, 55vw" />
+              <Image src="/images/nila-folded.webp" alt="سفره ترمه نیلا به‌صورت تاشده روی زمینه سفید" fill sizes="(max-width: 767px) 92vw, 55vw" />
               <span className="detail-label detail-label--fabric">نقش رویه</span>
               <span className="detail-label detail-label--lining">لبه محصول</span>
             </div>

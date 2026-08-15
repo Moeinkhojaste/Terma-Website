@@ -13,7 +13,8 @@ namespace Terma.Api.Controllers;
 public sealed class MediaController(
     IMediaStorage storage,
     ICmsService cms,
-    ISecurityAuditService auditService) : ControllerBase
+    ISecurityAuditService auditService,
+    IImageOptimizer imageOptimizer) : ControllerBase
 {
     [HttpGet("admin/cms/media")]
     [Authorize(Policy = AdminAuthorization.Policy)]
@@ -45,7 +46,7 @@ public sealed class MediaController(
         await file.CopyToAsync(memoryStream, ct);
         var buffer = memoryStream.ToArray();
 
-        var (isValid, error, width, height, contentType) = ImageSanitizer.ValidateAndInspect(buffer, extension);
+        var (isValid, error, _, _, _) = ImageSanitizer.ValidateAndInspect(buffer, extension);
         if (!isValid)
         {
             return BadRequest(new ProblemDetails
@@ -56,8 +57,11 @@ public sealed class MediaController(
             });
         }
 
-        using var saveStream = new MemoryStream(buffer);
-        var stored = await storage.SaveAsync(saveStream, contentType, extension, ct);
+        using var rawStream = new MemoryStream(buffer);
+        var optimized = await imageOptimizer.OptimizeToWebpAsync(rawStream, quality: 85, ct);
+
+        using var saveStream = new MemoryStream(optimized.Data);
+        var stored = await storage.SaveAsync(saveStream, optimized.ContentType, optimized.Extension, ct);
 
         try
         {
@@ -65,7 +69,7 @@ public sealed class MediaController(
             var alternative = string.IsNullOrWhiteSpace(altText) ? title : altText;
             var registered = await cms.RegisterMediaAsync(stored.Key, stored.PublicUrl, title!, alternative!, stored.ContentType, stored.Length, ct);
 
-            await auditService.LogAsync(GetActor(), "UploadMedia", stored.Key, $"Success ({width}x{height})", HttpContext.TraceIdentifier, GetClientIp(), ct);
+            await auditService.LogAsync(GetActor(), "UploadMedia", stored.Key, $"Success ({optimized.Width}x{optimized.Height})", HttpContext.TraceIdentifier, GetClientIp(), ct);
             return Ok(registered);
         }
         catch

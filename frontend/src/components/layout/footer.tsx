@@ -9,7 +9,7 @@ export function Footer() {
         <div className="footer-brand">
           <span className="brand-mark brand-mark--footer">
             <Image
-              src="/images/terma-logo.jpeg"
+              src="/images/terma-logo.webp"
               alt="لوگوی ترما"
               fill
               sizes="(max-width: 768px) 120px, 160px"

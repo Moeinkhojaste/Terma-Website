@@ -34,10 +34,10 @@ export async function AboutPage() {
             </div>
             <div className="brand-page-hero__visual">
               <figure className="brand-page-hero__image brand-page-hero__image--main">
-                <Image src="/images/lajvard-table.png" alt="سفره ترمه لاجورد روی میز در فضای خانه" fill priority sizes="(max-width: 767px) 92vw, 45vw" />
+                <Image src="/images/lajvard-table.webp" alt="سفره ترمه لاجورد روی میز در فضای خانه" fill priority sizes="(max-width: 767px) 92vw, 45vw" />
               </figure>
               <figure className="brand-page-hero__image brand-page-hero__image--detail">
-                <Image src="/images/nila-folded.jpeg" alt="سفره ترمه نیلا به‌صورت تاشده" fill sizes="(max-width: 767px) 45vw, 18vw" />
+                <Image src="/images/nila-folded.webp" alt="سفره ترمه نیلا به‌صورت تاشده" fill sizes="(max-width: 767px) 45vw, 18vw" />
               </figure>
               <span className="brand-page-hero__note">انتخاب آگاهانه، با دیدن جزئیات واقعی</span>
             </div>
@@ -79,7 +79,7 @@ export async function AboutPage() {
         <section className="about-journey section-pad section-rule">
           <Container className="about-journey__grid">
             <div className="about-journey__image">
-              <Image src="/images/firoozeh-folded.jpeg" alt="سفره ترمه فیروزه به‌صورت تاشده" fill sizes="(max-width: 767px) 92vw, 45vw" />
+              <Image src="/images/firoozeh-folded.webp" alt="سفره ترمه فیروزه به‌صورت تاشده" fill sizes="(max-width: 767px) 92vw, 45vw" />
             </div>
             <div className="about-journey__copy">
               <p className="section-eyebrow">از دیدن تا انتخاب</p>

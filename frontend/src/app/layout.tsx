@@ -44,7 +44,7 @@ const organizationStructuredData = {
   "@type": "Organization",
   name: "ترما",
   url: "https://terma.ir",
-  logo: "https://terma.ir/icon.jpeg",
+  logo: "https://terma.ir/images/terma-logo.webp",
   contactPoint: {
     "@type": "ContactPoint",
     telephone: "+98-21-12345678",

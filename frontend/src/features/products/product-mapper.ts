@@ -6,16 +6,16 @@ const PRODUCT_PLACEHOLDER = "/images/product-placeholder.svg";
 
 const PRODUCT_MEDIA: Record<string, ProductMedia[]> = {
   "TER-NIL-BLU-4P-001": [
-    { id: "static-nila-folded", src: "/images/nila-folded.jpeg", alt: "سفره ترمه نیلا با زمینه آبی و نقش بته‌جقه روی زمینه سفید", kind: "folded", sortOrder: 0, isPrimary: true },
-    { id: "static-nila-table", src: "/images/nila-table.png", alt: "سفره ترمه نیلا روی میز چهار نفره", kind: "table", sortOrder: 1, isPrimary: false },
+    { id: "static-nila-folded", src: "/images/nila-folded.webp", alt: "سفره ترمه نیلا با زمینه آبی و نقش بته‌جقه روی زمینه سفید", kind: "folded", sortOrder: 0, isPrimary: true },
+    { id: "static-nila-table", src: "/images/nila-table.webp", alt: "سفره ترمه نیلا روی میز چهار نفره", kind: "table", sortOrder: 1, isPrimary: false },
   ],
   "TER-LAJ-NVY-6P-001": [
-    { id: "static-lajvard-folded", src: "/images/lajvard-folded.jpeg", alt: "سفره ترمه لاجورد با زمینه سرمه‌ای و نقش‌های سفید و مسی روی زمینه سفید", kind: "folded", sortOrder: 0, isPrimary: true },
-    { id: "static-lajvard-table", src: "/images/lajvard-table.png", alt: "سفره ترمه لاجورد روی میز شش نفره", kind: "table", sortOrder: 1, isPrimary: false },
+    { id: "static-lajvard-folded", src: "/images/lajvard-folded.webp", alt: "سفره ترمه لاجورد با زمینه سرمه‌ای و نقش‌های سفید و مسی روی زمینه سفید", kind: "folded", sortOrder: 0, isPrimary: true },
+    { id: "static-lajvard-table", src: "/images/lajvard-table.webp", alt: "سفره ترمه لاجورد روی میز شش نفره", kind: "table", sortOrder: 1, isPrimary: false },
   ],
   "TER-FIR-BLU-8P-001": [
-    { id: "static-firoozeh-folded", src: "/images/firoozeh-folded.jpeg", alt: "سفره ترمه فیروزه با زمینه آبی و نقش‌های کرم و مسی روی زمینه سفید", kind: "folded", sortOrder: 0, isPrimary: true },
-    { id: "static-firoozeh-table", src: "/images/firoozeh-table.png", alt: "سفره ترمه فیروزه روی میز هشت نفره", kind: "table", sortOrder: 1, isPrimary: false },
+    { id: "static-firoozeh-folded", src: "/images/firoozeh-folded.webp", alt: "سفره ترمه فیروزه با زمینه آبی و نقش‌های کرم و مسی روی زمینه سفید", kind: "folded", sortOrder: 0, isPrimary: true },
+    { id: "static-firoozeh-table", src: "/images/firoozeh-table.webp", alt: "سفره ترمه فیروزه روی میز هشت نفره", kind: "table", sortOrder: 1, isPrimary: false },
   ],
 };
 

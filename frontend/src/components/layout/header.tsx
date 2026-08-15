@@ -14,7 +14,7 @@ export function Header() {
           <Link className="brand" href="/" aria-label="ترما، صفحه اصلی">
             <span className="brand-mark">
               <Image
-                src="/images/terma-logo.jpeg"
+                src="/images/terma-logo.webp"
                 alt="لوگوی ترما"
                 fill
                 sizes="(max-width: 768px) 160px, 300px"
