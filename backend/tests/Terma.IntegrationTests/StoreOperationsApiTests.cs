@@ -92,6 +92,49 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
         }
     }
 
+    [Fact]
+    public async Task ChangeOrderStatus_FromExpiredToConfirmedAndDelivered_UpdatesSuccessfully()
+    {
+        using var admin = await factory.CreateAdminClientAsync();
+        var category = await CreateCategory(admin);
+        var productResponse = await admin.PostAsJsonAsync("/api/admin/products", new CreateProductRequest { Name = "Expired product", Sku = $"EXP-{Guid.NewGuid():N}", Description = "test", Price = 1000, StockQuantity = 5, TableCapacity = 4, Length = 150, Width = 180, FabricType = "Termeh", LiningType = "Satin", Color = "Blue", Pattern = "Pattern", CategoryId = category.Id });
+        var product = (await productResponse.Content.ReadFromJsonAsync<ProductDto>())!;
+        using var guest = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(guest);
+        guest.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
+        var request = new CheckoutRequest { Items = [new CheckoutItemRequest(product.Id, null, 1)], FullName = "Expired Buyer", Phone = "09121234567", Province = "Tehran", City = "Tehran", Address = "A sufficiently long address", PostalCode = "1234567890" };
+        var created = await guest.PostAsJsonAsync("/api/orders", request);
+        var order = (await created.Content.ReadFromJsonAsync<CreatedOrderDto>())!;
+
+        // 1. Change status to Expired
+        var expireResponse = await admin.PutAsJsonAsync($"/api/admin/orders/{order.Id}/status", new { status = "Expired" });
+        Assert.True(expireResponse.IsSuccessStatusCode);
+        var expiredOrder = await expireResponse.Content.ReadFromJsonAsync<AdminOrderDto>();
+        Assert.NotNull(expiredOrder);
+        Assert.Equal(OrderStatus.Expired, expiredOrder.Status);
+
+        // 2. Change status from Expired back to Confirmed
+        var confirmResponse = await admin.PutAsJsonAsync($"/api/admin/orders/{order.Id}/status", new { status = "Confirmed" });
+        Assert.True(confirmResponse.IsSuccessStatusCode);
+        var confirmedOrder = await confirmResponse.Content.ReadFromJsonAsync<AdminOrderDto>();
+        Assert.NotNull(confirmedOrder);
+        Assert.Equal(OrderStatus.Confirmed, confirmedOrder.Status);
+
+        // 3. Change status from Confirmed to Delivered
+        var deliveredResponse = await admin.PutAsJsonAsync($"/api/admin/orders/{order.Id}/status", new { status = "Delivered" });
+        Assert.True(deliveredResponse.IsSuccessStatusCode);
+        var deliveredOrder = await deliveredResponse.Content.ReadFromJsonAsync<AdminOrderDto>();
+        Assert.NotNull(deliveredOrder);
+        Assert.Equal(OrderStatus.Delivered, deliveredOrder.Status);
+
+        // 4. Change status from Delivered back to Shipped
+        var shippedResponse = await admin.PutAsJsonAsync($"/api/admin/orders/{order.Id}/status", new { status = "Shipped" });
+        Assert.True(shippedResponse.IsSuccessStatusCode);
+        var shippedOrder = await shippedResponse.Content.ReadFromJsonAsync<AdminOrderDto>();
+        Assert.NotNull(shippedOrder);
+        Assert.Equal(OrderStatus.Shipped, shippedOrder.Status);
+    }
+
     private static async Task<CategoryDto> CreateCategory(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/admin/categories", new CreateCategoryRequest { Name = $"Checkout {Guid.NewGuid():N}" });

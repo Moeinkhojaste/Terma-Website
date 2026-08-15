@@ -50,11 +50,16 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
 
         if (order.Status != status)
         {
-            if (!order.CanTransitionTo(status))
-                throw new ConflictException($"Cannot transition order status from '{order.Status}' to '{status}'.");
+            var oldStatus = order.Status;
+            var newStatus = status;
 
-            var isPreviousCancelledOrExpired = order.Status is OrderStatus.Cancelled or OrderStatus.Expired;
-            var isNextCancelledOrExpired = status is OrderStatus.Cancelled or OrderStatus.Expired;
+            var oldIsPending = oldStatus == OrderStatus.PendingConfirmation;
+            var oldIsCommitted = oldStatus is OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.Shipped or OrderStatus.Delivered;
+            var oldIsReleased = oldStatus is OrderStatus.Cancelled or OrderStatus.Expired;
+
+            var newIsPending = newStatus == OrderStatus.PendingConfirmation;
+            var newIsCommitted = newStatus is OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.Shipped or OrderStatus.Delivered;
+            var newIsReleased = newStatus is OrderStatus.Cancelled or OrderStatus.Expired;
 
             foreach (var item in order.Items.Where(x => x.VariantId.HasValue))
             {
@@ -62,30 +67,57 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
                 if (variant is null) continue;
                 var product = await db.Products.SingleOrDefaultAsync(x => x.Id == item.ProductId, cancellationToken);
 
-                if (order.Status == OrderStatus.PendingConfirmation && !isNextCancelledOrExpired)
+                if (oldIsPending && newIsCommitted)
                 {
                     if (variant.ReservedQuantity >= item.Quantity)
                     {
                         variant.CommitReservation(item.Quantity);
                     }
-                }
-                else if (order.Status == OrderStatus.PendingConfirmation && isNextCancelledOrExpired)
-                {
-                    if (variant.ReservedQuantity >= item.Quantity)
+                    else
                     {
-                        variant.ReleaseReservation(item.Quantity);
+                        var reserveToCommit = variant.ReservedQuantity;
+                        if (reserveToCommit > 0) variant.CommitReservation(reserveToCommit);
+                        var remaining = item.Quantity - reserveToCommit;
+                        var deduct = Math.Min(variant.AvailableQuantity, remaining);
+                        if (deduct > 0) variant.AdjustStock(-deduct);
                     }
+                }
+                else if (oldIsPending && newIsReleased)
+                {
+                    var releaseQty = Math.Min(variant.ReservedQuantity, item.Quantity);
+                    if (releaseQty > 0) variant.ReleaseReservation(releaseQty);
                     product?.AdjustStock(item.Quantity);
                 }
-                else if (!isPreviousCancelledOrExpired && isNextCancelledOrExpired)
+                else if (oldIsCommitted && newIsReleased)
                 {
                     variant.AdjustStock(item.Quantity);
                     product?.AdjustStock(item.Quantity);
                 }
-                else if (isPreviousCancelledOrExpired && !isNextCancelledOrExpired)
+                else if (oldIsCommitted && newIsPending)
                 {
-                    variant.AdjustStock(-item.Quantity);
-                    product?.AdjustStock(-item.Quantity);
+                    variant.AdjustStock(item.Quantity);
+                    var reserveQty = Math.Min(variant.AvailableQuantity, item.Quantity);
+                    if (reserveQty > 0) variant.Reserve(reserveQty);
+                }
+                else if (oldIsReleased && newIsCommitted)
+                {
+                    var deductVariant = Math.Min(variant.AvailableQuantity, item.Quantity);
+                    if (deductVariant > 0) variant.AdjustStock(-deductVariant);
+                    if (product is not null)
+                    {
+                        var deductProduct = Math.Min(product.StockQuantity, item.Quantity);
+                        if (deductProduct > 0) product.AdjustStock(-deductProduct);
+                    }
+                }
+                else if (oldIsReleased && newIsPending)
+                {
+                    var reserveQty = Math.Min(variant.AvailableQuantity, item.Quantity);
+                    if (reserveQty > 0) variant.Reserve(reserveQty);
+                    if (product is not null)
+                    {
+                        var deductProduct = Math.Min(product.StockQuantity, item.Quantity);
+                        if (deductProduct > 0) product.AdjustStock(-deductProduct);
+                    }
                 }
             }
 
