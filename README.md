@@ -36,6 +36,8 @@ The storefront will start at `http://localhost:3000`.
 - `npm run build`: Build production bundle.
 - `npm run lint`: Run ESLint check.
 - `npm run typecheck`: Run TypeScript compiler check.
+- `npm test`: Run frontend unit and component tests.
+- `npm run test:e2e`: Run the Playwright CMS journeys.
 
 See [`frontend/README.md`](file:///d:/Personal/Shop/Website/frontend/README.md) for detailed frontend documentation.
 
@@ -55,7 +57,11 @@ The Web API will start with Swagger UI accessible at `https://localhost:7090/swa
 - `dotnet build Terma.sln`: Build all backend projects.
 - `dotnet test Terma.sln`: Execute unit and integration tests.
 
-See [`backend/README.md`](file:///d:/Personal/Shop/Website/backend/README.md) for detailed backend architecture documentation.
+The catalog API exposes category and product CRUD, product variants, secure Identity Cookie authentication for the `Admin` role, guest checkout/orders with inventory reservations, promotions, shipping rules, structured store content, contact messages, local media upload, RFC 7807 errors, Swagger, and liveness/readiness health checks. Catalog reads remain public, while writes require an authenticated admin and an antiforgery token. SQL Server is configured through `ConnectionStrings__DefaultConnection`; the API does not migrate or seed the database on startup. The first admin is provisioned separately with the documented `--seed-admin` command.
+
+See [`backend/README.md`](backend/README.md) for setup, migration, endpoint, and architecture details.
+
+The versioned block CMS, its publishing workflow, media rules, API surface, and release checks are documented in [`docs/cms.md`](docs/cms.md).
 
 ---
 

@@ -22,7 +22,13 @@ backend/tests/*/obj/
 
 # Logs & Test Screenshots/Artifacts
 *.log
+*.trx
+backend/publish/
+publish/
 frontend/output/
+frontend/test-results/
+frontend/playwright-report/
+backend/.e2e-media/
 .playwright-cli/
 
 # Environment files

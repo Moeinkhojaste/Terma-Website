@@ -5,6 +5,6 @@ export const metadata: Metadata = { title: "سفارش ثبت شد | ترما" }
 
 export default async function SuccessPage({ searchParams }: { searchParams: Promise<{ order?: string }> }) {
   const { order } = await searchParams;
-  const orderNumber = order && /^TRM-\d{8}$/.test(order) ? order : undefined;
+  const orderNumber = order && /^TRM-\d{8}(-\d{6})?$/.test(order) ? order : undefined;
   return <OrderStatus type="success" orderNumber={orderNumber} />;
 }

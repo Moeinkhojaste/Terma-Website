@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Container } from "@/components/layout/container";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
-import { ProductCard } from "@/features/products/components/product-card";
-import { products } from "@/features/products/data/products";
+import { ProductCatalog } from "@/features/products/components/product-catalog";
+import { ProductCatalogLoading } from "@/features/products/components/product-catalog-loading";
 
 export const metadata: Metadata = {
   title: "محصولات | ترما",
-  description: "مشاهده سفره‌های ترمه نیلا، لاجورد و فیروزه در دسته‌های ظرفیت مختلف.",
+  description: "مشاهده و فیلتر محصولات ترما بر اساس دسته‌بندی، قیمت و ظرفیت.",
 };
 
 export default function ProductsPage() {
@@ -24,27 +25,12 @@ export default function ProductsPage() {
             </nav>
             <p className="section-eyebrow">مجموعه فعلی ترما</p>
             <h1>همه محصولات</h1>
-            <p>محصولات فعلی ترما را بر اساس نقش یا ظرفیت بررسی کنید. با اضافه‌شدن مدل‌های جدید، این صفحه کامل‌تر خواهد شد.</p>
-            <nav className="capacity-filters" id="دسته‌بندی" aria-label="دسته‌بندی محصولات بر اساس ظرفیت">
-              <Link href="#همه">همه</Link>
-              <Link href="#size-4">۴ نفره</Link>
-              <Link href="#size-6">۶ نفره</Link>
-              <Link href="#size-8">۸ نفره</Link>
-            </nav>
+            <p>محصولات ترما را بر اساس دسته‌بندی، قیمت، ظرفیت یا نام محصول جست‌وجو کنید.</p>
           </Container>
         </section>
-        <section className="catalog-section section-pad" id="همه">
-          <Container>
-            <div className="catalog-toolbar"><h2>محصولات موجود</h2><span>{products.length} محصول</span></div>
-            <div className="products-grid products-grid--catalog">
-              {products.map((product) => (
-                <div id={`size-${product.size}`} key={product.id}>
-                  <ProductCard product={product} />
-                </div>
-              ))}
-            </div>
-          </Container>
-        </section>
+        <Suspense fallback={<ProductCatalogLoading />}>
+          <ProductCatalog />
+        </Suspense>
       </main>
       <Footer />
     </>

@@ -2,7 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Container } from "@/components/layout/container";
 import { ProductCard } from "@/features/products/components/product-card";
 import { SectionHeader } from "@/components/ui/section-header";
-import { products } from "@/features/products/data/products";
+import { listProducts } from "@/features/products/product-api";
+import type { Product } from "@/features/products/models";
 import Link from "next/link";
 
 const colors = [
@@ -14,7 +15,14 @@ const colors = [
   ["مسی", "#AA4F2D", "var(--copper)"],
 ];
 
-export default function StyleGuide() {
+export default async function StyleGuide() {
+  let products: Product[] = [];
+  try {
+    products = (await listProducts({ pageSize: 2 })).items;
+  } catch {
+    // The style guide remains usable while the separate API is unavailable.
+  }
+
   return (
     <main className="style-guide">
       <Container>
@@ -38,7 +46,11 @@ export default function StyleGuide() {
 
         <section>
           <SectionHeader eyebrow="04 — کارت محصول" title="حالت آماده و ناموجود" />
-          <div className="style-card-grid"><ProductCard product={products[0]} /><ProductCard product={products[2]} unavailable /></div>
+          {products.length > 0 ? (
+            <div className="style-card-grid"><ProductCard product={products[0]} /><ProductCard product={products[1] ?? products[0]} unavailable /></div>
+          ) : (
+            <div className="empty-state"><span>۰</span><h3>نمونه محصول در دسترس نیست</h3><p>پس از اتصال API، کارت واقعی در این بخش نمایش داده می‌شود.</p></div>
+          )}
         </section>
 
         <section>

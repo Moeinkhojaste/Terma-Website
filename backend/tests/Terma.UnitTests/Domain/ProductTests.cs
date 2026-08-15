@@ -1,33 +1,62 @@
 using Terma.Domain.Entities;
 using Terma.Domain.Exceptions;
-using Xunit;
 
 namespace Terma.UnitTests.Domain;
 
-public class ProductTests
+public sealed class ProductTests
 {
     [Fact]
-    public void CreateProduct_WithValidParameters_ShouldSucceed()
+    public void Create_WithValidValues_NormalizesSkuAndUsesUtcTimestamp()
     {
-        var product = new Product("ترمه نیلا", "nila", "توضیحات", 1250000m, 4, "/images/nila.jpg");
+        var product = CreateProduct("  ter-nil-001  ");
 
-        Assert.NotNull(product);
-        Assert.Equal("ترمه نیلا", product.Name);
-        Assert.Equal(1250000m, product.Price);
+        Assert.Equal("TER-NIL-001", product.Sku);
         Assert.True(product.IsActive);
+        Assert.Equal(DateTimeKind.Utc, product.CreatedAt.Kind);
+        Assert.Null(product.UpdatedAt);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Create_WithNonPositivePrice_Throws(decimal price)
+    {
+        Assert.Throws<DomainException>(() => CreateProduct(price: price));
     }
 
     [Fact]
-    public void CreateProduct_WithNegativePrice_ShouldThrowDomainException()
+    public void Create_WithNegativeStock_Throws()
     {
-        Assert.Throws<DomainException>(() =>
-            new Product("ترمه نیلا", "nila", "توضیحات", -100m, 4, "/images/nila.jpg"));
+        Assert.Throws<DomainException>(() => CreateProduct(stockQuantity: -1));
+    }
+
+    [Theory]
+    [InlineData(0, 180)]
+    [InlineData(150, 0)]
+    public void Create_WithInvalidDimensions_Throws(decimal length, decimal width)
+    {
+        Assert.Throws<DomainException>(() => CreateProduct(length: length, width: width));
     }
 
     [Fact]
-    public void CreateProduct_WithEmptyName_ShouldThrowDomainException()
+    public void Deactivate_IsIdempotent()
     {
-        Assert.Throws<DomainException>(() =>
-            new Product("", "nila", "توضیحات", 100m, 4, "/images/nila.jpg"));
+        var product = CreateProduct();
+        product.Deactivate();
+        var updatedAt = product.UpdatedAt;
+
+        product.Deactivate();
+
+        Assert.False(product.IsActive);
+        Assert.Equal(updatedAt, product.UpdatedAt);
     }
+
+    private static Product CreateProduct(
+        string sku = "TER-NIL-001",
+        decimal price = 1_500_000m,
+        int stockQuantity = 3,
+        decimal length = 150m,
+        decimal width = 180m) =>
+        new("Nila", sku, null, price, stockQuantity, 4, length, width,
+            "Termeh", "Satin", "Blue", "Boteh Jegheh", Guid.NewGuid());
 }

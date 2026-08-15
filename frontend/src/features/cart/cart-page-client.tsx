@@ -7,16 +7,13 @@ import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { MinusIcon, PlusIcon, TrashIcon } from "@/components/ui/icons";
 import { useCart } from "@/features/cart/cart-provider";
-import { products } from "@/features/products/data/products";
 import { formatPrice } from "@/lib/format";
+import { CheckoutProgress } from "@/features/checkout/checkout-progress";
+import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 
 export function CartPageClient() {
   const { items, hydrated, setQuantity, removeItem } = useCart();
-  const detailedItems = items.flatMap((item) => {
-    const product = products.find((candidate) => candidate.id === item.productId);
-    return product ? [{ ...item, product }] : [];
-  });
-  const subtotal = detailedItems.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
+  const subtotal = items.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
 
   return (
     <>
@@ -27,6 +24,7 @@ export function CartPageClient() {
           <nav className="breadcrumbs commerce-breadcrumbs" aria-label="مسیر صفحه">
             <Link href="/">خانه</Link><span>/</span><span aria-current="page">سبد خرید</span>
           </nav>
+          <CheckoutProgress current={1} />
           <div className="commerce-heading">
             <p className="section-eyebrow">انتخاب‌های شما</p>
             <h1>سبد خرید</h1>
@@ -35,34 +33,34 @@ export function CartPageClient() {
 
           {!hydrated ? (
             <div className="cart-loading" role="status">در حال آماده‌کردن سبد خرید…</div>
-          ) : detailedItems.length === 0 ? (
-            <section className="commerce-empty">
+          ) : items.length === 0 ? (
+            <><section className="commerce-empty">
               <span className="commerce-empty__icon"><TrashIcon className="size-7" /></span>
               <h2>سبد خرید شما خالی است</h2>
               <p>محصول موردنظر را انتخاب کنید و از صفحه محصول به سبد اضافه کنید.</p>
               <Link className="button button--primary" href="/products">مشاهده محصولات</Link>
-            </section>
+            </section><RecentlyViewedProducts title="برای شروع خرید این محصولات را ببینید" compact /></>
           ) : (
             <div className="cart-layout">
               <section className="cart-items" aria-label="محصولات سبد خرید">
-                {detailedItems.map(({ product, quantity }) => (
-                  <article className="cart-item" key={product.id}>
-                    <Link className="cart-item__image" href={`/products/${product.id}`} aria-label={`مشاهده ${product.name}`}>
+                {items.map(({ lineId, product, quantity }) => (
+                  <article className="cart-item" key={lineId}>
+                    <Link className="cart-item__image" href={`/products/${product.slug || product.id}`} aria-label={`مشاهده ${product.name}`}>
                       <Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 34vw, 180px" />
                     </Link>
                     <div className="cart-item__content">
                       <div>
                         <span className="cart-item__capacity">{product.capacity}</span>
-                        <h2><Link href={`/products/${product.id}`}>{product.name}</Link></h2>
+                        <h2><Link href={`/products/${product.slug || product.id}`}>{product.name}</Link></h2>
                         <p>{product.dimensions}</p>
                       </div>
                       <div className="cart-item__actions">
                         <div className="quantity-control" aria-label={`تعداد ${product.name}`}>
-                          <button type="button" onClick={() => setQuantity(product.id, quantity - 1)} disabled={quantity === 1} aria-label="کاهش تعداد"><MinusIcon /></button>
+                          <button type="button" onClick={() => setQuantity(lineId, quantity - 1)} disabled={quantity === 1} aria-label="کاهش تعداد"><MinusIcon /></button>
                           <span aria-live="polite">{new Intl.NumberFormat("fa-IR").format(quantity)}</span>
-                          <button type="button" onClick={() => setQuantity(product.id, quantity + 1)} disabled={quantity >= product.stockQuantity} aria-label="افزایش تعداد"><PlusIcon /></button>
+                          <button type="button" onClick={() => setQuantity(lineId, quantity + 1)} disabled={quantity >= product.stockQuantity} aria-label="افزایش تعداد"><PlusIcon /></button>
                         </div>
-                        <button className="remove-item" type="button" onClick={() => removeItem(product.id)} aria-label={`حذف ${product.name} از سبد`}><TrashIcon /> حذف</button>
+                        <button className="remove-item" type="button" onClick={() => removeItem(lineId)} aria-label={`حذف ${product.name} از سبد`}><TrashIcon /> حذف</button>
                       </div>
                       {quantity >= product.stockQuantity && <p className="cart-stock-note" role="status">حداکثر تعداد قابل سفارش برای این محصول در سبد است.</p>}
                     </div>
@@ -80,7 +78,7 @@ export function CartPageClient() {
                 <div className="order-summary__total"><span>مبلغ فعلی</span><strong>{formatPrice(subtotal)}</strong></div>
                 <Link className="button button--primary order-summary__button" href="/checkout">ادامه و تکمیل سفارش</Link>
                 <Link className="continue-shopping" href="/products">ادامه خرید</Link>
-                <p>هزینه نهایی ارسال پیش از پرداخت مشخص خواهد شد.</p>
+                <p>هزینه نهایی ارسال پیش از ثبت سفارش مشخص خواهد شد.</p>
               </aside>
             </div>
           )}

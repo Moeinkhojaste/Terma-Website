@@ -9,14 +9,17 @@ export function Footer() {
         <div className="footer-brand">
           <span className="brand-mark brand-mark--footer">
             <Image
-              src="/images/terma-logo.jpeg"
+              src="/images/terma-logo.webp"
               alt="لوگوی ترما"
               fill
               sizes="(max-width: 768px) 120px, 160px"
-              quality={75}
+              quality={90}
             />
           </span>
-          <div><strong>ترما</strong><p>سفره‌های ترمه برای خانه‌های ایرانی امروز</p></div>
+          <div className="footer-brand-text">
+            <strong>ترما</strong>
+            <p>سفره‌های ترمه برای خانه‌های ایرانی امروز</p>
+          </div>
         </div>
         <div>
           <h2>راهنمای خرید</h2>
@@ -26,8 +29,8 @@ export function Footer() {
         </div>
         <div>
           <h2>ارتباط با ترما</h2>
-          <span>اینستاگرام — به‌زودی</span>
-          <span>اطلاعات تماس — به‌زودی</span>
+          <Link href="/about">درباره ما</Link>
+          <Link href="/contact">ارتباط با ما</Link>
           <Link href="/style-guide">راهنمای سبک داخلی</Link>
         </div>
         <div>

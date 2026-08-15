@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeftIcon } from "@/components/ui/icons";
 import { ProductCard } from "@/features/products/components/product-card";
-import type { Product } from "@/features/products/data/products";
+import type { Product } from "@/features/products/models";
 
 const AUTO_PLAY_DELAY = 4500;
 

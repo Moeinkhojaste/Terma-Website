@@ -1,35 +1,78 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Terma.Application.Common.Interfaces;
-using Terma.Domain.Entities;
+using Terma.Infrastructure.Identity;
 using Terma.Infrastructure.Persistence;
+using Terma.Infrastructure.Persistence.Repositories;
+using Terma.Application.Store;
+using Terma.Infrastructure.Store;
+using Terma.Infrastructure.Media;
+using Terma.Application.Cms;
+using Terma.Infrastructure.Cms;
+using Terma.Application.Customers;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Terma.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services)
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, bool isDevelopment = false)
     {
-        services.AddDbContext<TermaDbContext>(options =>
-            options.UseInMemoryDatabase("TermaDb"));
+        var connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? (isDevelopment ? "Server=(localdb)\\MSSQLLocalDB;Database=TermaDb;Trusted_Connection=True;TrustServerCertificate=True" : null);
 
-        services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<TermaDbContext>());
-
-        // Seed initial data
-        using var scope = services.BuildServiceProvider().CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
-        context.Database.EnsureCreated();
-
-        if (!context.Products.Any())
+        if (string.IsNullOrWhiteSpace(connectionString) && !isDevelopment)
         {
-            context.Products.AddRange(
-                new Product("سفره ترمه نیلا", "nila", "سفره ترمه ۴ نفره با نقش‌های بته‌جقه آبی و آستر ساتن", 1250000m, 4, "/images/nila-folded.jpeg"),
-                new Product("سفره ترمه لاجورد", "lajvard", "سفره ترمه ۶ نفره با نقش‌های سفید و مسی", 1850000m, 6, "/images/lajvard-folded.jpeg"),
-                new Product("سفره ترمه فیروزه", "firoozeh", "سفره ترمه ۸ نفره با نقش‌های آبی، کرم و مسی", 2450000m, 8, "/images/firoozeh-folded.jpeg")
-            );
-            context.SaveChanges();
+            throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
         }
 
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            services.AddDbContext<TermaDbContext>(options => options.UseSqlServer(connectionString));
+        }
+
+        services.AddIdentityCore<ApplicationUser>(options =>
+            {
+                options.User.RequireUniqueEmail = true;
+                options.Password.RequiredLength = 12;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireLowercase = false;
+                options.Password.RequireDigit = false;
+                options.Password.RequireNonAlphanumeric = false;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+                options.Lockout.AllowedForNewUsers = true;
+            })
+            .AddRoles<IdentityRole<Guid>>()
+            .AddEntityFrameworkStores<TermaDbContext>()
+            .AddSignInManager()
+            .AddDefaultTokenProviders();
+
+        services.RemoveAll<IUserValidator<ApplicationUser>>();
+        services.AddScoped<IUserValidator<ApplicationUser>, ApplicationUserValidator>();
+        services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, ApplicationUserClaimsPrincipalFactory>();
+        services.AddScoped<AdminAccountProvisioner>();
+        services.Configure<OtpOptions>(configuration.GetSection(OtpOptions.SectionName));
+
+        if (isDevelopment)
+        {
+            services.AddScoped<IPhoneOtpSender, DevelopmentPhoneOtpSender>();
+        }
+
+        services.AddScoped<ISecurityAuditService, SecurityAuditService>();
+        services.AddScoped<ICustomerAccountService, CustomerAccountService>();
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
+        services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<IStoreOperationsService, StoreOperationsService>();
+        services.AddScoped<ICmsService, CmsService>();
+        services.AddScoped<CmsContentSeeder>();
+        services.AddSingleton<IMediaStorage, LocalMediaStorage>();
+        services.AddSingleton<IImageOptimizer, ImageOptimizer>();
+        services.AddHostedService<ReservationExpirationService>();
+        services.AddHostedService<CmsPublishingService>();
         return services;
     }
 }
