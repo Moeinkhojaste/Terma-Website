@@ -8,7 +8,7 @@ import {
   updateCustomerProfile,
   type CustomerProfile,
 } from "./account-api";
-import { ShieldCheckIcon, PhoneIcon, UserIcon, CheckIcon } from "@/components/ui/icons";
+import { ShieldCheckIcon, PhoneIcon, UserIcon, CheckIcon, LightbulbIcon } from "@/components/ui/icons";
 
 export function AccountProfileClient() {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
@@ -180,7 +180,7 @@ export function AccountProfileClient() {
               </div>
 
               <div className="profile-phone-notice">
-                <span>💡</span>
+                <span className="notice-icon"><LightbulbIcon className="size-4" /></span>
                 <p>
                   برای تغییر شماره موبایل، کد تأیید ۶ رقمی به شماره جدید ارسال خواهد شد و پس از تأیید، شماره به عنوان شناسه حساب شما ثبت می‌گردد.
                 </p>

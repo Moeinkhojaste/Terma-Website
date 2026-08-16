@@ -5,6 +5,7 @@ import { AdminShell } from "@/features/admin/admin-shell";
 import { apiRequest, getApiErrorMessage } from "@/lib/api-client";
 import { formatPrice } from "@/lib/format";
 import { changeMessageStatus, changeOrderStatus, getCustomers, getMessages, getOrders, getPromotions, getShippingRules, type AdminCustomer, type AdminOrder, type ContactMessage, type Promotion, type ShippingRule } from "@/features/admin/store-api";
+import { CheckIcon, DocumentTextIcon, MapPinIcon, PackageIcon, ShoppingCartIcon } from "@/components/ui/icons";
 
 function useEffect(effect: () => void | Promise<void>, dependencies: unknown[]) { reactUseEffect(() => { void effect(); }, dependencies); }
 
@@ -127,7 +128,9 @@ export function AdminOrdersPage() {
                         <div style={{ padding: "1rem 1.25rem", borderBottom: "2px solid var(--line, #e5e7eb)" }}>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1.25rem", marginBottom: "1rem" }}>
                             <div style={{ background: "#fff", padding: "0.85rem", borderRadius: "8px", border: "1px solid var(--line, #e5e7eb)" }}>
-                              <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)" }}>📍 آدرس ارسال</h4>
+                              <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                <MapPinIcon className="size-4" /> آدرس ارسال
+                              </h4>
                               <p style={{ margin: 0, fontSize: "0.9rem", lineHeight: "1.6", color: "#334155" }}>
                                 <strong>استان:</strong> {x.province} | <strong>شهر:</strong> {x.city}<br />
                                 <strong>نشانی دقیق:</strong> {x.address}<br />
@@ -135,13 +138,17 @@ export function AdminOrdersPage() {
                               </p>
                             </div>
                             <div style={{ background: "#fff", padding: "0.85rem", borderRadius: "8px", border: "1px solid var(--line, #e5e7eb)" }}>
-                              <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)" }}>📝 توضیحات خریدار</h4>
+                              <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                <DocumentTextIcon className="size-4" /> توضیحات خریدار
+                              </h4>
                               <p style={{ margin: 0, fontSize: "0.9rem", lineHeight: "1.6", color: x.customerNotes ? "#0f172a" : "#94a3b8" }}>
                                 {x.customerNotes || "توضیحاتی برای این سفارش ثبت نشده است."}
                               </p>
                             </div>
                             <div style={{ background: "#fff", padding: "0.85rem", borderRadius: "8px", border: "1px solid var(--line, #e5e7eb)" }}>
-                              <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)" }}>📦 کد رهگیری مرسوله پستی</h4>
+                              <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                <PackageIcon className="size-4" /> کد رهگیری مرسوله پستی
+                              </h4>
                               <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
                                 <input
                                   type="text"
@@ -155,9 +162,9 @@ export function AdminOrdersPage() {
                                   type="button"
                                   className="button button--primary"
                                   onClick={() => saveTracking(x.id, x.status)}
-                                  style={{ padding: "0.4rem 0.75rem", fontSize: "0.85rem", whiteSpace: "nowrap" }}
+                                  style={{ padding: "0.4rem 0.75rem", fontSize: "0.85rem", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
                                 >
-                                  {trackingSaved[x.id] ? "ثبت شد ✓" : "ثبت کد"}
+                                  {trackingSaved[x.id] ? <><CheckIcon className="size-3.5" /> ثبت شد</> : "ثبت کد"}
                                 </button>
                               </div>
                               <small style={{ display: "block", marginTop: "0.4rem", color: "#64748b", fontSize: "0.75rem" }}>
@@ -166,7 +173,9 @@ export function AdminOrdersPage() {
                             </div>
                           </div>
                           <div style={{ background: "#fff", padding: "0.85rem", borderRadius: "8px", border: "1px solid var(--line, #e5e7eb)" }}>
-                            <h4 style={{ margin: "0 0 0.75rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)" }}>🛒 اقلام سفارش ({x.items.length} محصول)</h4>
+                            <h4 style={{ margin: "0 0 0.75rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                              <ShoppingCartIcon className="size-4" /> اقلام سفارش ({x.items.length} محصول)
+                            </h4>
                             <table className="admin-table" style={{ width: "100%", margin: 0, fontSize: "0.85rem" }}>
                               <thead>
                                 <tr>

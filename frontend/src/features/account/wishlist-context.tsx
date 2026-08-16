@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import { useRouter, usePathname } from "next/navigation";
 import { getWishlistIds, toggleWishlistProduct } from "./account-api";
 import { ApiError } from "@/lib/api-client";
+import { XIcon } from "@/components/ui/icons";
 
 type WishlistContextType = {
   favoriteIds: Set<string>;
@@ -105,7 +106,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
                 onClick={() => setGuestModalOpen(false)}
                 aria-label="بستن"
               >
-                ✕
+                <XIcon className="size-4" />
               </button>
             </div>
             <p className="account-modal-description">

@@ -9,7 +9,7 @@ import {
   type CustomerOrderSummary,
 } from "./account-api";
 import { formatPrice } from "@/lib/format";
-import { CopyIcon, PackageIcon } from "@/components/ui/icons";
+import { CheckIcon, CopyIcon, PackageIcon } from "@/components/ui/icons";
 
 type FilterTab = "ALL" | "ACTIVE" | "Shipped" | "Delivered" | "Cancelled";
 
@@ -132,7 +132,7 @@ export function AccountOrdersClient() {
                 {order.status === "Shipped" && order.postalTrackingCode && (
                   <div className="order-card-tracking-box">
                     <div className="tracking-info-group">
-                      <span className="tracking-label">📦 کد رهگیری مرسوله پستی:</span>
+                      <span className="tracking-label"><PackageIcon className="size-4" /> کد رهگیری مرسوله پستی:</span>
                       <strong dir="ltr" className="tracking-code">{order.postalTrackingCode}</strong>
                     </div>
                     <div className="tracking-actions">
@@ -141,8 +141,8 @@ export function AccountOrdersClient() {
                         onClick={() => copyTracking(order.postalTrackingCode!, order.id)}
                         className="button button--secondary button--sm"
                       >
-                        <CopyIcon className="size-3.5" />
-                        <span>{copiedId === order.id ? "کپی شد ✓" : "کپی کد"}</span>
+                        {copiedId === order.id ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
+                        <span>{copiedId === order.id ? "کپی شد" : "کپی کد"}</span>
                       </button>
                       <a
                         href="https://tracking.post.ir/"

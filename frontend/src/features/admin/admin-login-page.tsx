@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api-client";
+import { KeyIcon } from "@/components/ui/icons";
 import { loginAdmin } from "@/features/admin/auth-api";
 
 type AdminLoginPageProps = {
@@ -55,7 +56,9 @@ export function AdminLoginPage({ sessionMessage = false }: AdminLoginPageProps) 
         {error && <p className="admin-auth-message admin-auth-message--error" role="alert">{error}</p>}
 
         <div className="admin-auth-message admin-auth-message--notice" style={{ marginTop: "1rem", textAlign: "right" }}>
-          <p style={{ margin: 0, fontWeight: 600 }}>🔑 اطلاعات ورود مدیریت:</p>
+          <p style={{ margin: 0, fontWeight: 600, display: "flex", alignItems: "center", gap: "0.35rem" }}>
+            <KeyIcon className="size-4" /> اطلاعات ورود مدیریت:
+          </p>
           <p style={{ margin: "0.25rem 0 0", fontSize: "0.875rem", direction: "ltr" }}>
             Email: <code>admin@terma.local</code> | Pass: <code>AdminPassword123!</code>
           </p>

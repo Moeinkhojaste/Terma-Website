@@ -14,6 +14,7 @@ import {
   UserIcon,
   LogOutIcon,
   ShieldCheckIcon,
+  XIcon,
 } from "@/components/ui/icons";
 import { getCustomerProfile, logoutCustomer, type CustomerProfile } from "../account-api";
 import { ApiError } from "@/lib/api-client";
@@ -164,7 +165,7 @@ export function AccountShell({ children, title, breadcrumbs }: AccountShellProps
                 onClick={() => setLogoutModalOpen(false)}
                 aria-label="بستن"
               >
-                ✕
+                <XIcon className="size-4" />
               </button>
             </div>
             <p className="account-modal-description">

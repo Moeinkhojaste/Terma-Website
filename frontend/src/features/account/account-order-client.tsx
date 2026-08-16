@@ -131,8 +131,8 @@ export function AccountOrderClient({ id }: { id: string }) {
                         onClick={() => copyTrackingCode(order.postalTrackingCode!)}
                         className="button button--secondary button--sm"
                       >
-                        <CopyIcon className="size-4" />
-                        <span>{copied ? "کپی شد ✓" : "کپی کد رهگیری"}</span>
+                        {copied ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
+                        <span>{copied ? "کپی شد" : "کپی کد رهگیری"}</span>
                       </button>
                     )}
                   </div>

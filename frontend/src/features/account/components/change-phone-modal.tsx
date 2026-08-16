@@ -8,6 +8,7 @@ import {
   type OtpChallenge,
 } from "../account-api";
 import { ApiError } from "@/lib/api-client";
+import { XIcon } from "@/components/ui/icons";
 
 type ChangePhoneModalProps = {
   isOpen: boolean;
@@ -108,7 +109,7 @@ export function ChangePhoneModal({
         <div className="account-modal-header">
           <h3 id="change-phone-title">تغییر شماره موبایل</h3>
           <button type="button" className="account-modal-close" onClick={onClose} aria-label="بستن">
-            ✕
+            <XIcon className="size-4" />
           </button>
         </div>
 

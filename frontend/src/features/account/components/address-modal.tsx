@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
 import { IRAN_PROVINCES, getIranCities } from "@/lib/iran-locations";
+import { XIcon } from "@/components/ui/icons";
 import type { CustomerAddress, AddressWriteRequest } from "../account-api";
 
 type AddressModalProps = {
@@ -80,7 +81,7 @@ export function AddressModal({ initialData, isOpen, onClose, onSave }: AddressMo
         <div className="account-modal-header">
           <h3 id="address-modal-title">{initialData ? "ویرایش آدرس" : "افزودن آدرس جدید"}</h3>
           <button type="button" className="account-modal-close" onClick={onClose} aria-label="بستن">
-            ✕
+            <XIcon className="size-4" />
           </button>
         </div>
 

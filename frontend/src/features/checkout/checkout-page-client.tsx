@@ -11,6 +11,7 @@ import { Header } from "@/components/layout/header";
 import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { formatPrice } from "@/lib/format";
 import { ApiError } from "@/lib/api-client";
+import { MapPinIcon } from "@/components/ui/icons";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 import { createOrder, getQuote, type CheckoutRequest } from "@/features/checkout/checkout-api";
@@ -286,7 +287,7 @@ export function CheckoutPageClient() {
           <nav className="breadcrumbs commerce-breadcrumbs" aria-label="مسیر صفحه">
             <Link href="/">خانه</Link><span>/</span><Link href="/cart">سبد خرید</Link><span>/</span><span aria-current="page">تکمیل سفارش</span>
           </nav>
-          <CheckoutProgress current={2} />
+          <CheckoutProgress current={3} />
           <div className="commerce-heading">
             <p className="section-eyebrow">اطلاعات ارسال</p>
             <h1>تکمیل سفارش</h1>
@@ -310,7 +311,7 @@ export function CheckoutPageClient() {
                 {addresses.length > 0 && (
                   <section className="checkout-panel checkout-saved-addresses-panel" aria-labelledby="saved-addresses-title">
                     <div className="checkout-panel__heading">
-                      <span>📍</span>
+                      <span className="checkout-panel__icon"><MapPinIcon className="size-5" /></span>
                       <div>
                         <h2 id="saved-addresses-title">انتخاب از آدرس‌های ذخیره‌شده</h2>
                         <p>می‌توانید یکی از آدرس‌های حساب خود را انتخاب کنید یا آدرس جدیدی وارد نمایید.</p>
@@ -364,16 +365,16 @@ export function CheckoutPageClient() {
                 )}
 
                 <section className="checkout-panel" aria-labelledby="receiver-title">
-                  <div className="checkout-panel__heading"><span>۱</span><div><h2 id="receiver-title">اطلاعات گیرنده</h2><p>نام و شماره تماس فرد تحویل‌گیرنده</p></div></div>
+                  <div className="checkout-panel__heading">
+                    <span>۱</span>
+                    <div>
+                      <h2 id="receiver-title">اطلاعات تحویل‌گیرنده و آدرس ارسال</h2>
+                      <p>مشخصات گیرنده و نشانی دقیق محل تحویل سفارش</p>
+                    </div>
+                  </div>
                   <div className="form-grid">
                     <label className="form-field"><span>نام و نام خانوادگی *</span><input name="fullName" autoComplete="name" value={fullName} {...field("fullName")} />{fieldError("fullName")}</label>
                     <label className="form-field"><span>شماره موبایل *</span><input name="mobile" type="tel" inputMode="tel" autoComplete="tel" placeholder="۰۹۱۲... یا +۹۸۹۱۲..." value={mobile} readOnly={verifiedMobile} aria-readonly={verifiedMobile} {...field("mobile")} />{fieldError("mobile")}{verifiedMobile && <small>این شماره قبلاً تأیید شده است.</small>}</label>
-                  </div>
-                </section>
-
-                <section className="checkout-panel" aria-labelledby="address-title">
-                  <div className="checkout-panel__heading"><span>۲</span><div><h2 id="address-title">آدرس ارسال</h2><p>نشانی دقیق محل تحویل سفارش</p></div></div>
-                  <div className="form-grid">
                     <label className="form-field">
                       <span>استان *</span>
                       <select
@@ -408,14 +409,14 @@ export function CheckoutPageClient() {
                       </select>
                       {fieldError("city")}
                     </label>
-                    <label className="form-field form-field--full"><span>آدرس کامل *</span><textarea name="address" rows={4} autoComplete="street-address" value={address} {...field("address")} />{fieldError("address")}</label>
-                    <label className="form-field"><span>کد پستی *</span><input name="postalCode" inputMode="numeric" autoComplete="postal-code" value={postalCode} {...field("postalCode")} />{fieldError("postalCode")}</label>
-                    <label className="form-field form-field--full"><span>توضیحات سفارش (اختیاری)</span><textarea name="customerNotes" rows={3} placeholder="نکته یا درخواستی درباره این سفارش دارید، بنویسید..." /></label>
+                    <label className="form-field form-field--full"><span>آدرس کامل *</span><textarea name="address" rows={2} autoComplete="street-address" placeholder="نام خیابان، کوچه، پلاک، واحد..." value={address} {...field("address")} />{fieldError("address")}</label>
+                    <label className="form-field"><span>کد پستی *</span><input name="postalCode" inputMode="numeric" autoComplete="postal-code" placeholder="۱۰ رقم بدون خط تیره" value={postalCode} {...field("postalCode")} />{fieldError("postalCode")}</label>
+                    <label className="form-field"><span>توضیحات سفارش (اختیاری)</span><input name="customerNotes" placeholder="نکته یا درخواستی درباره این سفارش دارید بنویسید..." /></label>
                   </div>
                 </section>
 
                 <section className="checkout-panel" aria-labelledby="shipping-title">
-                  <div className="checkout-panel__heading"><span>۳</span><div><h2 id="shipping-title">روش ارسال</h2><p>هزینه و زمان ارسال پس از بررسی آدرس اعلام می‌شود.</p></div></div>
+                  <div className="checkout-panel__heading"><span>۲</span><div><h2 id="shipping-title">روش ارسال</h2><p>هزینه و زمان ارسال پس از بررسی آدرس اعلام می‌شود.</p></div></div>
                   <label className="shipping-option"><input type="radio" name="shipping" defaultChecked /><span><strong>ارسال پس از هماهنگی</strong><small>هماهنگی هزینه و زمان تحویل با شما</small></span></label>
                 </section>
 

@@ -22,12 +22,12 @@ export function CartPageClient() {
     <>
       <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
       <Header />
-      <main id="محتوا" className="commerce-page">
+      <main id="محتوا" className="commerce-page cart-page">
         <Container>
           <nav className="breadcrumbs commerce-breadcrumbs" aria-label="مسیر صفحه">
             <Link href="/">خانه</Link><span>/</span><span aria-current="page">سبد خرید</span>
           </nav>
-          <CheckoutProgress current={1} />
+          <CheckoutProgress current={2} />
           <div className="commerce-heading">
             <p className="section-eyebrow">انتخاب‌های شما</p>
             <h1>سبد خرید</h1>

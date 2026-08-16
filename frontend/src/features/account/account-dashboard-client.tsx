@@ -53,7 +53,7 @@ export function AccountDashboardClient() {
           {/* Welcome Banner */}
           <div className="dashboard-welcome-banner">
             <div>
-              <h2>سلام، {dashboard.profile.fullName} عزیز 👋</h2>
+              <h2>سلام، {dashboard.profile.fullName} عزیز</h2>
               <p>به پنل کاربری ترما خوش آمدید. در این بخش می‌توانید سفارش‌ها، آدرس‌ها و علاقه‌مندی‌های خود را مدیریت کنید.</p>
             </div>
             <span className="dashboard-date-badge">
