@@ -15,6 +15,7 @@ import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 import { createOrder, getQuote, type CheckoutRequest } from "@/features/checkout/checkout-api";
 import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
+import { IRAN_PROVINCES, getIranCities } from "@/lib/iran-locations";
 
 type FieldName = "fullName" | "mobile" | "province" | "city" | "address" | "postalCode";
 type FormErrors = Partial<Record<FieldName, string>>;
@@ -42,8 +43,8 @@ function validateField(name: FieldName, value: string) {
   if (name === "fullName" && clean.length < 3) return "نام و نام خانوادگی را کامل وارد کنید.";
   if (name === "mobile" && !clean) return "شماره موبایل را وارد کنید.";
   if (name === "mobile" && !normalizeIranianMobile(clean)) return "شماره را مانند ۰۹۱۲...، +۹۸۹۱۲... یا ۰۰۹۸۹۱۲... وارد کنید.";
-  if ((name === "province" || name === "city") && !clean) return `${fieldLabels[name]} را وارد کنید.`;
-  if ((name === "province" || name === "city") && clean.length < 2) return `${fieldLabels[name]} را وارد کنید.`;
+  if (name === "province" && !clean) return "استان را انتخاب کنید.";
+  if (name === "city" && !clean) return "شهر را انتخاب کنید.";
   if (name === "address" && !clean) return "آدرس کامل را وارد کنید.";
   if (name === "address" && clean.length < 10) return "آدرس را با جزئیات بیشتری وارد کنید.";
   if (name === "postalCode" && !clean) return "کد پستی را وارد کنید.";
@@ -114,6 +115,12 @@ export function CheckoutPageClient() {
 
   function selectManual() {
     setSelectedAddressId("manual");
+    setFullName("");
+    setProvince("");
+    setCity("");
+    setAddress("");
+    setPostalCode("");
+    setErrors({});
   }
   
   const [couponInput, setCouponInput] = useState("");
@@ -124,19 +131,23 @@ export function CheckoutPageClient() {
 
   const subtotal = items.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
 
-  function handleBlur(event: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  function handleBlur(event: FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const name = event.currentTarget.name as FieldName;
     if (!(name in fieldLabels)) return;
     const error = validateField(name, event.currentTarget.value);
     setErrors((current) => ({ ...current, [name]: error || undefined }));
   }
 
-  function handleChange(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  function handleChange(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const name = event.currentTarget.name as FieldName;
     const val = event.currentTarget.value;
     if (name === "fullName") setFullName(val);
     else if (name === "mobile") setMobile(val);
-    else if (name === "province") setProvince(val);
+    else if (name === "province") {
+      setProvince(val);
+      const validCities = getIranCities(val);
+      if (!validCities.includes(city)) setCity("");
+    }
     else if (name === "city") setCity(val);
     else if (name === "address") setAddress(val);
     else if (name === "postalCode") setPostalCode(val);
@@ -363,8 +374,40 @@ export function CheckoutPageClient() {
                 <section className="checkout-panel" aria-labelledby="address-title">
                   <div className="checkout-panel__heading"><span>۲</span><div><h2 id="address-title">آدرس ارسال</h2><p>نشانی دقیق محل تحویل سفارش</p></div></div>
                   <div className="form-grid">
-                    <label className="form-field"><span>استان *</span><input name="province" autoComplete="address-level1" value={province} {...field("province")} />{fieldError("province")}</label>
-                    <label className="form-field"><span>شهر *</span><input name="city" autoComplete="address-level2" value={city} {...field("city")} />{fieldError("city")}</label>
+                    <label className="form-field">
+                      <span>استان *</span>
+                      <select
+                        name="province"
+                        autoComplete="address-level1"
+                        value={province}
+                        {...field("province")}
+                      >
+                        <option value="">انتخاب استان...</option>
+                        {IRAN_PROVINCES.map((prov) => (
+                          <option key={prov} value={prov}>{prov}</option>
+                        ))}
+                      </select>
+                      {fieldError("province")}
+                    </label>
+                    <label className="form-field">
+                      <span>شهر *</span>
+                      <select
+                        name="city"
+                        autoComplete="address-level2"
+                        value={city}
+                        disabled={!province}
+                        {...field("city")}
+                      >
+                        <option value="">{province ? "انتخاب شهر..." : "ابتدا استان را انتخاب کنید"}</option>
+                        {province && getIranCities(province).map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                        {city && province && !getIranCities(province).includes(city) && (
+                          <option value={city}>{city}</option>
+                        )}
+                      </select>
+                      {fieldError("city")}
+                    </label>
                     <label className="form-field form-field--full"><span>آدرس کامل *</span><textarea name="address" rows={4} autoComplete="street-address" value={address} {...field("address")} />{fieldError("address")}</label>
                     <label className="form-field"><span>کد پستی *</span><input name="postalCode" inputMode="numeric" autoComplete="postal-code" value={postalCode} {...field("postalCode")} />{fieldError("postalCode")}</label>
                     <label className="form-field form-field--full"><span>توضیحات سفارش (اختیاری)</span><textarea name="customerNotes" rows={3} placeholder="نکته یا درخواستی درباره این سفارش دارید، بنویسید..." /></label>

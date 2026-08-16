@@ -116,6 +116,67 @@ describe("checkout order review", () => {
     expect(mocks.replace).toHaveBeenCalledWith("/order/success?order=TRM-12345678-123456");
   });
 
+  it("clears shipping address fields when user clicks 'وارد کردن آدرس دیگر'", async () => {
+    mocks.getCustomerSession.mockResolvedValue({ phone: "09121234567" });
+    mocks.getCustomerAddresses.mockResolvedValue([
+      {
+        id: "addr-1",
+        title: "منزل",
+        receiverName: "علی رضایی",
+        receiverPhone: "09121234567",
+        province: "تهران",
+        city: "تهران",
+        address: "خیابان آزادی پلاک ۱۰",
+        postalCode: "1111111111",
+        isDefault: true,
+      },
+    ]);
+
+    render(<CheckoutPageClient />);
+
+    // Wait for saved address to populate fields
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^نام و نام خانوادگی \*/)).toHaveValue("علی رضایی");
+    });
+    expect(screen.getByLabelText(/^استان \*/)).toHaveValue("تهران");
+    expect(screen.getByLabelText(/^شهر \*/)).toHaveValue("تهران");
+    expect(screen.getByLabelText(/^آدرس کامل \*/)).toHaveValue("خیابان آزادی پلاک ۱۰");
+    expect(screen.getByLabelText(/^کد پستی \*/)).toHaveValue("1111111111");
+
+    // Click on "وارد کردن آدرس دیگر"
+    const manualRadio = screen.getByLabelText(/\+ وارد کردن آدرس دیگر/);
+    fireEvent.click(manualRadio);
+
+    // Verify fields are empty and not prefilled
+    expect(screen.getByLabelText(/^نام و نام خانوادگی \*/)).toHaveValue("");
+    expect(screen.getByLabelText(/^استان \*/)).toHaveValue("");
+    expect(screen.getByLabelText(/^شهر \*/)).toHaveValue("");
+    expect(screen.getByLabelText(/^آدرس کامل \*/)).toHaveValue("");
+    expect(screen.getByLabelText(/^کد پستی \*/)).toHaveValue("");
+  });
+
+  it("updates city options when province changes and resets invalid city", () => {
+    render(<CheckoutPageClient />);
+    const provinceSelect = screen.getByLabelText(/^استان \*/);
+    const citySelect = screen.getByLabelText(/^شهر \*/);
+
+    expect(citySelect).toBeDisabled();
+
+    // Select Fars province
+    fireEvent.change(provinceSelect, { target: { value: "فارس" } });
+    expect(citySelect).not.toBeDisabled();
+    expect(within(citySelect).getByText("شیراز")).toBeInTheDocument();
+
+    // Select Shiraz city
+    fireEvent.change(citySelect, { target: { value: "شیراز" } });
+    expect(citySelect).toHaveValue("شیراز");
+
+    // Change province to Isfahan -> city should reset
+    fireEvent.change(provinceSelect, { target: { value: "اصفهان" } });
+    expect(citySelect).toHaveValue("");
+    expect(within(citySelect).getByText("کاشان")).toBeInTheDocument();
+  });
+
   it("keeps the review and cart available when order creation fails", async () => {
     mocks.createOrder.mockRejectedValue(new Error("failure"));
     render(<CheckoutPageClient />);
@@ -131,3 +192,4 @@ describe("checkout order review", () => {
     expect(mocks.replace).not.toHaveBeenCalled();
   });
 });
+

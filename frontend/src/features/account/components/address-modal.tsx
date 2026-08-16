@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
+import { IRAN_PROVINCES, getIranCities } from "@/lib/iran-locations";
 import type { CustomerAddress, AddressWriteRequest } from "../account-api";
 
 type AddressModalProps = {
@@ -15,8 +16,8 @@ export function AddressModal({ initialData, isOpen, onClose, onSave }: AddressMo
   const [title, setTitle] = useState(initialData?.title || "منزل");
   const [receiverName, setReceiverName] = useState(initialData?.receiverName || "");
   const [receiverPhone, setReceiverPhone] = useState(initialData?.receiverPhone || "");
-  const [province, setProvince] = useState(initialData?.province || "تهران");
-  const [city, setCity] = useState(initialData?.city || "تهران");
+  const [province, setProvince] = useState(initialData?.province || "");
+  const [city, setCity] = useState(initialData?.city || "");
   const [address, setAddress] = useState(initialData?.address || "");
   const [postalCode, setPostalCode] = useState(initialData?.postalCode || "");
   const [isDefault, setIsDefault] = useState(initialData?.isDefault || false);
@@ -35,8 +36,8 @@ export function AddressModal({ initialData, isOpen, onClose, onSave }: AddressMo
     } else if (!normalizeIranianMobile(receiverPhone)) {
       errs.receiverPhone = "شماره موبایل معتبر نیست (مانند ۰۹۱۲...).";
     }
-    if (!province.trim()) errs.province = "استان را وارد کنید.";
-    if (!city.trim()) errs.city = "شهر را وارد کنید.";
+    if (!province.trim()) errs.province = "استان را انتخاب کنید.";
+    if (!city.trim()) errs.city = "شهر را انتخاب کنید.";
     if (!address.trim() || address.trim().length < 5) {
       errs.address = "نشانی دقیق پستی را به طور کامل وارد کنید.";
     }
@@ -149,31 +150,51 @@ export function AddressModal({ initialData, isOpen, onClose, onSave }: AddressMo
           <div className="form-grid-2">
             <label className="form-field">
               <span>استان *</span>
-              <input
-                type="text"
-                placeholder="استان"
+              <select
                 value={province}
                 onChange={(e) => {
-                  setProvince(e.target.value);
+                  const nextProv = e.target.value;
+                  setProvince(nextProv);
+                  const cities = getIranCities(nextProv);
+                  if (!cities.includes(city)) {
+                    setCity("");
+                  }
                   setErrors((prev) => ({ ...prev, province: "" }));
                 }}
                 aria-invalid={Boolean(errors.province)}
-              />
+              >
+                <option value="">انتخاب استان...</option>
+                {IRAN_PROVINCES.map((prov) => (
+                  <option key={prov} value={prov}>
+                    {prov}
+                  </option>
+                ))}
+              </select>
               {errors.province && <small className="form-field__error">{errors.province}</small>}
             </label>
 
             <label className="form-field">
               <span>شهر *</span>
-              <input
-                type="text"
-                placeholder="شهر"
+              <select
                 value={city}
+                disabled={!province}
                 onChange={(e) => {
                   setCity(e.target.value);
                   setErrors((prev) => ({ ...prev, city: "" }));
                 }}
                 aria-invalid={Boolean(errors.city)}
-              />
+              >
+                <option value="">{province ? "انتخاب شهر..." : "ابتدا استان را انتخاب کنید"}</option>
+                {province &&
+                  getIranCities(province).map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                {city && province && !getIranCities(province).includes(city) && (
+                  <option value={city}>{city}</option>
+                )}
+              </select>
               {errors.city && <small className="form-field__error">{errors.city}</small>}
             </label>
           </div>

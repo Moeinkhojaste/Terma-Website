@@ -1,18 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { MinusIcon, PlusIcon, TrashIcon } from "@/components/ui/icons";
-import { useCart } from "@/features/cart/cart-provider";
+import { useCart, type CartItem } from "@/features/cart/cart-provider";
+import { RemoveCartItemDialog } from "@/features/cart/remove-cart-item-dialog";
 import { formatPrice } from "@/lib/format";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 
 export function CartPageClient() {
   const { items, hydrated, setQuantity, removeItem } = useCart();
+  const [itemToRemove, setItemToRemove] = useState<CartItem | null>(null);
   const subtotal = items.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
 
   return (
@@ -43,30 +46,53 @@ export function CartPageClient() {
           ) : (
             <div className="cart-layout">
               <section className="cart-items" aria-label="محصولات سبد خرید">
-                {items.map(({ lineId, product, quantity }) => (
-                  <article className="cart-item" key={lineId}>
-                    <Link className="cart-item__image" href={`/products/${product.slug || product.id}`} aria-label={`مشاهده ${product.name}`}>
-                      <Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 34vw, 180px" />
-                    </Link>
-                    <div className="cart-item__content">
-                      <div>
-                        <span className="cart-item__capacity">{product.capacity}</span>
-                        <h2><Link href={`/products/${product.slug || product.id}`}>{product.name}</Link></h2>
-                        <p>{product.dimensions}</p>
-                      </div>
-                      <div className="cart-item__actions">
-                        <div className="quantity-control" aria-label={`تعداد ${product.name}`}>
-                          <button type="button" onClick={() => setQuantity(lineId, quantity - 1)} disabled={quantity === 1} aria-label="کاهش تعداد"><MinusIcon /></button>
-                          <span aria-live="polite">{new Intl.NumberFormat("fa-IR").format(quantity)}</span>
-                          <button type="button" onClick={() => setQuantity(lineId, quantity + 1)} disabled={quantity >= product.stockQuantity} aria-label="افزایش تعداد"><PlusIcon /></button>
+                {items.map((item) => {
+                  const { lineId, product, quantity } = item;
+                  return (
+                    <article className="cart-item" key={lineId}>
+                      <Link className="cart-item__image" href={`/products/${product.slug || product.id}`} aria-label={`مشاهده ${product.name}`}>
+                        <Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 34vw, 180px" />
+                      </Link>
+                      <div className="cart-item__content">
+                        <div>
+                          <span className="cart-item__capacity">{product.capacity}</span>
+                          <h2><Link href={`/products/${product.slug || product.id}`}>{product.name}</Link></h2>
+                          <p>{product.dimensions}</p>
                         </div>
-                        <button className="remove-item" type="button" onClick={() => removeItem(lineId)} aria-label={`حذف ${product.name} از سبد`}><TrashIcon /> حذف</button>
+                        <div className="cart-item__actions">
+                          <div className="quantity-control" aria-label={`تعداد ${product.name}`}>
+                            <button
+                              type="button"
+                              onClick={() => (quantity === 1 ? setItemToRemove(item) : setQuantity(lineId, quantity - 1))}
+                              aria-label="کاهش تعداد"
+                            >
+                              <MinusIcon />
+                            </button>
+                            <span aria-live="polite">{new Intl.NumberFormat("fa-IR").format(quantity)}</span>
+                            <button
+                              type="button"
+                              onClick={() => setQuantity(lineId, quantity + 1)}
+                              disabled={quantity >= product.stockQuantity}
+                              aria-label="افزایش تعداد"
+                            >
+                              <PlusIcon />
+                            </button>
+                          </div>
+                          <button
+                            className="remove-item"
+                            type="button"
+                            onClick={() => setItemToRemove(item)}
+                            aria-label={`حذف ${product.name} از سبد`}
+                          >
+                            <TrashIcon /> حذف
+                          </button>
+                        </div>
+                        {quantity >= product.stockQuantity && <p className="cart-stock-note" role="status">حداکثر تعداد قابل سفارش برای این محصول در سبد است.</p>}
                       </div>
-                      {quantity >= product.stockQuantity && <p className="cart-stock-note" role="status">حداکثر تعداد قابل سفارش برای این محصول در سبد است.</p>}
-                    </div>
-                    <strong className="cart-item__price">{formatPrice(product.priceValue * quantity)}</strong>
-                  </article>
-                ))}
+                      <strong className="cart-item__price">{formatPrice(product.priceValue * quantity)}</strong>
+                    </article>
+                  );
+                })}
               </section>
 
               <aside className="order-summary" aria-labelledby="cart-summary-title">
@@ -85,6 +111,17 @@ export function CartPageClient() {
         </Container>
       </main>
       <Footer />
+
+      <RemoveCartItemDialog
+        item={itemToRemove}
+        onClose={() => setItemToRemove(null)}
+        onConfirm={() => {
+          if (itemToRemove) {
+            removeItem(itemToRemove.lineId);
+            setItemToRemove(null);
+          }
+        }}
+      />
     </>
   );
 }

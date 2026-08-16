@@ -1105,6 +1105,186 @@ body.dialog-open { overflow: hidden; }
 .cart-drawer-dialog .cart-drawer { width: 100%; max-width: none; height: 100%; animation: none; box-shadow: -1rem 0 4rem rgb(0 0 0 / .2); }
 .cart-drawer-item__spec { color: var(--muted); font-size: .76rem; }
 
+/* Cart Item Remove Confirmation Modal */
+.cart-remove-dialog {
+  width: min(26rem, calc(100vw - 2rem));
+  margin: auto;
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  background: var(--surface);
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 0.24);
+  overflow: hidden;
+  animation: cart-modal-pop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cart-modal-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.cart-remove-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+}
+
+.cart-remove-modal__close {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--motion-fast) ease;
+}
+
+.cart-remove-modal__close:hover {
+  background: var(--teal-soft);
+  color: var(--teal-deep);
+  border-color: var(--teal);
+}
+
+.cart-remove-modal__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  margin-bottom: 1.15rem;
+}
+
+.cart-remove-modal__icon-badge {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: #fef2f2;
+  border: 1.5px solid #fee2e2;
+  color: #dc2626;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 14px rgb(220 38 38 / 0.12);
+}
+
+.cart-remove-modal__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 750;
+  color: var(--charcoal);
+}
+
+.cart-remove-modal__message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.6;
+  text-align: center;
+}
+
+.cart-remove-modal__message strong {
+  color: var(--charcoal);
+  font-weight: 700;
+}
+
+.cart-remove-modal__product {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  background: #fcfaf6;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.35rem;
+}
+
+.cart-remove-modal__product-image {
+  position: relative;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #f4f3ef;
+  border: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.cart-remove-modal__product-image img {
+  object-fit: cover;
+}
+
+.cart-remove-modal__product-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.cart-remove-modal__product-name {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--charcoal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cart-remove-modal__product-specs {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.cart-remove-modal__product-qty {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--teal-deep);
+}
+
+.cart-remove-modal__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.cart-remove-modal__btn-cancel {
+  min-height: 2.85rem;
+  border-radius: 999px;
+  font-weight: 650;
+  font-size: 0.92rem;
+}
+
+.cart-remove-modal__btn-confirm {
+  min-height: 2.85rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 480px) {
+  .cart-remove-dialog {
+    width: calc(100vw - 1.5rem);
+    margin: auto;
+  }
+  .cart-remove-modal {
+    padding: 1.25rem 1rem;
+  }
+  .cart-remove-modal__actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-product-media-top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .admin-product-media-top > div { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
 .admin-product-media-layout { display: grid; grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr); gap: 1rem; align-items: start; }
