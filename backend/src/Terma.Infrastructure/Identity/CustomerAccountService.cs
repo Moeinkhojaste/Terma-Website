@@ -123,9 +123,37 @@ public sealed class CustomerAccountService(
         }
 
         var orders = await db.Orders
+            .Include(x => x.Customer)
             .Where(x => x.UserId == null && x.Customer.NormalizedPhone == challenge.NormalizedPhone)
             .ToListAsync(cancellationToken);
         foreach (var order in orders) order.AttachToUser(user.Id);
+
+        var hasAddress = await db.CustomerAddresses.AnyAsync(x => x.UserId == user.Id, cancellationToken);
+        if (!hasAddress)
+        {
+            var latestOrder = orders.OrderByDescending(x => x.CreatedAt).FirstOrDefault()
+                ?? await db.Orders
+                    .Include(x => x.Customer)
+                    .Where(x => x.UserId == user.Id || x.Customer.NormalizedPhone == challenge.NormalizedPhone)
+                    .OrderByDescending(x => x.CreatedAt)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+            if (latestOrder is not null)
+            {
+                var userPhone = IranianPhoneNumber.ToLocalDisplay(challenge.NormalizedPhone);
+                var defaultAddress = new CustomerAddress(
+                    user.Id,
+                    "آدرس پیش‌فرض",
+                    string.IsNullOrWhiteSpace(latestOrder.Customer?.FullName) ? (customer?.FullName ?? user.UserName ?? "کاربر گرامی") : latestOrder.Customer.FullName,
+                    userPhone,
+                    latestOrder.Province,
+                    latestOrder.City,
+                    latestOrder.Address,
+                    latestOrder.PostalCode,
+                    isDefault: true);
+                await db.CustomerAddresses.AddAsync(defaultAddress, cancellationToken);
+            }
+        }
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -211,76 +239,6 @@ public sealed class CustomerAccountService(
         return await GetProfileAsync(userId, cancellationToken);
     }
 
-    public async Task<RequestOtpResponse> RequestPhoneChangeOtpAsync(Guid userId, string newPhone, string remoteIp, CancellationToken cancellationToken)
-    {
-        var user = await userManager.FindByIdAsync(userId.ToString())
-            ?? throw new NotFoundException("حساب کاربری یافت نشد.");
-
-        var normalizedNewPhone = IranianPhoneNumber.Normalize(newPhone);
-        if (user.PhoneNumber == normalizedNewPhone)
-            throw new ConflictException("شماره جدید نمی‌تواند با شماره فعلی یکسان باشد.");
-
-        var existingUserWithPhone = await userManager.FindByNameAsync($"customer-{normalizedNewPhone}");
-        if (existingUserWithPhone is not null && existingUserWithPhone.Id != userId)
-            throw new ConflictException("این شماره موبایل قبلاً برای حساب کاربری دیگری ثبت شده است.");
-
-        return await RequestOtpAsync(newPhone, remoteIp, cancellationToken);
-    }
-
-    public async Task<VerifyOtpServiceResult> VerifyPhoneChangeOtpAsync(Guid userId, Guid challengeId, string code, string newPhone, CancellationToken cancellationToken)
-    {
-        EnsureHashKey();
-        var challenge = await db.PhoneOtpChallenges.SingleOrDefaultAsync(x => x.Id == challengeId, cancellationToken);
-        if (challenge is null) return new(null, null, 0, VerifyOtpFailure.NotFound);
-
-        var normalizedNewPhone = IranianPhoneNumber.Normalize(newPhone);
-        if (challenge.NormalizedPhone != normalizedNewPhone)
-            throw new ConflictException("شماره تلفن با درخواست کد تأیید همخوانی ندارد.");
-
-        var normalizedCode = NormalizeCode(code);
-        var expected = Encoding.UTF8.GetBytes(challenge.CodeHash);
-        var actual = Encoding.UTF8.GetBytes(Hash($"otp:{challenge.NormalizedPhone}:{normalizedCode}"));
-        var matches = expected.Length == actual.Length && CryptographicOperations.FixedTimeEquals(expected, actual);
-        var verification = challenge.Verify(matches, timeProvider.GetUtcNow().UtcDateTime);
-        if (verification != OtpVerificationResult.Succeeded)
-        {
-            await db.SaveChangesAsync(cancellationToken);
-            return new(null, null, 0, verification switch
-            {
-                OtpVerificationResult.Expired => VerifyOtpFailure.Expired,
-                OtpVerificationResult.Consumed => VerifyOtpFailure.Consumed,
-                OtpVerificationResult.AttemptsExceeded => VerifyOtpFailure.AttemptsExceeded,
-                _ => VerifyOtpFailure.Invalid
-            });
-        }
-
-        var user = await userManager.FindByIdAsync(userId.ToString())
-            ?? throw new NotFoundException("حساب کاربری یافت نشد.");
-
-        var oldNormalizedPhone = user.PhoneNumber;
-        var newUserName = $"customer-{normalizedNewPhone}";
-
-        user.PhoneNumber = normalizedNewPhone;
-        user.PhoneNumberConfirmed = true;
-        user.UserName = newUserName;
-        user.NormalizedUserName = newUserName.ToUpperInvariant();
-        EnsureSucceeded(await userManager.UpdateAsync(user), "Could not update user phone number.");
-
-        var customer = await db.Customers.FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
-        if (customer is not null)
-        {
-            customer.RefreshProfile(customer.FullName, IranianPhoneNumber.ToLocalDisplay(normalizedNewPhone), customer.Email);
-        }
-
-        var unattachedOrders = await db.Orders
-            .Where(x => x.UserId == null && x.Customer.NormalizedPhone == normalizedNewPhone)
-            .ToListAsync(cancellationToken);
-        foreach (var order in unattachedOrders) order.AttachToUser(userId);
-
-        await db.SaveChangesAsync(cancellationToken);
-        return new(user.Id, IranianPhoneNumber.ToLocalDisplay(normalizedNewPhone), unattachedOrders.Count, VerifyOtpFailure.None);
-    }
-
     public async Task<CustomerDashboardDto> GetDashboardAsync(Guid userId, CancellationToken cancellationToken)
     {
         var profile = await GetProfileAsync(userId, cancellationToken);
@@ -323,6 +281,10 @@ public sealed class CustomerAccountService(
 
     public async Task<CustomerAddressDto> CreateAddressAsync(Guid userId, AddressWriteRequest request, CancellationToken cancellationToken)
     {
+        var user = await userManager.FindByIdAsync(userId.ToString())
+            ?? throw new NotFoundException("حساب کاربری یافت نشد.");
+        var userPhone = IranianPhoneNumber.ToLocalDisplay(user.PhoneNumber ?? string.Empty);
+
         var hasExistingAddresses = await db.CustomerAddresses.AnyAsync(x => x.UserId == userId, cancellationToken);
         var shouldBeDefault = request.IsDefault || !hasExistingAddresses;
 
@@ -336,7 +298,7 @@ public sealed class CustomerAccountService(
             userId,
             request.Title,
             request.ReceiverName,
-            request.ReceiverPhone,
+            userPhone,
             request.Province,
             request.City,
             request.Address,
@@ -361,6 +323,10 @@ public sealed class CustomerAccountService(
 
     public async Task<CustomerAddressDto> UpdateAddressAsync(Guid userId, Guid addressId, AddressWriteRequest request, CancellationToken cancellationToken)
     {
+        var user = await userManager.FindByIdAsync(userId.ToString())
+            ?? throw new NotFoundException("حساب کاربری یافت نشد.");
+        var userPhone = IranianPhoneNumber.ToLocalDisplay(user.PhoneNumber ?? string.Empty);
+
         var address = await db.CustomerAddresses.FirstOrDefaultAsync(x => x.Id == addressId && x.UserId == userId, cancellationToken)
             ?? throw new NotFoundException("آدرس مورد نظر یافت نشد.");
 
@@ -373,7 +339,7 @@ public sealed class CustomerAccountService(
         address.Update(
             request.Title,
             request.ReceiverName,
-            request.ReceiverPhone,
+            userPhone,
             request.Province,
             request.City,
             request.Address,

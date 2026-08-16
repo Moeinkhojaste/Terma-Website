@@ -335,18 +335,26 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
         if (userId.HasValue && (string.IsNullOrWhiteSpace(verifiedPhone) || IranianPhoneNumber.Normalize(verifiedPhone) != normalized))
             throw new ConflictException("The checkout mobile number must match the verified account mobile number.");
 
+        var cleanEmail = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
         var customer = await db.Customers.SingleOrDefaultAsync(x => x.NormalizedPhone == normalized, cancellationToken);
         if (customer is null)
         {
-            customer = new Customer(request.FullName, request.Phone, null);
+            customer = new Customer(request.FullName, request.Phone, cleanEmail);
             await db.Customers.AddAsync(customer, cancellationToken);
         }
         else
         {
-            customer.RefreshProfile(request.FullName, request.Phone, null);
+            customer.RefreshProfile(request.FullName, request.Phone, cleanEmail ?? customer.Email);
         }
 
-        if (userId.HasValue) customer.AttachToUser(userId.Value);
+        // Check if an existing ApplicationUser already exists for this phone or was provided
+        var existingUser = await db.Users.SingleOrDefaultAsync(x => x.PhoneNumber == normalized || x.UserName == $"customer-{normalized}", cancellationToken);
+        var resolvedUserId = userId ?? existingUser?.Id;
+
+        if (resolvedUserId.HasValue)
+        {
+            customer.AttachToUser(resolvedUserId.Value);
+        }
 
         var orderNumber = GenerateOrderNumber();
         var order = new Order(
@@ -364,7 +372,27 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
             request.CustomerNotes);
 
         order.SetIdempotency(cleanIdempotencyKey, requestFingerprint);
-        if (userId.HasValue) order.AttachToUser(userId.Value);
+        if (resolvedUserId.HasValue)
+        {
+            order.AttachToUser(resolvedUserId.Value);
+
+            var hasAddress = await db.CustomerAddresses.AnyAsync(x => x.UserId == resolvedUserId.Value, cancellationToken);
+            if (!hasAddress)
+            {
+                var userPhone = IranianPhoneNumber.ToLocalDisplay(existingUser?.PhoneNumber ?? verifiedPhone ?? request.Phone);
+                var defaultAddress = new CustomerAddress(
+                    resolvedUserId.Value,
+                    "آدرس پیش‌فرض",
+                    request.FullName,
+                    userPhone,
+                    request.Province,
+                    request.City,
+                    request.Address,
+                    request.PostalCode,
+                    isDefault: true);
+                await db.CustomerAddresses.AddAsync(defaultAddress, cancellationToken);
+            }
+        }
 
         foreach (var line in lines)
         {
@@ -498,6 +526,7 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
         {
             items = request.Items.OrderBy(i => i.ProductId).ThenBy(i => i.VariantId).Select(i => new { i.ProductId, i.VariantId, i.Quantity }).ToList(),
             phone = IranianPhoneNumber.Normalize(request.Phone),
+            email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim().ToLowerInvariant(),
             fullName = request.FullName.Trim(),
             province = request.Province.Trim(),
             city = request.City.Trim(),

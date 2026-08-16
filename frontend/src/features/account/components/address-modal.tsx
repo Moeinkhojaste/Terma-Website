@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
+import { normalizeNumericText } from "@/lib/iranian-phone";
 import { IRAN_PROVINCES, getIranCities } from "@/lib/iran-locations";
 import { XIcon } from "@/components/ui/icons";
 import type { CustomerAddress, AddressWriteRequest } from "../account-api";
@@ -16,7 +16,6 @@ type AddressModalProps = {
 export function AddressModal({ initialData, isOpen, onClose, onSave }: AddressModalProps) {
   const [title, setTitle] = useState(initialData?.title || "منزل");
   const [receiverName, setReceiverName] = useState(initialData?.receiverName || "");
-  const [receiverPhone, setReceiverPhone] = useState(initialData?.receiverPhone || "");
   const [province, setProvince] = useState(initialData?.province || "");
   const [city, setCity] = useState(initialData?.city || "");
   const [address, setAddress] = useState(initialData?.address || "");
@@ -32,11 +31,6 @@ export function AddressModal({ initialData, isOpen, onClose, onSave }: AddressMo
   function validate() {
     const errs: Record<string, string> = {};
     if (!receiverName.trim()) errs.receiverName = "نام تحویل‌گیرنده را وارد کنید.";
-    if (!receiverPhone.trim()) {
-      errs.receiverPhone = "شماره موبایل تحویل‌گیرنده را وارد کنید.";
-    } else if (!normalizeIranianMobile(receiverPhone)) {
-      errs.receiverPhone = "شماره موبایل معتبر نیست (مانند ۰۹۱۲...).";
-    }
     if (!province.trim()) errs.province = "استان را انتخاب کنید.";
     if (!city.trim()) errs.city = "شهر را انتخاب کنید.";
     if (!address.trim() || address.trim().length < 5) {
@@ -60,7 +54,6 @@ export function AddressModal({ initialData, isOpen, onClose, onSave }: AddressMo
       await onSave({
         title: title.trim() || "آدرس من",
         receiverName: receiverName.trim(),
-        receiverPhone: normalizeIranianMobile(receiverPhone) || receiverPhone.trim(),
         province: province.trim(),
         city: city.trim(),
         address: address.trim(),
@@ -115,41 +108,6 @@ export function AddressModal({ initialData, isOpen, onClose, onSave }: AddressMo
 
           <div className="form-grid-2">
             <label className="form-field">
-              <span>شماره موبایل تحویل‌گیرنده *</span>
-              <input
-                type="tel"
-                dir="ltr"
-                placeholder="۰۹۱۲..."
-                value={receiverPhone}
-                onChange={(e) => {
-                  setReceiverPhone(e.target.value);
-                  setErrors((prev) => ({ ...prev, receiverPhone: "" }));
-                }}
-                aria-invalid={Boolean(errors.receiverPhone)}
-              />
-              {errors.receiverPhone && <small className="form-field__error">{errors.receiverPhone}</small>}
-            </label>
-
-            <label className="form-field">
-              <span>کد پستی ۱۰ رقمی *</span>
-              <input
-                type="text"
-                dir="ltr"
-                maxLength={10}
-                placeholder="۱۲۳۴۵۶۷۸۹۰"
-                value={postalCode}
-                onChange={(e) => {
-                  setPostalCode(e.target.value);
-                  setErrors((prev) => ({ ...prev, postalCode: "" }));
-                }}
-                aria-invalid={Boolean(errors.postalCode)}
-              />
-              {errors.postalCode && <small className="form-field__error">{errors.postalCode}</small>}
-            </label>
-          </div>
-
-          <div className="form-grid-2">
-            <label className="form-field">
               <span>استان *</span>
               <select
                 value={province}
@@ -197,6 +155,25 @@ export function AddressModal({ initialData, isOpen, onClose, onSave }: AddressMo
                 )}
               </select>
               {errors.city && <small className="form-field__error">{errors.city}</small>}
+            </label>
+          </div>
+
+          <div className="form-grid-2">
+            <label className="form-field">
+              <span>کد پستی ۱۰ رقمی *</span>
+              <input
+                type="text"
+                dir="ltr"
+                maxLength={10}
+                placeholder="۱۲۳۴۵۶۷۸۹۰"
+                value={postalCode}
+                onChange={(e) => {
+                  setPostalCode(e.target.value);
+                  setErrors((prev) => ({ ...prev, postalCode: "" }));
+                }}
+                aria-invalid={Boolean(errors.postalCode)}
+              />
+              {errors.postalCode && <small className="form-field__error">{errors.postalCode}</small>}
             </label>
           </div>
 

@@ -52,38 +52,15 @@ public sealed class CustomerFeaturesApiTests(TermaApiFactory factory) : IClassFi
     }
 
     [Fact]
-    public async Task PhoneChange_WithValidOtp_UpdatesAccountPhone()
+    public async Task Addresses_CrudAndDefaultSelection_UsesAccountPhone()
     {
-        var (client, session, _) = await CreateAuthenticatedCustomerAsync();
-        var newPhone = $"0935{Random.Shared.Next(1_000_000, 9_999_999)}";
+        var (client, _, phone) = await CreateAuthenticatedCustomerAsync();
 
-        var otpRes = await client.PostAsJsonAsync("/api/customer/profile/phone/request-otp", new RequestPhoneChangeRequest(newPhone));
-        otpRes.EnsureSuccessStatusCode();
-        var challenge = (await otpRes.Content.ReadFromJsonAsync<RequestOtpResponse>())!;
-        Assert.NotNull(challenge.DevelopmentCode);
-
-        await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
-        var verifyRes = await client.PostAsJsonAsync("/api/customer/profile/phone/verify-otp", new VerifyPhoneChangeRequest(challenge.ChallengeId, challenge.DevelopmentCode!, newPhone));
-        verifyRes.EnsureSuccessStatusCode();
-        var updatedSession = (await verifyRes.Content.ReadFromJsonAsync<CustomerSessionDto>())!;
-        Assert.Equal(session.UserId, updatedSession.UserId);
-
-        var profile = await client.GetFromJsonAsync<CustomerProfileDto>("/api/customer/profile");
-        Assert.NotNull(profile);
-        Assert.Contains(newPhone.Substring(1), profile.Phone.Replace(" ", ""));
-    }
-
-    [Fact]
-    public async Task Addresses_CrudAndDefaultSelection_WorksCorrectly()
-    {
-        var (client, _, _) = await CreateAuthenticatedCustomerAsync();
-
-        // 1. Create first address (should be default automatically)
+        // 1. Create first address (should be default automatically and take user's authenticated phone)
         var addr1Req = new AddressWriteRequest
         {
             Title = "منزل",
             ReceiverName = "رضا علوی",
-            ReceiverPhone = "09121112233",
             Province = "تهران",
             City = "تهران",
             Address = "خیابان ولیعصر، بالاتر از میدان ونک، پلاک ۱۰",
@@ -94,6 +71,7 @@ public sealed class CustomerFeaturesApiTests(TermaApiFactory factory) : IClassFi
         res1.EnsureSuccessStatusCode();
         var addr1 = (await res1.Content.ReadFromJsonAsync<CustomerAddressDto>())!;
         Assert.True(addr1.IsDefault);
+        Assert.Equal(phone, addr1.ReceiverPhone);
 
         // 2. Create second address as default
         await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
@@ -101,7 +79,6 @@ public sealed class CustomerFeaturesApiTests(TermaApiFactory factory) : IClassFi
         {
             Title = "محل کار",
             ReceiverName = "رضا علوی",
-            ReceiverPhone = "09121112233",
             Province = "تهران",
             City = "تهران",
             Address = "خیابان مطهری، پلاک ۲۰",
@@ -112,6 +89,7 @@ public sealed class CustomerFeaturesApiTests(TermaApiFactory factory) : IClassFi
         res2.EnsureSuccessStatusCode();
         var addr2 = (await res2.Content.ReadFromJsonAsync<CustomerAddressDto>())!;
         Assert.True(addr2.IsDefault);
+        Assert.Equal(phone, addr2.ReceiverPhone);
 
         // Verify list
         var list = await client.GetFromJsonAsync<IReadOnlyList<CustomerAddressDto>>("/api/customer/addresses");
@@ -119,6 +97,7 @@ public sealed class CustomerFeaturesApiTests(TermaApiFactory factory) : IClassFi
         Assert.Equal(2, list.Count);
         Assert.True(list.First(x => x.Id == addr2.Id).IsDefault);
         Assert.False(list.First(x => x.Id == addr1.Id).IsDefault);
+        Assert.All(list, a => Assert.Equal(phone, a.ReceiverPhone));
 
         // 3. Set addr1 as default
         await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
@@ -217,5 +196,53 @@ public sealed class CustomerFeaturesApiTests(TermaApiFactory factory) : IClassFi
         // Check snapshot pricing: unit price is 3000, line total is 6000
         Assert.Equal(6000, customerOrder.Subtotal);
         Assert.Equal(3000, customerOrder.Items.First().UnitPrice);
+    }
+
+    [Fact]
+    public async Task GuestOrder_CreatesDefaultAddress_WhenUserLogsIn()
+    {
+        using var admin = await factory.CreateAdminClientAsync();
+        var catRes = await admin.PostAsJsonAsync("/api/admin/categories", new CreateCategoryRequest { Name = $"GuestCat {Guid.NewGuid():N}" });
+        var cat = (await catRes.Content.ReadFromJsonAsync<CategoryDto>())!;
+        var prodRes = await admin.PostAsJsonAsync("/api/admin/products", new CreateProductRequest { Name = "Guest Product", Sku = $"GUEST-{Guid.NewGuid():N}", Description = "desc", Price = 2500, StockQuantity = 10, TableCapacity = 6, Length = 100, Width = 100, FabricType = "Termeh", LiningType = "Satin", Color = "Blue", Pattern = "Shah Abbasi", CategoryId = cat.Id });
+        var prod = (await prodRes.Content.ReadFromJsonAsync<ProductDto>())!;
+
+        var guestPhone = $"0912{Random.Shared.Next(1000000, 9999999)}";
+        var guestClient = factory.CreateClient();
+        guestClient.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
+
+        // 1. Guest creates order
+        var orderRes = await guestClient.PostAsJsonAsync("/api/orders", new CheckoutRequest
+        {
+            Items = [new CheckoutItemRequest(prod.Id, null, 1)],
+            FullName = "مشتری مهمان",
+            Phone = guestPhone,
+            Province = "اصفهان",
+            City = "اصفهان",
+            Address = "خیابان چهارباغ، کوچه ترنج، پلاک ۱۲",
+            PostalCode = "8146598765"
+        });
+        orderRes.EnsureSuccessStatusCode();
+
+        // 2. User subsequently requests OTP and verifies login
+        var otpClient = factory.CreateClient();
+        var otpReq = await otpClient.PostAsJsonAsync("/api/customer-auth/otp/request", new { phone = guestPhone });
+        otpReq.EnsureSuccessStatusCode();
+        var challenge = (await otpReq.Content.ReadFromJsonAsync<RequestOtpResponse>())!;
+
+        var verifyRes = await otpClient.PostAsJsonAsync("/api/customer-auth/otp/verify", new { challengeId = challenge.ChallengeId, code = challenge.DevelopmentCode });
+        verifyRes.EnsureSuccessStatusCode();
+
+        // 3. User lists addresses and verifies the guest order address is automatically saved as default
+        var addresses = await otpClient.GetFromJsonAsync<IReadOnlyList<CustomerAddressDto>>("/api/customer/addresses");
+        Assert.NotNull(addresses);
+        var defaultAddr = Assert.Single(addresses);
+        Assert.True(defaultAddr.IsDefault);
+        Assert.Equal("مشتری مهمان", defaultAddr.ReceiverName);
+        Assert.Equal(guestPhone, defaultAddr.ReceiverPhone);
+        Assert.Equal("اصفهان", defaultAddr.Province);
+        Assert.Equal("اصفهان", defaultAddr.City);
+        Assert.Equal("خیابان چهارباغ، کوچه ترنج، پلاک ۱۲", defaultAddr.Address);
+        Assert.Equal("8146598765", defaultAddr.PostalCode);
     }
 }

@@ -18,6 +18,7 @@ vi.mock("@/features/cart/cart-provider", () => ({ useCart: mocks.useCart }));
 vi.mock("@/features/checkout/checkout-api", () => ({ createOrder: mocks.createOrder, getQuote: mocks.getQuote }));
 vi.mock("@/features/account/account-api", () => ({
   getCustomerSession: mocks.getCustomerSession,
+  getCustomerProfile: vi.fn().mockResolvedValue({ email: "" }),
   getCustomerAddresses: mocks.getCustomerAddresses,
 }));
 vi.mock("@/components/layout/header", () => ({ Header: () => null }));
@@ -35,9 +36,12 @@ beforeAll(() => {
   };
 });
 
-function fillValidCheckout() {
+function fillValidCheckout(email?: string) {
   fireEvent.change(screen.getByLabelText(/^نام و نام خانوادگی \*/), { target: { value: "مریم احمدی" } });
   fireEvent.change(screen.getByLabelText(/^شماره موبایل \*/), { target: { value: "۰۹۱۲۱۲۳۴۵۶۷" } });
+  if (email !== undefined) {
+    fireEvent.change(screen.getByLabelText(/^آدرس ایمیل/), { target: { value: email } });
+  }
   fireEvent.change(screen.getByLabelText(/^استان \*/), { target: { value: "تهران" } });
   fireEvent.change(screen.getByLabelText(/^شهر \*/), { target: { value: "تهران" } });
   fireEvent.change(screen.getByLabelText(/^آدرس کامل \*/), { target: { value: "خیابان ولیعصر، کوچه یازدهم، پلاک ۲۴" } });
@@ -70,16 +74,27 @@ describe("checkout order review", () => {
     expect(mocks.createOrder).not.toHaveBeenCalled();
   });
 
+  it("shows validation error when invalid email format is entered", () => {
+    render(<CheckoutPageClient />);
+    fillValidCheckout("not-an-email");
+
+    fireEvent.click(screen.getByRole("button", { name: "ثبت سفارش" }));
+
+    expect(screen.queryByRole("dialog", { name: "بازبینی و تأیید سفارش" })).not.toBeInTheDocument();
+    expect(screen.getByText("فرمت آدرس ایمیل معتبر نیست.")).toBeInTheDocument();
+    expect(mocks.createOrder).not.toHaveBeenCalled();
+  });
+
   it("shows the exact review snapshot and keeps the form when editing", async () => {
     render(<CheckoutPageClient />);
-    fillValidCheckout();
+    fillValidCheckout("maryam@example.com");
 
     fireEvent.click(screen.getByRole("button", { name: "ثبت سفارش" }));
     const dialog = await screen.findByRole("dialog", { name: "بازبینی و تأیید سفارش" });
 
     expect(within(dialog).getByText("مریم احمدی")).toBeInTheDocument();
     expect(within(dialog).getByText("09121234567")).toBeInTheDocument();
-    expect(within(dialog).getByText("ثبت نشده")).toBeInTheDocument();
+    expect(within(dialog).getByText("maryam@example.com")).toBeInTheDocument();
     expect(within(dialog).getByText("سفره ترمه آبی")).toBeInTheDocument();
     expect(within(dialog).getByText(/تعداد ۲/)).toBeInTheDocument();
     expect(mocks.createOrder).not.toHaveBeenCalled();
@@ -87,6 +102,7 @@ describe("checkout order review", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "بازگشت و ویرایش" }));
     await waitFor(() => expect(dialog).not.toHaveAttribute("open"));
     expect(screen.getByLabelText(/^نام و نام خانوادگی \*/)).toHaveValue("مریم احمدی");
+    expect(screen.getByLabelText(/^آدرس ایمیل/)).toHaveValue("maryam@example.com");
     expect(mocks.createOrder).not.toHaveBeenCalled();
   });
 
@@ -94,7 +110,7 @@ describe("checkout order review", () => {
     let resolveOrder!: (value: { number: string; total?: number }) => void;
     mocks.createOrder.mockImplementation(() => new Promise((resolve) => { resolveOrder = resolve; }));
     render(<CheckoutPageClient />);
-    fillValidCheckout();
+    fillValidCheckout("maryam@example.com");
     fireEvent.click(screen.getByRole("button", { name: "ثبت سفارش" }));
 
     const dialog = await screen.findByRole("dialog", { name: "بازبینی و تأیید سفارش" });
@@ -106,6 +122,7 @@ describe("checkout order review", () => {
     expect(mocks.createOrder).toHaveBeenCalledWith(expect.objectContaining({
       fullName: "مریم احمدی",
       phone: "09121234567",
+      email: "maryam@example.com",
       postalCode: "1234567890",
       customerNotes: undefined,
     }));

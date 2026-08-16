@@ -46,7 +46,7 @@ export type CustomerAddress = {
 export type AddressWriteRequest = {
   title?: string;
   receiverName: string;
-  receiverPhone: string;
+  receiverPhone?: string;
   province: string;
   city: string;
   address: string;
@@ -171,25 +171,6 @@ export const updateCustomerProfile = (request: UpdateProfileRequest) =>
     body: JSON.stringify(request),
     cache: "no-store",
   });
-
-export const requestPhoneChangeOtp = (newPhone: string) =>
-  apiRequest<OtpChallenge>("/api/customer/profile/phone/request-otp", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ newPhone }),
-    cache: "no-store",
-  });
-
-export async function verifyPhoneChangeOtp(challengeId: string, code: string, newPhone: string) {
-  const session = await apiRequest<CustomerSession>("/api/customer/profile/phone/verify-otp", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ challengeId, code, newPhone }),
-    cache: "no-store",
-  });
-  resetAntiforgeryToken();
-  return session;
-}
 
 // Orders
 export const getCustomerOrders = (page = 1) =>

@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { AccountShell } from "./components/account-shell";
-import { ChangePhoneModal } from "./components/change-phone-modal";
 import {
   getCustomerProfile,
   updateCustomerProfile,
@@ -18,19 +17,6 @@ export function AccountProfileClient() {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState("");
-  const [phoneModalOpen, setPhoneModalOpen] = useState(false);
-
-  const loadProfile = () => {
-    setLoading(true);
-    getCustomerProfile()
-      .then((data) => {
-        setProfile(data);
-        setFullName(data.fullName);
-        setEmail(data.email || "");
-      })
-      .catch((err) => setError(err.message || "خطا در دریافت اطلاعات کاربری"))
-      .finally(() => setLoading(false));
-  };
 
   useEffect(() => {
     getCustomerProfile()
@@ -67,10 +53,6 @@ export function AccountProfileClient() {
     } finally {
       setSaving(false);
     }
-  }
-
-  function handlePhoneChanged() {
-    loadProfile();
   }
 
   return (
@@ -149,14 +131,14 @@ export function AccountProfileClient() {
               <div className="profile-section-header">
                 <PhoneIcon className="size-5 text-amber-800" />
                 <div>
-                  <h3>شماره موبایل و احراز هویت</h3>
-                  <p>شماره موبایل جهت ورود به حساب و دریافت پیامک‌های وضعیت سفارش استفاده می‌شود.</p>
+                  <h3>شماره موبایل حساب کاربری</h3>
+                  <p>شماره موبایل به عنوان شناسه یکتای ورود به حساب و دریافت پیامک‌های سفارش استفاده می‌شود.</p>
                 </div>
               </div>
 
               <div className="profile-phone-box">
                 <div className="profile-phone-display">
-                  <span className="phone-label">شماره موبایل فعلی:</span>
+                  <span className="phone-label">شماره موبایل تأییدشده:</span>
                   <div className="phone-badge-group">
                     <strong dir="ltr" className="phone-number-val">
                       {profile.phone}
@@ -167,22 +149,12 @@ export function AccountProfileClient() {
                     </span>
                   </div>
                 </div>
-
-                <div className="profile-phone-action">
-                  <button
-                    type="button"
-                    className="button button--secondary"
-                    onClick={() => setPhoneModalOpen(true)}
-                  >
-                    تغییر شماره موبایل با تأیید پیامکی
-                  </button>
-                </div>
               </div>
 
               <div className="profile-phone-notice">
                 <span className="notice-icon"><LightbulbIcon className="size-4" /></span>
                 <p>
-                  برای تغییر شماره موبایل، کد تأیید ۶ رقمی به شماره جدید ارسال خواهد شد و پس از تأیید، شماره به عنوان شناسه حساب شما ثبت می‌گردد.
+                  شماره موبایل شناسه اصلی حساب کاربری شماست و امکان تغییر آن وجود ندارد. تمامی سفارش‌ها و آدرس‌های شما با این شماره ثبت می‌شوند.
                 </p>
               </div>
             </div>
@@ -215,13 +187,6 @@ export function AccountProfileClient() {
           </div>
         ) : null}
       </div>
-
-      <ChangePhoneModal
-        isOpen={phoneModalOpen}
-        currentPhone={profile?.phone || ""}
-        onClose={() => setPhoneModalOpen(false)}
-        onSuccess={handlePhoneChanged}
-      />
     </AccountShell>
   );
 }

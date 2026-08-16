@@ -42,14 +42,6 @@ public sealed class UpdateProfileRequest
     public string? Email { get; init; }
 }
 
-public sealed record RequestPhoneChangeRequest(
-    [Required, StringLength(32, MinimumLength = 10)] string NewPhone);
-
-public sealed record VerifyPhoneChangeRequest(
-    Guid ChallengeId,
-    [Required, RegularExpression("^[0-9۰-۹٠-٩]{6}$")] string Code,
-    [Required, StringLength(32, MinimumLength = 10)] string NewPhone);
-
 public sealed record CustomerAddressDto(
     Guid Id,
     string Title,
@@ -70,8 +62,7 @@ public sealed class AddressWriteRequest
     [Required, StringLength(100, MinimumLength = 2)]
     public string ReceiverName { get; init; } = string.Empty;
 
-    [Required, StringLength(32, MinimumLength = 10)]
-    public string ReceiverPhone { get; init; } = string.Empty;
+    public string? ReceiverPhone { get; init; }
 
     [Required, StringLength(80)]
     public string Province { get; init; } = string.Empty;
@@ -158,11 +149,9 @@ public interface ICustomerAccountService
     Task<PagedResult<CustomerOrderSummaryDto>> OrdersAsync(Guid userId, int page, int pageSize, CancellationToken cancellationToken);
     Task<CustomerOrderDetailsDto> OrderAsync(Guid userId, Guid orderId, CancellationToken cancellationToken);
 
-    // Profile & Phone Change
+    // Profile
     Task<CustomerProfileDto> GetProfileAsync(Guid userId, CancellationToken cancellationToken);
     Task<CustomerProfileDto> UpdateProfileAsync(Guid userId, UpdateProfileRequest request, CancellationToken cancellationToken);
-    Task<RequestOtpResponse> RequestPhoneChangeOtpAsync(Guid userId, string newPhone, string remoteIp, CancellationToken cancellationToken);
-    Task<VerifyOtpServiceResult> VerifyPhoneChangeOtpAsync(Guid userId, Guid challengeId, string code, string newPhone, CancellationToken cancellationToken);
 
     // Dashboard
     Task<CustomerDashboardDto> GetDashboardAsync(Guid userId, CancellationToken cancellationToken);

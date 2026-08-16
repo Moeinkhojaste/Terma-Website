@@ -18,6 +18,7 @@ public sealed class CheckoutRequest
     public IReadOnlyList<CheckoutItemRequest> Items { get; init; } = [];
     public string FullName { get; init; } = string.Empty;
     public string Phone { get; init; } = string.Empty;
+    public string? Email { get; init; }
     public string Province { get; init; } = string.Empty;
     public string City { get; init; } = string.Empty;
     public string Address { get; init; } = string.Empty;
