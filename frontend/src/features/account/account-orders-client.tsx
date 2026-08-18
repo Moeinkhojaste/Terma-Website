@@ -8,7 +8,7 @@ import {
   orderStatusLabels,
   type CustomerOrderSummary,
 } from "./account-api";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatPersianDate } from "@/lib/format";
 import { CheckIcon, CopyIcon, PackageIcon } from "@/components/ui/icons";
 
 type FilterTab = "ALL" | "ACTIVE" | "Shipped" | "Delivered" | "Cancelled";
@@ -120,11 +120,7 @@ export function AccountOrdersClient() {
                   </div>
                   <div className="account-order-header-sub">
                     <span className="order-date">
-                      {new Date(order.createdAt).toLocaleDateString("fa-IR", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                      {formatPersianDate(order.createdAt, { includeWeekday: false })}
                     </span>
                   </div>
                 </div>

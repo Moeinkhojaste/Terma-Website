@@ -7,6 +7,7 @@ import {
   updateCustomerProfile,
   type CustomerProfile,
 } from "./account-api";
+import { formatPersianDate } from "@/lib/format";
 import { ShieldCheckIcon, PhoneIcon, UserIcon, CheckIcon, LightbulbIcon } from "@/components/ui/icons";
 
 export function AccountProfileClient() {
@@ -165,9 +166,7 @@ export function AccountProfileClient() {
                 <div>
                   <span className="meta-label">تاریخ عضویت:</span>
                   <strong>
-                    {new Intl.DateTimeFormat("fa-IR", { dateStyle: "long" }).format(
-                      new Date(profile.createdAt)
-                    )}
+                    {formatPersianDate(profile.createdAt, { includeWeekday: false })}
                   </strong>
                 </div>
                 <div>

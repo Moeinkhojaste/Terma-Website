@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AccountShell } from "./components/account-shell";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatPersianDateTime } from "@/lib/format";
 import { ApiError, getApiErrorMessage } from "@/lib/api-client";
 import {
   getCustomerOrder,
@@ -97,11 +97,7 @@ export function AccountOrderClient({ id }: { id: string }) {
                 {order.number}
               </h2>
               <p className="order-details-date">
-                ثبت شده در تاریخ{" "}
-                {new Date(order.createdAt).toLocaleString("fa-IR", {
-                  dateStyle: "full",
-                  timeStyle: "short",
-                })}
+                ثبت شده در {formatPersianDateTime(order.createdAt)}
               </p>
             </div>
             <span className={`status-pill status-pill--lg status-pill--${order.status.toLowerCase()}`}>

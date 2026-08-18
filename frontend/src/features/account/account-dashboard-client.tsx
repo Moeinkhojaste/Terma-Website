@@ -8,7 +8,7 @@ import {
   orderStatusLabels,
   type CustomerDashboard,
 } from "./account-api";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatPersianDate } from "@/lib/format";
 import {
   PackageIcon,
   TruckIcon,
@@ -28,15 +28,17 @@ export function AccountDashboardClient() {
   useEffect(() => {
     getCustomerDashboard()
       .then(setDashboard)
-      .catch((err) => setError(err.message || "خطا در دریافت اطلاعات داشبورد"))
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "خطا در دریافت اطلاعات حساب کاربری");
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  function copyTracking(code: string, id: string) {
+  const copyTracking = (code: string, id: string) => {
     navigator.clipboard.writeText(code);
     setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2500);
-  }
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   return (
     <AccountShell>
@@ -56,8 +58,8 @@ export function AccountDashboardClient() {
               <h2>سلام، {dashboard.profile.fullName} عزیز</h2>
               <p>به پنل کاربری ترما خوش آمدید. در این بخش می‌توانید سفارش‌ها، آدرس‌ها و علاقه‌مندی‌های خود را مدیریت کنید.</p>
             </div>
-            <span className="dashboard-date-badge">
-              {new Intl.DateTimeFormat("fa-IR", { dateStyle: "full" }).format(new Date())}
+            <span className="dashboard-date-badge" dir="rtl">
+              {formatPersianDate(new Date())}
             </span>
           </div>
 
@@ -138,7 +140,7 @@ export function AccountDashboardClient() {
                       <div className="dashboard-order-top">
                         <div className="dashboard-order-info">
                           <strong dir="ltr">{order.number}</strong>
-                          <span>{new Date(order.createdAt).toLocaleDateString("fa-IR")}</span>
+                          <span>{formatPersianDate(order.createdAt, { includeWeekday: false })}</span>
                         </div>
                         <span className={`status-pill status-pill--${order.status.toLowerCase()}`}>
                           {orderStatusLabels[order.status]}
