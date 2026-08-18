@@ -31,6 +31,8 @@ public class TermaDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Gu
     public DbSet<MediaAsset> MediaAssets => Set<MediaAsset>();
     public DbSet<PhoneOtpChallenge> PhoneOtpChallenges => Set<PhoneOtpChallenge>();
     public DbSet<SecurityAuditEvent> SecurityAuditEvents => Set<SecurityAuditEvent>();
+    public DbSet<ProductView> ProductViews => Set<ProductView>();
+    public DbSet<CartSession> CartSessions => Set<CartSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -24,6 +24,25 @@ public sealed class AdminStoreController(
     [HttpGet("dashboard")]
     public Task<DashboardDto> Dashboard(CancellationToken ct) => service.DashboardAsync(ct);
 
+    [HttpGet("analytics")]
+    public Task<AdminAnalyticsDto> Analytics(CancellationToken ct) => service.AnalyticsAsync(ct);
+
+    [HttpGet("abandoned-carts")]
+    public Task<AbandonedCartsReportDto> AbandonedCarts([FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default) =>
+        service.AbandonedCartsAsync(page, pageSize, ct);
+
+    [HttpGet("loyal-customers")]
+    public Task<IReadOnlyList<LoyalCustomerDto>> LoyalCustomers([FromQuery] int limit = 20, CancellationToken ct = default) =>
+        service.LoyalCustomersAsync(limit, ct);
+
+    [HttpGet("products/top-selling")]
+    public Task<IReadOnlyList<TopSellingProductDto>> TopSellingProducts([FromQuery] int days = 30, [FromQuery] int limit = 10, CancellationToken ct = default) =>
+        service.TopSellingProductsAsync(days, limit, ct);
+
+    [HttpGet("products/top-viewed")]
+    public Task<IReadOnlyList<TopViewedProductDto>> TopViewedProducts([FromQuery] int days = 30, [FromQuery] int limit = 10, CancellationToken ct = default) =>
+        service.TopViewedProductsAsync(days, limit, ct);
+
     [HttpGet("settings")]
     public object Settings() => new
     {

@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using Terma.Application.Common.Models;
 using Terma.Application.Products;
+using Terma.Application.Store;
 
 namespace Terma.Api.Controllers;
 
 [ApiController]
 [Route("api/products")]
-public sealed class ProductsController(IProductService service) : ControllerBase
+public sealed class ProductsController(IProductService service, IStoreOperationsService storeService) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType<PagedResult<PublicProductDto>>(StatusCodes.Status200OK)]
@@ -47,5 +48,22 @@ public sealed class ProductsController(IProductService service) : ControllerBase
     public async Task<ActionResult<PublicProductDto>> GetProduct(string identifier, CancellationToken cancellationToken)
     {
         return Ok(await service.GetPublicByIdOrSlugAsync(identifier, cancellationToken));
+    }
+
+    [HttpPost("{id:guid}/view")]
+    public async Task<IActionResult> RecordView(Guid id, CancellationToken cancellationToken)
+    {
+        var vid = HttpContext.Request.Cookies["terma_vid"];
+        if (string.IsNullOrWhiteSpace(vid))
+        {
+            vid = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+                  ?? HttpContext.Connection.RemoteIpAddress?.ToString()
+                  ?? HttpContext.Request.Headers.UserAgent.ToString()
+                  ?? "client-local";
+        }
+
+        var ipHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(vid)));
+        await storeService.RecordProductViewAsync(id, ipHash, cancellationToken);
+        return NoContent();
     }
 }

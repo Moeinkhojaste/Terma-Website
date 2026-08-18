@@ -39,9 +39,170 @@ public sealed class ShippingRuleWriteRequest { public string Name { get; init; }
 public sealed class StoreContentWriteRequest { public string PageKey { get; init; } = string.Empty; public string SectionKey { get; init; } = string.Empty; public string Title { get; init; } = string.Empty; public string Body { get; init; } = string.Empty; public string? LinkUrl { get; init; } public string? ImageUrl { get; init; } public string? SeoTitle { get; init; } public string? SeoDescription { get; init; } public bool IsPublished { get; init; } = true; }
 public sealed class ContactMessageWriteRequest { public string Name { get; init; } = string.Empty; public string Phone { get; init; } = string.Empty; public string? Email { get; init; } public string Topic { get; init; } = string.Empty; public string Body { get; init; } = string.Empty; }
 
+// --- Advanced Admin Analytics & Intelligence DTOs ---
+public sealed record SalesMetricsDto(
+    decimal Sales30Days,
+    decimal Sales1Year,
+    decimal AllTimeValidSales,
+    int Orders30Days,
+    int Orders1Year,
+    int OrdersTotal,
+    int ItemsSold30Days,
+    int ItemsSold1Year,
+    int ItemsSoldTotal,
+    decimal AverageItemsPerOrder30Days,
+    decimal AverageItemsPerOrder1Year,
+    decimal AverageOrderValue30Days,
+    decimal AverageOrderValue1Year
+);
+
+public sealed record RegistrationMetricsDto(
+    int TotalRegisteredCustomers,
+    int NewRegistrations30Days,
+    int NewRegistrations1Year,
+    int GuestCustomers
+);
+
+public sealed record AbandonedCartsMetricsDto(
+    int AbandonedCount30Days,
+    int AbandonedCount1Year,
+    decimal AbandonedValue30Days,
+    decimal AbandonedValue1Year,
+    decimal AbandonmentRate30Days,
+    int ExpiredCheckouts30Days,
+    decimal ExpiredCheckoutsValue30Days
+);
+
+public sealed record DailyMetricPointDto(
+    string Date,
+    string PersianDate,
+    decimal Sales,
+    int OrderCount,
+    int ItemsSold
+);
+
+public sealed record MonthlyMetricPointDto(
+    string Month,
+    string PersianMonth,
+    decimal Sales,
+    int OrderCount,
+    int ItemsSold
+);
+
+public sealed record OrderStatusStatDto(
+    string Status,
+    string PersianStatus,
+    int Count,
+    decimal TotalValue
+);
+
+public sealed record TopSellingProductDto(
+    Guid ProductId,
+    string ProductName,
+    string ProductSlug,
+    string Sku,
+    string CategoryName,
+    string? ImageUrl,
+    int UnitsSold,
+    decimal TotalRevenue,
+    decimal AveragePrice
+);
+
+public sealed record TopViewedProductDto(
+    Guid ProductId,
+    string ProductName,
+    string ProductSlug,
+    string Sku,
+    string CategoryName,
+    string? ImageUrl,
+    int ViewCount,
+    int OrderCount,
+    int UnitsSold,
+    decimal ConversionRate
+);
+
+public sealed record LoyalCustomerDto(
+    Guid CustomerId,
+    Guid? UserId,
+    string FullName,
+    string Phone,
+    string? Email,
+    int OrderCount,
+    decimal TotalOrderValue,
+    decimal AverageOrderValue,
+    DateTime? LastOrderAtUtc,
+    string LoyaltyTier
+);
+
+public sealed record AbandonedCartItemDto(
+    string ProductName,
+    string? VariantName,
+    string Sku,
+    decimal UnitPrice,
+    int Quantity
+);
+
+public sealed record AbandonedCartDetailsDto(
+    Guid Id,
+    string SessionKeyOrOrderNumber,
+    string? CustomerName,
+    string? Phone,
+    string? Email,
+    int ItemCount,
+    decimal TotalValue,
+    DateTime LastActivityAtUtc,
+    bool IsExpiredCheckout,
+    IReadOnlyList<AbandonedCartItemDto> Items
+);
+
+public sealed record AbandonedCartsReportDto(
+    int TotalAbandonedCount,
+    decimal TotalAbandonedValue,
+    decimal AbandonmentRate,
+    IReadOnlyList<AbandonedCartDetailsDto> Items
+);
+
+public sealed record AdminAnalyticsDto(
+    SalesMetricsDto Sales,
+    RegistrationMetricsDto Registrations,
+    AbandonedCartsMetricsDto AbandonedCarts,
+    IReadOnlyList<DailyMetricPointDto> DailyTrend30Days,
+    IReadOnlyList<MonthlyMetricPointDto> MonthlyTrend1Year,
+    IReadOnlyList<OrderStatusStatDto> OrderStatusBreakdown,
+    IReadOnlyList<TopSellingProductDto> TopSellingProducts30Days,
+    IReadOnlyList<TopViewedProductDto> TopViewedProducts30Days,
+    IReadOnlyList<LoyalCustomerDto> LoyalCustomers
+);
+
+public sealed record CartSyncItemRequest(
+    Guid ProductId,
+    Guid? VariantId,
+    string ProductName,
+    string Sku,
+    decimal UnitPrice,
+    int Quantity
+);
+
+public sealed class SyncCartSessionRequest
+{
+    public string SessionKey { get; init; } = string.Empty;
+    public string? CustomerName { get; init; }
+    public string? Phone { get; init; }
+    public string? Email { get; init; }
+    public IReadOnlyList<CartSyncItemRequest> Items { get; init; } = [];
+}
+
 public interface IStoreOperationsService
 {
     Task<DashboardDto> DashboardAsync(CancellationToken cancellationToken);
+    Task<AdminAnalyticsDto> AnalyticsAsync(CancellationToken cancellationToken);
+    Task<AbandonedCartsReportDto> AbandonedCartsAsync(int page, int pageSize, CancellationToken cancellationToken);
+    Task<IReadOnlyList<LoyalCustomerDto>> LoyalCustomersAsync(int limit, CancellationToken cancellationToken);
+    Task<IReadOnlyList<TopSellingProductDto>> TopSellingProductsAsync(int days, int limit, CancellationToken cancellationToken);
+    Task<IReadOnlyList<TopViewedProductDto>> TopViewedProductsAsync(int days, int limit, CancellationToken cancellationToken);
+    Task SyncCartSessionAsync(SyncCartSessionRequest request, Guid? userId, CancellationToken cancellationToken);
+    Task RecordProductViewAsync(Guid productId, string? visitorHash, CancellationToken cancellationToken);
+
     Task<SalesReportDto> SalesReportAsync(DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken);
     Task<IReadOnlyList<AdminOrderDto>> OrdersAsync(OrderStatus? status, CancellationToken cancellationToken);
     Task<AdminOrderDto> ChangeOrderStatusAsync(Guid id, OrderStatus status, string? postalTrackingCode, CancellationToken cancellationToken);

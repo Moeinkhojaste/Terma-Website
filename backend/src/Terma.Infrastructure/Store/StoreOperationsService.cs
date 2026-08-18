@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -13,6 +14,28 @@ namespace Terma.Infrastructure.Store;
 
 public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperationsService
 {
+    private static readonly PersianCalendar Pc = new();
+    private static readonly TimeZoneInfo IranTimeZone = GetIranTimeZone();
+
+    private static TimeZoneInfo GetIranTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Iran Standard Time");
+        }
+        catch
+        {
+            return TimeZoneInfo.CreateCustomTimeZone("IRST", TimeSpan.FromHours(3.5), "Iran Standard Time", "Iran Standard Time");
+        }
+    }
+
+    private static DateTime ToIranTime(DateTime utc)
+    {
+        if (utc.Kind == DateTimeKind.Unspecified)
+            utc = DateTime.SpecifyKind(utc, DateTimeKind.Utc);
+        return TimeZoneInfo.ConvertTimeFromUtc(utc.ToUniversalTime(), IranTimeZone);
+    }
+
     public async Task<DashboardDto> DashboardAsync(CancellationToken cancellationToken)
     {
         var productCount = await db.Products.CountAsync(x => x.IsActive, cancellationToken);
@@ -25,6 +48,610 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
         var orderValue = orderValues.Sum();
         return new(productCount, categoryCount, lowStock, pending, unread, customers, orderValue);
     }
+
+    public async Task<AdminAnalyticsDto> AnalyticsAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var thirtyDaysAgo = now.AddDays(-30);
+        var oneYearAgo = now.AddDays(-365);
+
+        // Fetch valid and all orders in 1 year
+        var allOrders = await db.Orders
+            .AsNoTracking()
+            .Include(x => x.Items)
+            .Include(x => x.Customer)
+            .Where(x => x.CreatedAt >= oneYearAgo)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var validOrders = allOrders.Where(x => x.Status != OrderStatus.Cancelled && x.Status != OrderStatus.Expired).ToList();
+
+        // 30 Days & 1 Year Sales
+        var validOrders30 = validOrders.Where(x => x.CreatedAt >= thirtyDaysAgo).ToList();
+        var sales30Days = validOrders30.Sum(x => x.Total);
+        var sales1Year = validOrders.Sum(x => x.Total);
+        var allValidOrders = await db.Orders
+            .AsNoTracking()
+            .Include(x => x.Items)
+            .Where(x => x.Status != OrderStatus.Cancelled && x.Status != OrderStatus.Expired)
+            .ToListAsync(cancellationToken);
+        var allTimeValidSales = allValidOrders.Sum(x => x.Total);
+
+        // Order counts
+        var orders30Days = allOrders.Count(x => x.CreatedAt >= thirtyDaysAgo);
+        var orders1Year = allOrders.Count;
+        var ordersTotal = await db.Orders.CountAsync(cancellationToken);
+
+        // Items sold
+        var itemsSold30Days = validOrders30.SelectMany(x => x.Items).Sum(x => x.Quantity);
+        var itemsSold1Year = validOrders.SelectMany(x => x.Items).Sum(x => x.Quantity);
+        var itemsSoldTotal = allValidOrders.SelectMany(x => x.Items).Sum(x => x.Quantity);
+
+        // Averages
+        var validCount30 = validOrders30.Count;
+        var validCount1y = validOrders.Count;
+        var avgItems30 = validCount30 > 0 ? Math.Round((decimal)itemsSold30Days / validCount30, 2) : 0;
+        var avgItems1y = validCount1y > 0 ? Math.Round((decimal)itemsSold1Year / validCount1y, 2) : 0;
+        var aov30 = validCount30 > 0 ? Math.Round(sales30Days / validCount30, 0) : 0;
+        var aov1y = validCount1y > 0 ? Math.Round(sales1Year / validCount1y, 0) : 0;
+
+        var salesMetrics = new SalesMetricsDto(
+            sales30Days,
+            sales1Year,
+            allTimeValidSales,
+            orders30Days,
+            orders1Year,
+            ordersTotal,
+            itemsSold30Days,
+            itemsSold1Year,
+            itemsSoldTotal,
+            avgItems30,
+            avgItems1y,
+            aov30,
+            aov1y
+        );
+
+        // Registrations
+        var totalRegistered = await db.Customers.CountAsync(x => x.UserId != null, cancellationToken);
+        var reg30 = await db.Customers.CountAsync(x => x.UserId != null && x.CreatedAt >= thirtyDaysAgo, cancellationToken);
+        var reg1y = await db.Customers.CountAsync(x => x.UserId != null && x.CreatedAt >= oneYearAgo, cancellationToken);
+        var guests = await db.Customers.CountAsync(x => x.UserId == null, cancellationToken);
+        var regMetrics = new RegistrationMetricsDto(totalRegistered, reg30, reg1y, guests);
+
+        // Abandoned Carts & Expired Checkouts
+        var sessionThreshold = now.AddMinutes(-30);
+        var abandonedSessions30 = await db.CartSessions
+            .AsNoTracking()
+            .Where(x => !x.IsRecovered && x.ItemCount > 0 && x.LastActivityAtUtc >= thirtyDaysAgo && x.LastActivityAtUtc <= sessionThreshold)
+            .ToListAsync(cancellationToken);
+        var abandonedSessions1y = await db.CartSessions
+            .AsNoTracking()
+            .Where(x => !x.IsRecovered && x.ItemCount > 0 && x.LastActivityAtUtc >= oneYearAgo && x.LastActivityAtUtc <= sessionThreshold)
+            .ToListAsync(cancellationToken);
+
+        var expiredOrders30 = allOrders.Where(x => x.Status == OrderStatus.Expired && x.CreatedAt >= thirtyDaysAgo).ToList();
+        var expiredOrders1y = allOrders.Where(x => x.Status == OrderStatus.Expired).ToList();
+
+        var abandonedCount30 = abandonedSessions30.Count + expiredOrders30.Count;
+        var abandonedCount1y = abandonedSessions1y.Count + expiredOrders1y.Count;
+        var abandonedVal30 = abandonedSessions30.Sum(x => x.TotalValue) + expiredOrders30.Sum(x => x.Total);
+        var abandonedVal1y = abandonedSessions1y.Sum(x => x.TotalValue) + expiredOrders1y.Sum(x => x.Total);
+        var rate30 = (orders30Days + abandonedCount30) > 0
+            ? Math.Round((decimal)abandonedCount30 / (orders30Days + abandonedCount30) * 100, 1)
+            : 0;
+
+        var abandonedMetrics = new AbandonedCartsMetricsDto(
+            abandonedCount30,
+            abandonedCount1y,
+            abandonedVal30,
+            abandonedVal1y,
+            rate30,
+            expiredOrders30.Count,
+            expiredOrders30.Sum(x => x.Total)
+        );
+
+        // 30-Day Daily Trend (Iran Local Time)
+        var todayIran = ToIranTime(now).Date;
+        var dailyPoints = new List<DailyMetricPointDto>();
+        for (var i = 29; i >= 0; i--)
+        {
+            var dayIranStart = todayIran.AddDays(-i);
+            var dayIranEnd = dayIranStart.AddDays(1);
+
+            var dayUtcStart = TimeZoneInfo.ConvertTimeToUtc(dayIranStart, IranTimeZone);
+            var dayUtcEnd = TimeZoneInfo.ConvertTimeToUtc(dayIranEnd, IranTimeZone);
+
+            var dayValidOrders = validOrders.Where(x => x.CreatedAt >= dayUtcStart && x.CreatedAt < dayUtcEnd).ToList();
+            var dayAllOrders = allOrders.Where(x => x.CreatedAt >= dayUtcStart && x.CreatedAt < dayUtcEnd).ToList();
+
+            var sales = dayValidOrders.Sum(x => x.Total);
+            var count = dayAllOrders.Count;
+            var items = dayValidOrders.SelectMany(x => x.Items).Sum(x => x.Quantity);
+
+            dailyPoints.Add(new DailyMetricPointDto(
+                dayIranStart.ToString("yyyy-MM-dd"),
+                $"{Pc.GetYear(dayIranStart):0000}/{Pc.GetMonth(dayIranStart):00}/{Pc.GetDayOfMonth(dayIranStart):00}",
+                sales,
+                count,
+                items
+            ));
+        }
+
+        // 12-Month Monthly Trend (Persian Solar Months)
+        var currentPersianYear = Pc.GetYear(todayIran);
+        var currentPersianMonth = Pc.GetMonth(todayIran);
+        var monthlyPoints = new List<MonthlyMetricPointDto>();
+        for (var i = 11; i >= 0; i--)
+        {
+            var mOffset = currentPersianMonth - i;
+            var targetYear = currentPersianYear;
+            var targetMonth = mOffset;
+            while (targetMonth <= 0)
+            {
+                targetMonth += 12;
+                targetYear -= 1;
+            }
+
+            var pMonthStartGregorian = Pc.ToDateTime(targetYear, targetMonth, 1, 0, 0, 0, 0);
+            var daysInMonth = Pc.GetDaysInMonth(targetYear, targetMonth);
+            var pMonthEndGregorian = Pc.ToDateTime(targetYear, targetMonth, daysInMonth, 23, 59, 59, 999);
+
+            var mUtcStart = TimeZoneInfo.ConvertTimeToUtc(pMonthStartGregorian, IranTimeZone);
+            var mUtcEnd = TimeZoneInfo.ConvertTimeToUtc(pMonthEndGregorian, IranTimeZone);
+
+            var mValidOrders = validOrders.Where(x => x.CreatedAt >= mUtcStart && x.CreatedAt <= mUtcEnd).ToList();
+            var mAllOrders = allOrders.Where(x => x.CreatedAt >= mUtcStart && x.CreatedAt <= mUtcEnd).ToList();
+
+            var sales = mValidOrders.Sum(x => x.Total);
+            var count = mAllOrders.Count;
+            var items = mValidOrders.SelectMany(x => x.Items).Sum(x => x.Quantity);
+
+            monthlyPoints.Add(new MonthlyMetricPointDto(
+                $"{targetYear:0000}-{targetMonth:00}",
+                $"{ToPersianMonthName(targetMonth)} {targetYear}",
+                sales,
+                count,
+                items
+            ));
+        }
+
+        // Order status breakdown
+        var statusStats = new List<OrderStatusStatDto>();
+        var statusGroups = allOrders.GroupBy(x => x.Status).ToDictionary(g => g.Key, g => g.ToList());
+        foreach (OrderStatus st in Enum.GetValues<OrderStatus>())
+        {
+            var list = statusGroups.GetValueOrDefault(st) ?? [];
+            statusStats.Add(new OrderStatusStatDto(
+                st.ToString(),
+                ToPersianStatus(st),
+                list.Count,
+                list.Sum(x => x.Total)
+            ));
+        }
+
+        // Top Selling (30 Days)
+        var topSelling = await GetTopSellingProductsInternalAsync(30, 10, cancellationToken);
+
+        // Top Viewed (30 Days)
+        var topViewed = await GetTopViewedProductsInternalAsync(30, 10, cancellationToken);
+
+        // Loyal Customers
+        var loyal = await GetLoyalCustomersInternalAsync(10, cancellationToken);
+
+        return new AdminAnalyticsDto(
+            salesMetrics,
+            regMetrics,
+            abandonedMetrics,
+            dailyPoints,
+            monthlyPoints,
+            statusStats,
+            topSelling,
+            topViewed,
+            loyal
+        );
+    }
+
+    public async Task<AbandonedCartsReportDto> AbandonedCartsAsync(int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var threshold = now.AddMinutes(-30);
+
+        var sessions = await db.CartSessions
+            .AsNoTracking()
+            .Where(x => !x.IsRecovered && x.ItemCount > 0 && x.LastActivityAtUtc <= threshold)
+            .OrderByDescending(x => x.LastActivityAtUtc)
+            .ToListAsync(cancellationToken);
+
+        var expiredOrders = await db.Orders
+            .AsNoTracking()
+            .Include(x => x.Items)
+            .Where(x => x.Status == OrderStatus.Expired)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var list = new List<AbandonedCartDetailsDto>();
+
+        foreach (var s in sessions)
+        {
+            List<AbandonedCartItemDto> items = [];
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<List<CartSyncItemRequest>>(s.ItemsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (parsed != null)
+                {
+                    items = parsed.Select(i => new AbandonedCartItemDto(i.ProductName, null, i.Sku, i.UnitPrice, i.Quantity)).ToList();
+                }
+            }
+            catch { }
+
+            list.Add(new AbandonedCartDetailsDto(
+                s.Id,
+                s.SessionKey,
+                s.CustomerName,
+                s.Phone,
+                s.Email,
+                s.ItemCount,
+                s.TotalValue,
+                s.LastActivityAtUtc,
+                false,
+                items
+            ));
+        }
+
+        foreach (var o in expiredOrders)
+        {
+            var items = o.Items.Select(i => new AbandonedCartItemDto(i.ProductName, null, i.Sku, i.UnitPrice, i.Quantity)).ToList();
+            list.Add(new AbandonedCartDetailsDto(
+                o.Id,
+                o.Number,
+                o.FullNameSnapshot,
+                o.PhoneSnapshot,
+                o.EmailSnapshot,
+                items.Sum(i => i.Quantity),
+                o.Total,
+                o.CreatedAt,
+                true,
+                items
+            ));
+        }
+
+        list = list.OrderByDescending(x => x.LastActivityAtUtc).ToList();
+        var totalCount = list.Count;
+        var totalValue = list.Sum(x => x.TotalValue);
+
+        var totalOrders = await db.Orders.CountAsync(cancellationToken);
+        var rate = (totalOrders + totalCount) > 0 ? Math.Round((decimal)totalCount / (totalOrders + totalCount) * 100, 1) : 0;
+
+        var pagedItems = list.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return new AbandonedCartsReportDto(totalCount, totalValue, rate, pagedItems);
+    }
+
+    public Task<IReadOnlyList<LoyalCustomerDto>> LoyalCustomersAsync(int limit, CancellationToken cancellationToken) =>
+        GetLoyalCustomersInternalAsync(limit, cancellationToken);
+
+    public Task<IReadOnlyList<TopSellingProductDto>> TopSellingProductsAsync(int days, int limit, CancellationToken cancellationToken) =>
+        GetTopSellingProductsInternalAsync(days, limit, cancellationToken);
+
+    public Task<IReadOnlyList<TopViewedProductDto>> TopViewedProductsAsync(int days, int limit, CancellationToken cancellationToken) =>
+        GetTopViewedProductsInternalAsync(days, limit, cancellationToken);
+
+    public async Task SyncCartSessionAsync(SyncCartSessionRequest request, Guid? userId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.SessionKey)) return;
+
+        var cleanKey = request.SessionKey.Trim();
+        var session = await db.CartSessions.SingleOrDefaultAsync(x => x.SessionKey == cleanKey, cancellationToken);
+        var itemCount = request.Items.Sum(x => x.Quantity);
+        var totalValue = request.Items.Sum(x => x.UnitPrice * x.Quantity);
+        var itemsJson = JsonSerializer.Serialize(request.Items);
+
+        if (session is null)
+        {
+            if (itemCount > 0)
+            {
+                session = new CartSession(
+                    cleanKey,
+                    itemsJson,
+                    itemCount,
+                    totalValue,
+                    userId,
+                    null,
+                    request.CustomerName,
+                    request.Phone,
+                    request.Email
+                );
+                await db.CartSessions.AddAsync(session, cancellationToken);
+            }
+        }
+        else
+        {
+            session.UpdateActivity(
+                itemsJson,
+                itemCount,
+                totalValue,
+                userId,
+                null,
+                request.CustomerName,
+                request.Phone,
+                request.Email
+            );
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task RecordProductViewAsync(Guid productId, string? visitorHash, CancellationToken cancellationToken)
+    {
+        var productExists = await db.Products.AnyAsync(x => x.Id == productId, cancellationToken);
+        if (!productExists) return;
+
+        var now = DateTime.UtcNow;
+        if (!string.IsNullOrWhiteSpace(visitorHash))
+        {
+            var cleanHash = visitorHash.Trim();
+            var tenMinutesAgo = now.AddMinutes(-10);
+            var recentViewExists = await db.ProductViews.AnyAsync(x => x.ProductId == productId && x.VisitorHash == cleanHash && x.ViewedAtUtc >= tenMinutesAgo, cancellationToken);
+            if (recentViewExists) return;
+        }
+
+        var view = new ProductView(productId, visitorHash, now);
+        await db.ProductViews.AddAsync(view, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<TopSellingProductDto>> GetTopSellingProductsInternalAsync(int days, int limit, CancellationToken cancellationToken)
+    {
+        var since = DateTime.UtcNow.AddDays(-days);
+        var validOrders = await db.Orders
+            .AsNoTracking()
+            .Include(x => x.Items)
+            .Where(x => x.Status != OrderStatus.Cancelled && x.Status != OrderStatus.Expired && x.CreatedAt >= since)
+            .ToListAsync(cancellationToken);
+
+        var orderItems = validOrders.SelectMany(x => x.Items).ToList();
+
+        var grouped = orderItems.GroupBy(x => x.ProductId)
+            .Select(g => new { ProductId = g.Key, UnitsSold = g.Sum(x => x.Quantity), Revenue = g.Sum(x => x.UnitPrice * x.Quantity) })
+            .OrderByDescending(x => x.Revenue)
+            .ThenByDescending(x => x.UnitsSold)
+            .Take(limit)
+            .ToList();
+
+        var productIds = grouped.Select(x => x.ProductId).ToList();
+        var products = await db.Products
+            .AsNoTracking()
+            .Include(x => x.Category)
+            .Include(x => x.Media)
+            .Where(x => productIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, cancellationToken);
+
+        var result = new List<TopSellingProductDto>();
+        foreach (var g in grouped)
+        {
+            if (products.TryGetValue(g.ProductId, out var p))
+            {
+                var primaryMedia = p.Media.OrderBy(m => m.SortOrder).FirstOrDefault();
+                var avgPrice = g.UnitsSold > 0 ? Math.Round(g.Revenue / g.UnitsSold, 0) : p.Price;
+                result.Add(new TopSellingProductDto(
+                    p.Id,
+                    p.Name,
+                    p.Slug,
+                    p.Sku,
+                    p.Category?.Name ?? "عمومی",
+                    primaryMedia?.PublicUrl,
+                    g.UnitsSold,
+                    g.Revenue,
+                    avgPrice
+                ));
+            }
+        }
+
+        // If sales are low, fallback to active products with 0 sold
+        if (result.Count < limit)
+        {
+            var remaining = limit - result.Count;
+            var existingIds = result.Select(x => x.ProductId).ToList();
+            var extra = await db.Products
+                .AsNoTracking()
+                .Include(x => x.Category)
+                .Include(x => x.Media)
+                .Where(x => x.IsActive && !existingIds.Contains(x.Id))
+                .Take(remaining)
+                .ToListAsync(cancellationToken);
+
+            foreach (var p in extra)
+            {
+                var primaryMedia = p.Media.OrderBy(m => m.SortOrder).FirstOrDefault();
+                result.Add(new TopSellingProductDto(
+                    p.Id,
+                    p.Name,
+                    p.Slug,
+                    p.Sku,
+                    p.Category?.Name ?? "عمومی",
+                    primaryMedia?.PublicUrl,
+                    0,
+                    0,
+                    p.Price
+                ));
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<IReadOnlyList<TopViewedProductDto>> GetTopViewedProductsInternalAsync(int days, int limit, CancellationToken cancellationToken)
+    {
+        var since = DateTime.UtcNow.AddDays(-days);
+        var rawViews = await db.ProductViews
+            .AsNoTracking()
+            .Where(x => x.ViewedAtUtc >= since)
+            .Select(x => x.ProductId)
+            .ToListAsync(cancellationToken);
+
+        var views = rawViews
+            .GroupBy(x => x)
+            .Select(g => new { ProductId = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(limit)
+            .ToList();
+
+        var productIds = views.Select(x => x.ProductId).ToList();
+        var products = await db.Products
+            .AsNoTracking()
+            .Include(x => x.Category)
+            .Include(x => x.Media)
+            .Where(x => productIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, cancellationToken);
+
+        var validOrders = await db.Orders
+            .AsNoTracking()
+            .Include(x => x.Items)
+            .Where(x => x.Status != OrderStatus.Cancelled && x.Status != OrderStatus.Expired && x.CreatedAt >= since)
+            .ToListAsync(cancellationToken);
+
+        var unitsByProduct = validOrders
+            .SelectMany(x => x.Items)
+            .Where(x => productIds.Contains(x.ProductId))
+            .GroupBy(x => x.ProductId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+        var ordersByProduct = validOrders
+            .SelectMany(x => x.Items.Select(i => new { i.ProductId, OrderId = x.Id }))
+            .Where(x => productIds.Contains(x.ProductId))
+            .GroupBy(x => x.ProductId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.OrderId).Distinct().Count());
+
+        var result = new List<TopViewedProductDto>();
+        foreach (var v in views)
+        {
+            if (products.TryGetValue(v.ProductId, out var p))
+            {
+                var primaryMedia = p.Media.OrderBy(m => m.SortOrder).FirstOrDefault();
+                var units = unitsByProduct.GetValueOrDefault(v.ProductId, 0);
+                var orders = ordersByProduct.GetValueOrDefault(v.ProductId, 0);
+                var conversion = v.Count > 0 ? Math.Min(100m, Math.Round((decimal)orders / v.Count * 100m, 1)) : 0;
+                result.Add(new TopViewedProductDto(
+                    p.Id,
+                    p.Name,
+                    p.Slug,
+                    p.Sku,
+                    p.Category?.Name ?? "عمومی",
+                    primaryMedia?.PublicUrl,
+                    v.Count,
+                    orders,
+                    units,
+                    conversion
+                ));
+            }
+        }
+
+        // If views in DB are low or empty, populate with active catalog products
+        if (result.Count < limit)
+        {
+            var remaining = limit - result.Count;
+            var existingIds = result.Select(x => x.ProductId).ToList();
+            var extra = await db.Products
+                .AsNoTracking()
+                .Include(x => x.Category)
+                .Include(x => x.Media)
+                .Where(x => x.IsActive && !existingIds.Contains(x.Id))
+                .Take(remaining)
+                .ToListAsync(cancellationToken);
+
+            foreach (var p in extra)
+            {
+                var primaryMedia = p.Media.OrderBy(m => m.SortOrder).FirstOrDefault();
+                result.Add(new TopViewedProductDto(
+                    p.Id,
+                    p.Name,
+                    p.Slug,
+                    p.Sku,
+                    p.Category?.Name ?? "عمومی",
+                    primaryMedia?.PublicUrl,
+                    0,
+                    0,
+                    0,
+                    0
+                ));
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<IReadOnlyList<LoyalCustomerDto>> GetLoyalCustomersInternalAsync(int limit, CancellationToken cancellationToken)
+    {
+        var rawCustomers = await db.Customers
+            .AsNoTracking()
+            .Where(x => x.OrderCount > 0)
+            .ToListAsync(cancellationToken);
+
+        var customers = rawCustomers
+            .OrderByDescending(x => x.TotalOrderValue)
+            .ThenByDescending(x => x.OrderCount)
+            .Take(limit)
+            .ToList();
+
+        var customerIds = customers.Select(x => x.Id).ToList();
+        var customerOrders = await db.Orders
+            .AsNoTracking()
+            .Where(x => customerIds.Contains(x.CustomerId))
+            .Select(x => new { x.CustomerId, x.CreatedAt })
+            .ToListAsync(cancellationToken);
+
+        var latestOrders = customerOrders
+            .GroupBy(x => x.CustomerId)
+            .ToDictionary(g => g.Key, g => g.Max(o => o.CreatedAt));
+
+        var result = new List<LoyalCustomerDto>();
+        foreach (var c in customers)
+        {
+            var aov = c.OrderCount > 0 ? Math.Round(c.TotalOrderValue / c.OrderCount, 0) : 0;
+            var tier = c.OrderCount >= 5 || c.TotalOrderValue >= 20_000_000 ? "VIP"
+                : c.OrderCount >= 3 || c.TotalOrderValue >= 10_000_000 ? "طلایی"
+                : c.OrderCount >= 2 || c.TotalOrderValue >= 5_000_000 ? "نقره‌ای"
+                : "برنزی";
+
+            result.Add(new LoyalCustomerDto(
+                c.Id,
+                c.UserId,
+                c.FullName,
+                c.Phone,
+                c.Email,
+                c.OrderCount,
+                c.TotalOrderValue,
+                aov,
+                latestOrders.GetValueOrDefault(c.Id),
+                tier
+            ));
+        }
+
+        return result;
+    }
+
+    private static string ToPersianDate(DateTime dt)
+    {
+        var iran = ToIranTime(dt);
+        return $"{Pc.GetYear(iran):0000}/{Pc.GetMonth(iran):00}/{Pc.GetDayOfMonth(iran):00}";
+    }
+
+    private static string ToPersianMonthName(int month) => month switch
+    {
+        1 => "فروردین", 2 => "اردیبهشت", 3 => "خرداد", 4 => "تیر", 5 => "مرداد", 6 => "شهریور",
+        7 => "مهر", 8 => "آبان", 9 => "آذر", 10 => "دی", 11 => "بهمن", 12 => "اسفند", _ => ""
+    };
+
+    private static string ToPersianStatus(OrderStatus status) => status switch
+    {
+        OrderStatus.PendingConfirmation => "در انتظار بررسی",
+        OrderStatus.Confirmed => "تأیید شده",
+        OrderStatus.Preparing => "در حال آماده‌سازی",
+        OrderStatus.Shipped => "ارسال شده",
+        OrderStatus.Delivered => "تحویل شده",
+        OrderStatus.Cancelled => "لغو شده",
+        OrderStatus.Expired => "منقضی شده",
+        _ => status.ToString()
+    };
 
     public async Task<SalesReportDto> SalesReportAsync(DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken)
     {
@@ -401,6 +1028,11 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
 
         customer.AddOrder(order.Total);
         await db.Orders.AddAsync(order, cancellationToken);
+
+        var matchingCartSessions = await db.CartSessions
+            .Where(x => !x.IsRecovered && (x.Phone == normalized || (resolvedUserId.HasValue && x.UserId == resolvedUserId.Value)))
+            .ToListAsync(cancellationToken);
+        foreach (var s in matchingCartSessions) s.MarkRecovered();
 
         try
         {

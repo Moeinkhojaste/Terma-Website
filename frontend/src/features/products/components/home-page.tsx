@@ -29,7 +29,7 @@ export default async function Home() {
   let catalogUnavailable = false;
   let content: PublicContent[] = [];
   try {
-    featuredProducts = (await listProducts({ page: 1, pageSize: 3 })).items;
+    featuredProducts = (await listProducts({ sort: "newest", page: 1, pageSize: 6 })).items;
   } catch {
     catalogUnavailable = true;
   }
@@ -129,14 +129,14 @@ export default async function Home() {
         <section className="section-pad products-section" id="محصولات">
           <Container>
             <div className="heading-row">
-              <SectionHeader eyebrow="مجموعه ترما" title="منتخب‌های ترما" description="سه محصول از مجموعه فعلی را ببینید و برای مشاهده فهرست کامل وارد صفحه محصولات شوید." />
+              <SectionHeader eyebrow="مجموعه ترما" title="جدیدترین محصولات ترما" description="جدیدترین سفره‌های ترمه و آثار تازه ارائه‌شده در مجموعه را ببینید و برای مشاهده همه گزینه‌ها وارد صفحه محصولات شوید." />
               <div className="featured-heading-actions">
-                <p className="heading-note">{new Intl.NumberFormat("fa-IR").format(featuredProducts.length)} محصول منتخب</p>
+                <p className="heading-note">{new Intl.NumberFormat("fa-IR").format(featuredProducts.length)} محصول جدید</p>
                 <Button href="/products" variant="secondary">مشاهده همه محصولات <ArrowLeftIcon /></Button>
               </div>
             </div>
             {catalogUnavailable ? (
-              <div className="catalog-inline-warning" role="status"><span>محصولات منتخب اکنون در دسترس نیستند.</span><Link href="/products">تلاش در صفحه محصولات</Link></div>
+              <div className="catalog-inline-warning" role="status"><span>محصولات جدید اکنون در دسترس نیستند.</span><Link href="/products">تلاش در صفحه محصولات</Link></div>
             ) : featuredProducts.length > 0 ? (
               <ProductCarousel products={featuredProducts} />
             ) : (

@@ -350,6 +350,10 @@ await using (var scope = app.Services.CreateAsyncScope())
         await dbContext.Database.MigrateAsync();
     }
     await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();
+    if (isDevelopment)
+    {
+        await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.AnalyticsDemoSeeder>().SeedAsync();
+    }
 }
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions

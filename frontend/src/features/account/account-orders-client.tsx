@@ -109,11 +109,16 @@ export function AccountOrdersClient() {
             {filteredOrders.map((order) => (
               <div className="account-order-card" key={order.id}>
                 <div className="account-order-card-header">
-                  <div className="account-order-header-info">
+                  <div className="account-order-header-main">
                     <div className="order-number-row">
                       <span>شماره سفارش:</span>
                       <strong dir="ltr">{order.number}</strong>
                     </div>
+                    <span className={`status-pill status-pill--${order.status.toLowerCase()}`}>
+                      {orderStatusLabels[order.status]}
+                    </span>
+                  </div>
+                  <div className="account-order-header-sub">
                     <span className="order-date">
                       {new Date(order.createdAt).toLocaleDateString("fa-IR", {
                         year: "numeric",
@@ -122,10 +127,6 @@ export function AccountOrdersClient() {
                       })}
                     </span>
                   </div>
-
-                  <span className={`status-pill status-pill--${order.status.toLowerCase()}`}>
-                    {orderStatusLabels[order.status]}
-                  </span>
                 </div>
 
                 {/* Postal Tracking Snippet */}

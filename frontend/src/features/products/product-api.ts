@@ -19,6 +19,7 @@ function createProductQuery(query: ProductListQuery) {
   if (query.color?.trim()) parameters.set("color", query.color.trim());
   if (query.inStock !== undefined) parameters.set("inStock", String(query.inStock));
   if (query.search?.trim()) parameters.set("search", query.search.trim());
+  if (query.sort?.trim()) parameters.set("sort", query.sort.trim());
   if (query.page !== undefined) parameters.set("page", String(query.page));
   if (query.pageSize !== undefined) parameters.set("pageSize", String(query.pageSize));
   return parameters.toString();

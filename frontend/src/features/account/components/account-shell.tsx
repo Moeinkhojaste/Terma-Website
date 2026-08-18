@@ -20,11 +20,11 @@ import { getCustomerProfile, logoutCustomer, type CustomerProfile } from "../acc
 import { ApiError } from "@/lib/api-client";
 
 const navItems = [
-  { href: "/account", label: "داشبورد", icon: DashboardIcon, exact: true },
-  { href: "/account/orders", label: "سفارش‌های من", icon: PackageIcon, exact: false },
-  { href: "/account/addresses", label: "آدرس‌های من", icon: MapPinIcon, exact: false },
-  { href: "/account/wishlist", label: "علاقه‌مندی‌ها", icon: HeartIcon, exact: false },
-  { href: "/account/profile", label: "اطلاعات حساب", icon: UserIcon, exact: false },
+  { href: "/account", label: "داشبورد", shortLabel: "داشبورد", icon: DashboardIcon, exact: true },
+  { href: "/account/orders", label: "سفارش‌های من", shortLabel: "سفارش‌ها", icon: PackageIcon, exact: false },
+  { href: "/account/addresses", label: "آدرس‌های من", shortLabel: "آدرس‌ها", icon: MapPinIcon, exact: false },
+  { href: "/account/wishlist", label: "علاقه‌مندی‌ها", shortLabel: "علاقه‌مندی", icon: HeartIcon, exact: false },
+  { href: "/account/profile", label: "اطلاعات حساب", shortLabel: "پروفایل", icon: UserIcon, exact: false },
 ];
 
 type AccountShellProps = {
@@ -103,36 +103,49 @@ export function AccountShell({ children, title, breadcrumbs }: AccountShellProps
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Navigation Menu */}
-              <nav className="account-nav" aria-label="منوی حساب کاربری">
-                {navItems.map((item) => {
-                  const isActive = item.exact
-                    ? pathname === item.href
-                    : pathname.startsWith(item.href);
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`account-nav-item ${isActive ? "account-nav-item--active" : ""}`}
-                    >
-                      <Icon className="account-nav-icon" />
-                      <span>{item.label}</span>
-                    </Link>
-                  );
-                })}
-
                 <button
                   type="button"
                   onClick={() => setLogoutModalOpen(true)}
-                  className="account-nav-item account-nav-item--logout"
+                  className="account-profile-logout-btn"
+                  title="خروج از حساب کاربری"
+                  aria-label="خروج از حساب کاربری"
                 >
-                  <LogOutIcon className="account-nav-icon" />
-                  <span>خروج از حساب</span>
+                  <LogOutIcon className="size-4" />
+                  <span className="account-profile-logout-text">خروج</span>
                 </button>
-              </nav>
+              </div>
+
+              {/* Navigation Menu */}
+              <div className="account-nav-scroll-wrapper">
+                <nav className="account-nav" aria-label="منوی حساب کاربری">
+                  {navItems.map((item) => {
+                    const isActive = item.exact
+                      ? pathname === item.href
+                      : pathname.startsWith(item.href);
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`account-nav-item ${isActive ? "account-nav-item--active" : ""}`}
+                      >
+                        <Icon className="account-nav-icon" />
+                        <span className="account-nav-label-desktop">{item.label}</span>
+                        <span className="account-nav-label-mobile">{item.shortLabel}</span>
+                      </Link>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    onClick={() => setLogoutModalOpen(true)}
+                    className="account-nav-item account-nav-item--logout"
+                  >
+                    <LogOutIcon className="account-nav-icon" />
+                    <span>خروج از حساب</span>
+                  </button>
+                </nav>
+              </div>
             </aside>
 
             {/* Main Account Content Area */}

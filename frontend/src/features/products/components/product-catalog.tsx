@@ -14,22 +14,23 @@ import type { CategoryDto, ProductFacets, ProductListQuery, ProductPage } from "
 import { ApiError, getApiErrorMessage } from "@/lib/api-client";
 
 const PAGE_SIZE = 12;
-type FilterDraft = { search: string; categoryId: string; minPrice: string; maxPrice: string; tableCapacity: string; color: string; inStock: string };
-const emptyDraft = (): FilterDraft => ({ search: "", categoryId: "", minPrice: "", maxPrice: "", tableCapacity: "", color: "", inStock: "" });
+type FilterDraft = { search: string; categoryId: string; minPrice: string; maxPrice: string; tableCapacity: string; color: string; inStock: string; sort: string };
+const emptyDraft = (): FilterDraft => ({ search: "", categoryId: "", minPrice: "", maxPrice: "", tableCapacity: "", color: "", inStock: "", sort: "" });
 const optionalNumber = (value: string | null) => value && Number.isFinite(Number(value)) ? Number(value) : undefined;
 const positivePage = (value: string | null) => Number.isInteger(Number(value)) && Number(value) > 0 ? Number(value) : 1;
 
 function readDraft(parameters: URLSearchParams): FilterDraft {
-  return { search: parameters.get("search") ?? "", categoryId: parameters.get("categoryId") ?? "", minPrice: parameters.get("minPrice") ?? "", maxPrice: parameters.get("maxPrice") ?? "", tableCapacity: parameters.get("tableCapacity") ?? "", color: parameters.get("color") ?? "", inStock: parameters.get("inStock") ?? "" };
+  return { search: parameters.get("search") ?? "", categoryId: parameters.get("categoryId") ?? "", minPrice: parameters.get("minPrice") ?? "", maxPrice: parameters.get("maxPrice") ?? "", tableCapacity: parameters.get("tableCapacity") ?? "", color: parameters.get("color") ?? "", inStock: parameters.get("inStock") ?? "", sort: parameters.get("sort") ?? "" };
 }
 function readQuery(parameters: URLSearchParams): ProductListQuery {
   const draft = readDraft(parameters);
-  return { search: draft.search || undefined, categoryId: draft.categoryId || undefined, minPrice: optionalNumber(draft.minPrice), maxPrice: optionalNumber(draft.maxPrice), tableCapacity: optionalNumber(draft.tableCapacity), color: draft.color || undefined, inStock: draft.inStock === "true" ? true : draft.inStock === "false" ? false : undefined, page: positivePage(parameters.get("page")), pageSize: PAGE_SIZE };
+  return { search: draft.search || undefined, categoryId: draft.categoryId || undefined, minPrice: optionalNumber(draft.minPrice), maxPrice: optionalNumber(draft.maxPrice), tableCapacity: optionalNumber(draft.tableCapacity), color: draft.color || undefined, inStock: draft.inStock === "true" ? true : draft.inStock === "false" ? false : undefined, sort: draft.sort || undefined, page: positivePage(parameters.get("page")), pageSize: PAGE_SIZE };
 }
 
 function FilterFields({ draft, setDraft, categories, facets }: { draft: FilterDraft; setDraft: (updater: (current: FilterDraft) => FilterDraft) => void; categories: CategoryDto[]; facets?: ProductFacets }) {
   return <>
     <label className="catalog-filter catalog-filter--search"><span>جست‌وجو</span><input value={draft.search} onChange={(event) => setDraft((current) => ({ ...current, search: event.target.value }))} placeholder="مثلاً ترمه آبی" /></label>
+    <label className="catalog-filter"><span>مرتب‌سازی</span><select value={draft.sort} onChange={(event) => setDraft((current) => ({ ...current, sort: event.target.value }))}><option value="">جدیدترین (پیش‌فرض)</option><option value="price-asc">ارزان‌ترین</option><option value="price-desc">گران‌ترین</option><option value="name-asc">نام محصول (الف تا ی)</option></select></label>
     <label className="catalog-filter"><span>دسته‌بندی</span><select value={draft.categoryId} onChange={(event) => setDraft((current) => ({ ...current, categoryId: event.target.value }))}><option value="">همه دسته‌ها</option>{categories.map((category) => <option value={category.id} key={category.id}>{category.name}</option>)}</select></label>
     <label className="catalog-filter"><span>رنگ</span><select value={draft.color} onChange={(event) => setDraft((current) => ({ ...current, color: event.target.value }))}><option value="">همه رنگ‌ها</option>{facets?.colors.map((color) => <option value={color} key={color}>{color}</option>)}</select></label>
     <label className="catalog-filter"><span>ظرفیت میز</span><select value={draft.tableCapacity} onChange={(event) => setDraft((current) => ({ ...current, tableCapacity: event.target.value }))}><option value="">همه ظرفیت‌ها</option>{facets?.tableCapacities.map((capacity) => <option value={capacity} key={capacity}>{new Intl.NumberFormat("fa-IR").format(capacity)} نفره</option>)}</select></label>
@@ -83,10 +84,29 @@ export function ProductCatalog() {
 
   const actions: ReactNode = <div className="catalog-filter-actions"><button className="button button--primary" type="submit">اعمال فیلترها</button><button className="button button--secondary" type="button" onClick={clear}>پاک‌کردن</button></div>;
   return <section className="catalog-section section-pad" id="همه"><Container>
-    <button className="mobile-filter-button button button--secondary" type="button" onClick={() => setFilterOpen(true)}><FilterIcon /> فیلتر محصولات {activeCount > 0 && <span>{new Intl.NumberFormat("fa-IR").format(activeCount)}</span>}</button>
+    <div className="catalog-top-actions">
+      <button className="mobile-filter-button button button--secondary" type="button" onClick={() => setFilterOpen(true)}><FilterIcon /> فیلتر و مرتب‌سازی {activeCount > 0 && <span>{new Intl.NumberFormat("fa-IR").format(activeCount)}</span>}</button>
+      <label className="catalog-sort-select catalog-sort-select--mobile">
+        <span>مرتب‌سازی:</span>
+        <select
+          aria-label="مرتب‌سازی سریع محصولات"
+          value={draft.sort}
+          onChange={(event) => {
+            const next = { ...draft, sort: event.target.value };
+            setDraft(next);
+            navigate(next, 1);
+          }}
+        >
+          <option value="">جدیدترین</option>
+          <option value="price-asc">ارزان‌ترین</option>
+          <option value="price-desc">گران‌ترین</option>
+          <option value="name-asc">نام (الف تا ی)</option>
+        </select>
+      </label>
+    </div>
     <form className="catalog-filters catalog-filters--desktop" onSubmit={submit} aria-label="فیلتر محصولات"><FilterFields draft={draft} setDraft={setDraft} categories={categories} facets={facets} />{actions}</form>
-    <AccessibleDialog open={filterOpen} onClose={() => setFilterOpen(false)} className="filter-dialog sheet-dialog" label="فیلتر محصولات"><form className="filter-sheet" onSubmit={submit}><div className="filter-sheet__heading"><h2>فیلتر محصولات</h2><button className="dialog-close" type="button" onClick={() => setFilterOpen(false)} aria-label="بستن فیلترها"><XIcon /></button></div><div className="filter-sheet__body"><FilterFields draft={draft} setDraft={setDraft} categories={categories} facets={facets} /></div>{actions}</form></AccessibleDialog>
+    <AccessibleDialog open={filterOpen} onClose={() => setFilterOpen(false)} className="filter-dialog sheet-dialog" label="فیلتر و مرتب‌سازی محصولات"><form className="filter-sheet" onSubmit={submit}><div className="filter-sheet__heading"><h2>فیلتر و مرتب‌سازی</h2><button className="dialog-close" type="button" onClick={() => setFilterOpen(false)} aria-label="بستن فیلترها"><XIcon /></button></div><div className="filter-sheet__body"><FilterFields draft={draft} setDraft={setDraft} categories={categories} facets={facets} /></div>{actions}</form></AccessibleDialog>
     {filterError && <div className="catalog-inline-warning" role="alert"><span>گزینه‌های فیلتر بارگذاری نشدند.</span><button type="button" onClick={() => setFilterAttempt((value) => value + 1)}>تلاش دوباره</button></div>}
-    {loading ? <div aria-live="polite"><ProductCatalogLoading embedded /></div> : productError ? <div className="catalog-error" role="alert"><h2>محصولات بارگذاری نشدند</h2><ErrorDetails error={productError} /><button className="button button--secondary" type="button" onClick={() => { setLoading(true); setProductAttempt((value) => value + 1); }}>تلاش دوباره</button></div> : result && result.items.length === 0 ? <><div className="catalog-empty"><span>۰</span><h2>محصولی با این مشخصات پیدا نشد</h2><p>یک عبارت کوتاه‌تر امتحان کنید یا بعضی فیلترها را بردارید.</p><button className="button button--secondary" type="button" onClick={clear}>پاک‌کردن همه فیلترها</button></div><RecentlyViewedProducts title="شاید یکی از این محصولات را می‌خواستید" compact /></> : result ? <><div className="catalog-toolbar"><h2>محصولات</h2><span>{new Intl.NumberFormat("fa-IR").format(result.totalCount)} محصول</span></div><div className="products-grid products-grid--catalog">{result.items.map((product) => <ProductCard product={product} key={product.id} />)}</div>{totalPages > 1 && <nav className="catalog-pagination" aria-label="صفحه‌بندی محصولات"><button type="button" disabled={currentPage <= 1} onClick={() => navigate(readDraft(new URLSearchParams(queryKey)), currentPage - 1)}>صفحه قبل</button><span>صفحه {new Intl.NumberFormat("fa-IR").format(currentPage)} از {new Intl.NumberFormat("fa-IR").format(totalPages)}</span><button type="button" disabled={currentPage >= totalPages} onClick={() => navigate(readDraft(new URLSearchParams(queryKey)), currentPage + 1)}>صفحه بعد</button></nav>}</> : null}
+    {loading ? <div aria-live="polite"><ProductCatalogLoading embedded /></div> : productError ? <div className="catalog-error" role="alert"><h2>محصولات بارگذاری نشدند</h2><ErrorDetails error={productError} /><button className="button button--secondary" type="button" onClick={() => { setLoading(true); setProductAttempt((value) => value + 1); }}>تلاش دوباره</button></div> : result && result.items.length === 0 ? <><div className="catalog-empty"><span>۰</span><h2>محصولی با این مشخصات پیدا نشد</h2><p>یک عبارت کوتاه‌تر امتحان کنید یا بعضی فیلترها را بردارید.</p><button className="button button--secondary" type="button" onClick={clear}>پاک‌کردن همه فیلترها</button></div><RecentlyViewedProducts title="شاید یکی از این محصولات را می‌خواستید" compact /></> : result ? <><div className="catalog-toolbar"><div><h2>محصولات</h2><span>{new Intl.NumberFormat("fa-IR").format(result.totalCount)} محصول</span></div><label className="catalog-sort-select catalog-sort-select--desktop"><span>مرتب‌سازی:</span><select aria-label="مرتب‌سازی محصولات" value={draft.sort} onChange={(event) => { const next = { ...draft, sort: event.target.value }; setDraft(next); navigate(next, 1); }}><option value="">جدیدترین</option><option value="price-asc">ارزان‌ترین</option><option value="price-desc">گران‌ترین</option><option value="name-asc">نام (الف تا ی)</option></select></label></div><div className="products-grid products-grid--catalog">{result.items.map((product) => <ProductCard product={product} key={product.id} />)}</div>{totalPages > 1 && <nav className="catalog-pagination" aria-label="صفحه‌بندی محصولات"><button type="button" disabled={currentPage <= 1} onClick={() => navigate(readDraft(new URLSearchParams(queryKey)), currentPage - 1)}>صفحه قبل</button><span>صفحه {new Intl.NumberFormat("fa-IR").format(currentPage)} از {new Intl.NumberFormat("fa-IR").format(totalPages)}</span><button type="button" disabled={currentPage >= totalPages} onClick={() => navigate(readDraft(new URLSearchParams(queryKey)), currentPage + 1)}>صفحه بعد</button></nav>}</> : null}
   </Container></section>;
 }

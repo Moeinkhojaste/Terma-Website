@@ -64,42 +64,50 @@ export function AccountDashboardClient() {
           {/* Quick Stat Cards */}
           <div className="dashboard-stats-grid">
             <Link href="/account/orders" className="dashboard-stat-card">
-              <div className="dashboard-stat-icon dashboard-stat-icon--amber">
-                <TruckIcon className="size-6" />
+              <div className="dashboard-stat-top">
+                <div className="dashboard-stat-icon dashboard-stat-icon--amber">
+                  <TruckIcon className="size-5" />
+                </div>
+                <strong className="dashboard-stat-value">{dashboard.pendingOrders.toLocaleString("fa-IR")}</strong>
               </div>
               <div className="dashboard-stat-body">
                 <span className="dashboard-stat-label">سفارش‌های در حال انجام</span>
-                <strong className="dashboard-stat-value">{dashboard.pendingOrders.toLocaleString("fa-IR")}</strong>
               </div>
             </Link>
 
             <Link href="/account/orders" className="dashboard-stat-card">
-              <div className="dashboard-stat-icon dashboard-stat-icon--blue">
-                <PackageIcon className="size-6" />
+              <div className="dashboard-stat-top">
+                <div className="dashboard-stat-icon dashboard-stat-icon--blue">
+                  <PackageIcon className="size-5" />
+                </div>
+                <strong className="dashboard-stat-value">{dashboard.totalOrders.toLocaleString("fa-IR")}</strong>
               </div>
               <div className="dashboard-stat-body">
                 <span className="dashboard-stat-label">کل سفارش‌ها</span>
-                <strong className="dashboard-stat-value">{dashboard.totalOrders.toLocaleString("fa-IR")}</strong>
               </div>
             </Link>
 
             <Link href="/account/wishlist" className="dashboard-stat-card">
-              <div className="dashboard-stat-icon dashboard-stat-icon--rose">
-                <HeartIcon className="size-6" />
+              <div className="dashboard-stat-top">
+                <div className="dashboard-stat-icon dashboard-stat-icon--rose">
+                  <HeartIcon className="size-5" />
+                </div>
+                <strong className="dashboard-stat-value">{dashboard.wishlistCount.toLocaleString("fa-IR")}</strong>
               </div>
               <div className="dashboard-stat-body">
                 <span className="dashboard-stat-label">علاقه‌مندی‌ها</span>
-                <strong className="dashboard-stat-value">{dashboard.wishlistCount.toLocaleString("fa-IR")}</strong>
               </div>
             </Link>
 
             <Link href="/account/addresses" className="dashboard-stat-card">
-              <div className="dashboard-stat-icon dashboard-stat-icon--teal">
-                <MapPinIcon className="size-6" />
+              <div className="dashboard-stat-top">
+                <div className="dashboard-stat-icon dashboard-stat-icon--teal">
+                  <MapPinIcon className="size-5" />
+                </div>
+                <strong className="dashboard-stat-value">{dashboard.addressCount.toLocaleString("fa-IR")}</strong>
               </div>
               <div className="dashboard-stat-body">
                 <span className="dashboard-stat-label">آدرس‌های ثبت‌شده</span>
-                <strong className="dashboard-stat-value">{dashboard.addressCount.toLocaleString("fa-IR")}</strong>
               </div>
             </Link>
           </div>

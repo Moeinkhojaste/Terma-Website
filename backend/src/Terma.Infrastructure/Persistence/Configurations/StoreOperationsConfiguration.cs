@@ -5,7 +5,16 @@ using Terma.Infrastructure.Identity;
 
 namespace Terma.Infrastructure.Persistence.Configurations;
 
-public sealed class StoreOperationsConfiguration : IEntityTypeConfiguration<Customer>, IEntityTypeConfiguration<OrderItem>, IEntityTypeConfiguration<OrderStatusHistory>, IEntityTypeConfiguration<Promotion>, IEntityTypeConfiguration<ShippingRule>, IEntityTypeConfiguration<ContactMessage>, IEntityTypeConfiguration<StoreContent>
+public sealed class StoreOperationsConfiguration :
+    IEntityTypeConfiguration<Customer>,
+    IEntityTypeConfiguration<OrderItem>,
+    IEntityTypeConfiguration<OrderStatusHistory>,
+    IEntityTypeConfiguration<Promotion>,
+    IEntityTypeConfiguration<ShippingRule>,
+    IEntityTypeConfiguration<ContactMessage>,
+    IEntityTypeConfiguration<StoreContent>,
+    IEntityTypeConfiguration<ProductView>,
+    IEntityTypeConfiguration<CartSession>
 {
     public void Configure(EntityTypeBuilder<Customer> builder)
     {
@@ -82,5 +91,26 @@ public sealed class StoreOperationsConfiguration : IEntityTypeConfiguration<Cust
         builder.Property(x => x.SeoTitle).HasMaxLength(300);
         builder.Property(x => x.SeoDescription).HasMaxLength(1000);
         builder.HasIndex(x => new { x.PageKey, x.SectionKey }).IsUnique();
+    }
+
+    public void Configure(EntityTypeBuilder<ProductView> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.VisitorHash).HasMaxLength(128);
+        builder.HasIndex(x => new { x.ProductId, x.ViewedAtUtc });
+        builder.HasIndex(x => x.ViewedAtUtc);
+    }
+
+    public void Configure(EntityTypeBuilder<CartSession> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.SessionKey).HasMaxLength(128).IsRequired();
+        builder.Property(x => x.CustomerName).HasMaxLength(200);
+        builder.Property(x => x.Phone).HasMaxLength(32);
+        builder.Property(x => x.Email).HasMaxLength(320);
+        builder.Property(x => x.ItemsJson).HasMaxLength(16000).IsRequired();
+        builder.Property(x => x.TotalValue).HasPrecision(18, 2);
+        builder.HasIndex(x => x.SessionKey).IsUnique();
+        builder.HasIndex(x => new { x.LastActivityAtUtc, x.IsRecovered });
     }
 }
