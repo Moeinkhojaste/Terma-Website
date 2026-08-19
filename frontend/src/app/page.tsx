@@ -1,3 +1,10 @@
 import HomePage from "@/features/products/components/home-page";
 
-export default HomePage;
+export default async function Page({
+  searchParams,
+}: {
+  searchParams?: Promise<{ cmsPreview?: string }>;
+}) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  return <HomePage previewId={resolvedSearchParams?.cmsPreview} />;
+}
