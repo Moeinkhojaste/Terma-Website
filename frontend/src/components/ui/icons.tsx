@@ -195,25 +195,35 @@ export function TableIcon({ seats = 4, className = "size-16" }: IconProps & { se
 
 export function StitchIcon({ className = "size-7" }: IconProps) {
   return (
-    <svg aria-hidden="true" className={className} viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M5 8c5 4 8 4 11 0s6-4 11 0M5 16c5 4 8 4 11 0s6-4 11 0M5 24c5 4 8 4 11 0s6-4 11 0" strokeLinecap="round" />
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 4l-8.5 8.5" />
+      <path d="M20.5 2.5l-2 2" />
+      <path d="M10.5 12.5l-2 5 5-2" />
+      <path d="M3 21h3" strokeDasharray="1.5 1.5" />
+      <path d="M8 21h3" strokeDasharray="1.5 1.5" />
+      <path d="M13 21h3" strokeDasharray="1.5 1.5" />
+      <path d="M18 21h3" strokeDasharray="1.5 1.5" />
+      <path d="M19 4c1.5-1.5 2.5.5 1 2s-4 3-4 6" />
     </svg>
   );
 }
 
 export function FabricIcon({ className = "size-7" }: IconProps) {
   return (
-    <svg aria-hidden="true" className={className} viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M6 7h20v18H6z" /><path d="m6 13 6-6m-6 12L18 7M8 25 26 7M14 25l12-12m-6 12 6-6" />
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="13" height="13" rx="2.5" />
+      <path d="M8 17v1.5a2.5 2.5 0 0 0 2.5 2.5h8a2.5 2.5 0 0 0 2.5-2.5v-8a2.5 2.5 0 0 0-2.5-2.5H16" />
+      <path d="M3 10.5c3-1.5 6 1.5 9 0" />
+      <path d="M3 7.5c3-1.5 6 1.5 9 0" />
     </svg>
   );
 }
 
 export function PaisleyIcon({ className = "size-7" }: IconProps) {
   return (
-    <svg aria-hidden="true" className={className} viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.4">
-      <path d="M18 4c1 7 9 7 9 16 0 5-4 8-9 8-7 0-12-5-12-11 0-5 3-9 8-10-1 5 0 9 4 10 3 1 5-1 5-4 0-4-3-6-5-9Z" strokeLinejoin="round" />
-      <circle cx="16" cy="21" r="2.5" />
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3c1.5 3 6.5 4.5 6.5 10.5a6.5 6.5 0 0 1-13 0c0-3.5 2-6.5 4.5-8 0 3.5 1.5 5.5 3.5 5.5 1.5 0 2.5-1 2.5-2.5 0-2-2-3.5-4-5.5Z" />
+      <circle cx="12" cy="14.5" r="1.5" fill="currentColor" stroke="none" />
     </svg>
   );
 }

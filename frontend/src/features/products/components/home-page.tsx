@@ -328,12 +328,12 @@ export default async function Home({
               {valuesItems.map((item, index) => {
                 const IconComponent = valueIcons[index % valueIcons.length];
                 return (
-                  <article key={`${item.title}-${index}`}>
-                    <span>
+                  <article className="values-card" key={`${item.title}-${index}`}>
+                    <div className="values-card__icon">
                       <IconComponent />
-                    </span>
-                    <h3>{item.title}</h3>
-                    <p>{item.text}</p>
+                    </div>
+                    <h3 className="values-card__title">{item.title}</h3>
+                    <p className="values-card__text">{item.text}</p>
                   </article>
                 );
               })}
