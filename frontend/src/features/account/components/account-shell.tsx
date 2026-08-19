@@ -15,6 +15,7 @@ import {
   LogOutIcon,
   ShieldCheckIcon,
   XIcon,
+  ChatBubbleIcon,
 } from "@/components/ui/icons";
 import { getCustomerProfile, logoutCustomer, type CustomerProfile } from "../account-api";
 import { ApiError } from "@/lib/api-client";
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/account/orders", label: "سفارش‌های من", shortLabel: "سفارش‌ها", icon: PackageIcon, exact: false },
   { href: "/account/addresses", label: "آدرس‌های من", shortLabel: "آدرس‌ها", icon: MapPinIcon, exact: false },
   { href: "/account/wishlist", label: "علاقه‌مندی‌ها", shortLabel: "علاقه‌مندی", icon: HeartIcon, exact: false },
+  { href: "/account/reviews", label: "نظرات من", shortLabel: "نظرات", icon: ChatBubbleIcon, exact: false },
   { href: "/account/profile", label: "اطلاعات حساب", shortLabel: "پروفایل", icon: UserIcon, exact: false },
 ];
 

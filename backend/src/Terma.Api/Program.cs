@@ -47,7 +47,7 @@ if (!string.IsNullOrWhiteSpace(dataProtectionKeyPath))
 {
     dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath));
 }
-else if (!isDevelopment)
+else
 {
     var defaultKeysPath = Path.Combine(AppContext.BaseDirectory, "dataprotection-keys");
     dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(defaultKeysPath));

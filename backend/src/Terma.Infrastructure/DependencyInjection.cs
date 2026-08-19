@@ -12,6 +12,8 @@ using Terma.Infrastructure.Media;
 using Terma.Application.Cms;
 using Terma.Infrastructure.Cms;
 using Terma.Application.Customers;
+using Terma.Application.Reviews;
+using Terma.Infrastructure.Reviews;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -68,6 +70,7 @@ public static class DependencyInjection
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IStoreOperationsService, StoreOperationsService>();
         services.AddScoped<ICmsService, CmsService>();
+        services.AddScoped<IProductReviewService, ProductReviewService>();
         services.AddScoped<CmsContentSeeder>();
         services.AddScoped<AnalyticsDemoSeeder>();
         services.AddSingleton<IMediaStorage, LocalMediaStorage>();
