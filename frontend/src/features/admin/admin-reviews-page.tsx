@@ -66,7 +66,7 @@ export function AdminReviewsPage() {
     return () => {
       active = false;
     };
-  }, [statusFilter, page]);
+  }, [statusFilter, search, page]);
 
   const loadData = () => {
     getAdminReviews({

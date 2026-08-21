@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { ArrowLeftIcon } from "@/components/ui/icons";
 
@@ -26,21 +26,32 @@ const DEFAULT_SLIDES: HeroSlideItem[] = [
 
 const SLIDE_DURATION = 5000;
 
+function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(
+    (callback) => {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+        return () => {};
+      }
+      const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+      mq.addEventListener("change", callback);
+      return () => mq.removeEventListener("change", callback);
+    },
+    () => {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+        return false;
+      }
+      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    },
+    () => false,
+  );
+}
+
 export function HeroSlideshow({ slides = DEFAULT_SLIDES }: { slides?: HeroSlideItem[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const reducedMotion = usePrefersReducedMotion();
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReducedMotion(mq.matches);
-    const handler = () => setReducedMotion(mq.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
 
   const goToNext = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % slides.length);

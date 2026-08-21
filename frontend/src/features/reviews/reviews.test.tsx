@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { RatingStars } from "./components/rating-stars";
 import { ProductReviewsSection } from "./components/product-reviews-section";
 import * as reviewApi from "./review-api";

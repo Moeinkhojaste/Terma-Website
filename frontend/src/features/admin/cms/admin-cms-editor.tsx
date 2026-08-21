@@ -972,6 +972,7 @@ function HeroSlidesEditor({
               <div className="cms-slide-card__body">
                 <div className="cms-slide-card__preview">
                   {slide.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={resolveCmsMediaUrl(slide.url) || slide.url} alt={slide.alt || "پیش‌نمایش"} />
                   ) : (
                     <div className="cms-slide-card__placeholder">بدون تصویر</div>
