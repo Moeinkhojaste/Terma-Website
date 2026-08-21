@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminShell } from "@/features/admin/admin-shell";
 import { ApiError, getApiErrorMessage } from "@/lib/api-client";
-import { CmsDocumentRenderer } from "@/features/content/cms-renderer";
+import { CmsDocumentRenderer, resolveCmsMediaUrl } from "@/features/content/cms-renderer";
 import {
   archiveCmsPage,
   getCmsPage,
@@ -47,11 +47,18 @@ function template(type: string): CmsBlock {
     type === "hero"
       ? {
           ...common,
-          eyebrow: "",
-          imageUrl: "",
-          imageAlt: "",
-          primaryLabel: "مشاهده",
+          eyebrow: "ترمه، برای خانه امروز",
+          imageUrl: "/images/firoozeh-folded.webp",
+          imageAlt: "سفره ترمه فیروزه با نقش‌های آبی، کرم و مسی",
+          images: [
+            { url: "/images/firoozeh-folded.webp", alt: "سفره ترمه فیروزه با نقش‌های آبی، کرم و مسی" },
+            { url: "/images/lajvard-folded.webp", alt: "سفره ترمه لاجورد با نقش‌های سفید و مسی" },
+            { url: "/images/nila-folded.webp", alt: "سفره ترمه نیلا با نقش‌های بته‌جقه آبی" },
+          ],
+          primaryLabel: "دیدن محصولات",
           primaryHref: "/products",
+          secondaryLabel: "راهنمای انتخاب",
+          secondaryHref: "/#راهنمای-خرید",
         }
       : type === "announcement"
         ? { text: "پیام کوتاه اعلان" }
@@ -79,6 +86,8 @@ function template(type: string): CmsBlock {
                   email: "",
                   phone: "",
                   instagramUrl: "",
+                  telegramUrl: "",
+                  whatsappUrl: "",
                   responseHours: "",
                 }
               : type === "productShowcase"
@@ -698,7 +707,26 @@ function BlockFields({
           />
         </label>
       )}
-      {["hero", "imageText"].includes(block.type) && (
+      {block.type === "hero" && (
+        <HeroSlidesEditor
+          images={
+            Array.isArray(data.images)
+              ? (data.images as Array<{ url: string; alt?: string }>)
+              : typeof data.imageUrl === "string" && data.imageUrl
+                ? [{ url: data.imageUrl, alt: typeof data.imageAlt === "string" ? data.imageAlt : "" }]
+                : []
+          }
+          media={media}
+          update={(images) =>
+            update({
+              images,
+              imageUrl: images[0]?.url || "",
+              imageAlt: images[0]?.alt || "",
+            })
+          }
+        />
+      )}
+      {block.type === "imageText" && (
         <>
           <label className="form-field">
             <span>تصویر از کتابخانه</span>
@@ -765,7 +793,9 @@ function BlockFields({
           </label>
           {field("email", "ایمیل", "ltr")}
           {field("phone", "تلفن", "ltr")}
-          {field("instagramUrl", "اینستاگرام", "ltr")}
+          {field("instagramUrl", "لینک اینستاگرام", "ltr")}
+          {field("telegramUrl", "لینک تلگرام", "ltr")}
+          {field("whatsappUrl", "لینک واتساپ", "ltr")}
           {field("responseHours", "زمان پاسخ‌گویی")}
         </>
       )}
@@ -838,3 +868,166 @@ function BlockFields({
     </>
   );
 }
+
+function HeroSlidesEditor({
+  images = [],
+  media,
+  update,
+}: {
+  images: Array<{ url: string; alt?: string }>;
+  media: MediaAsset[];
+  update: (images: Array<{ url: string; alt?: string }>) => void;
+}) {
+  const moveSlide = (index: number, offset: number) => {
+    const target = index + offset;
+    if (target < 0 || target >= images.length) return;
+    const next = [...images];
+    [next[index], next[target]] = [next[target], next[index]];
+    update(next);
+  };
+
+  const removeSlide = (index: number) => {
+    update(images.filter((_, i) => i !== index));
+  };
+
+  const updateSlide = (index: number, patch: Partial<{ url: string; alt?: string }>) => {
+    const next = images.map((slide, i) => (i === index ? { ...slide, ...patch } : slide));
+    update(next);
+  };
+
+  const addSlide = (url = "") => {
+    const asset = media.find((m) => m.publicUrl === url);
+    update([...images, { url, alt: asset?.altText || "" }]);
+  };
+
+  return (
+    <div className="cms-slides-manager">
+      <div className="cms-slides-manager__heading">
+        <div>
+          <strong>مدیریت تصاویر اسلایدشو هیرو</strong>
+          <small>تصاویر با ترنزیشن نرم و افکت‌های حرکتی در صفحه اصلی تعویض می‌شوند.</small>
+        </div>
+        <button
+          type="button"
+          className="button button--secondary button--sm"
+          onClick={() => addSlide(media[0]?.publicUrl || "")}
+        >
+          + افزودن تصویر به اسلایدشو
+        </button>
+      </div>
+
+      {images.length === 0 ? (
+        <div className="cms-slides-empty">
+          <p>هنوز تصویری به اسلایدشو اضافه نشده است (تصاویر پیش‌فرض سیستم نمایش داده می‌شوند).</p>
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={() =>
+              update([
+                { url: "/images/firoozeh-folded.webp", alt: "سفره ترمه فیروزه با نقش‌های آبی، کرم و مسی" },
+                { url: "/images/lajvard-folded.webp", alt: "سفره ترمه لاجورد با نقش‌های سفید و مسی" },
+                { url: "/images/nila-folded.webp", alt: "سفره ترمه نیلا با نقش‌های بته‌جقه آبی" },
+              ])
+            }
+          >
+            بارگذاری ۳ تصویر پیش‌فرض ترمه
+          </button>
+        </div>
+      ) : (
+        <div className="cms-slides-list">
+          {images.map((slide, index) => (
+            <div className="cms-slide-card" key={`slide-${index}`}>
+              <div className="cms-slide-card__header">
+                <span className="cms-slide-card__index">
+                  تصویر {new Intl.NumberFormat("fa-IR").format(index + 1)}
+                </span>
+                <div className="cms-slide-card__actions">
+                  <button
+                    type="button"
+                    title="انتقال به بالا"
+                    disabled={index === 0}
+                    onClick={() => moveSlide(index, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    title="انتقال به پایین"
+                    disabled={index === images.length - 1}
+                    onClick={() => moveSlide(index, 1)}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    className="is-danger"
+                    title="حذف تصویر"
+                    onClick={() => removeSlide(index)}
+                  >
+                    ✕ حذف
+                  </button>
+                </div>
+              </div>
+
+              <div className="cms-slide-card__body">
+                <div className="cms-slide-card__preview">
+                  {slide.url ? (
+                    <img src={resolveCmsMediaUrl(slide.url) || slide.url} alt={slide.alt || "پیش‌نمایش"} />
+                  ) : (
+                    <div className="cms-slide-card__placeholder">بدون تصویر</div>
+                  )}
+                </div>
+
+                <div className="cms-slide-card__fields">
+                  <label className="form-field">
+                    <span>انتخاب / تعویض از کتابخانه رسانه</span>
+                    <select
+                      value={slide.url}
+                      onChange={(e) => {
+                        const asset = media.find((m) => m.publicUrl === e.target.value);
+                        updateSlide(index, {
+                          url: e.target.value,
+                          alt: asset?.altText || slide.alt,
+                        });
+                      }}
+                    >
+                      <option value="">-- انتخاب از کتابخانه رسانه --</option>
+                      {media.map((asset) => (
+                        <option value={asset.publicUrl} key={asset.id}>
+                          {asset.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="form-field">
+                    <span>یا آدرس مستقیم تصویر (URL)</span>
+                    <input
+                      dir="ltr"
+                      value={slide.url}
+                      placeholder="/images/... یا https://..."
+                      onChange={(e) => updateSlide(index, { url: e.target.value })}
+                    />
+                  </label>
+
+                  <label className="form-field">
+                    <span>متن جایگزین (Alt Text)</span>
+                    <input
+                      value={slide.alt || ""}
+                      placeholder="توضیح تصویر برای سئو و دسترس‌پذیری"
+                      onChange={(e) => updateSlide(index, { alt: e.target.value })}
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <small className="cms-slides-footer-note">
+        برای آپلود تصاویر جدید، وارد بخش <Link href="/admin/content/media">کتابخانه رسانه</Link> شوید.
+      </small>
+    </div>
+  );
+}
+

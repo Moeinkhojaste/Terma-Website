@@ -152,5 +152,9 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}, isR
 }
 
 export function getApiErrorMessage(error: unknown) {
-  return error instanceof ApiError ? error.message : "خطای پیش‌بینی‌نشده‌ای رخ داد.";
+  if (error instanceof ApiError) return error.message;
+  if (typeof error === "object" && error !== null && (error as { name?: string }).name === "ApiError" && typeof (error as { message?: string }).message === "string") {
+    return (error as { message: string }).message;
+  }
+  return "خطای پیش‌بینی‌نشده‌ای رخ داد.";
 }

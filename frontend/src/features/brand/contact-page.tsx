@@ -58,13 +58,13 @@ export async function ContactPage({ email, phone, instagramUrl }: ContactPagePro
         <section className="contact-content section-pad section-rule">
           <Container className="contact-content__grid">
             <div className="contact-channels">
-              <article><span><MailIcon /></span><div><h2>ایمیل</h2>{email ? <a href={`mailto:${email}`} dir="ltr">{email}</a> : <p>info@terma.ir</p>}</div></article>
-              <article><span><PhoneIcon /></span><div><h2>تلفن پشتیبانی</h2>{phone ? <a href={`tel:${phone}`} dir="ltr">{phone}</a> : <p>۰۲۱-۸۸۸۸۸۸۸۸</p>}</div></article>
-              <article><span><MessageIcon /></span><div><h2>اینستاگرام</h2>{instagramUrl ? <a href={instagramUrl} target="_blank" rel="noreferrer">رفتن به صفحه ترما</a> : <p>صفحه رسمی ترما</p>}</div></article>
-              <article><span><ClockIcon /></span><div><h2>زمان پاسخ‌گویی</h2><p>شنبه تا چهارشنبه، ۹ تا ۱۸</p></div></article>
+              <article><span><MailIcon className="size-5" /></span><div><h2>ایمیل</h2>{email ? <a href={`mailto:${email}`} dir="ltr">{email}</a> : <p>info@terma.ir</p>}</div></article>
+              <article><span><PhoneIcon className="size-5" /></span><div><h2>تلفن پشتیبانی</h2>{phone ? <a href={`tel:${phone}`} dir="ltr">{phone}</a> : <p>۰۲۱-۸۸۸۸۸۸۸۸</p>}</div></article>
+              <article><span><MessageIcon className="size-5" /></span><div><h2>اینستاگرام</h2>{instagramUrl ? <a href={instagramUrl} target="_blank" rel="noreferrer">رفتن به صفحه ترما</a> : <p>صفحه رسمی ترما</p>}</div></article>
+              <article><span><ClockIcon className="size-5" /></span><div><h2>زمان پاسخ‌گویی</h2><p>شنبه تا چهارشنبه، ۹ تا ۱۸</p></div></article>
               <aside className="contact-channels__note">
                 <strong>پیام شما درباره سفارش است؟</strong>
-                <p>نام خریدار، شماره تماس و شماره سفارش را بنویسید. اطلاعات کارت بانکی یا رمز خود را در پیام ارسال نکنید.</p>
+                <p>نام خریدار، شماره تماس و شماره سفارش را بنویسید. از ارسال اطلاعات کارت بانکی خودداری فرمایید.</p>
               </aside>
             </div>
             <ContactForm contactEmail={email} />

@@ -16,12 +16,18 @@ export type RichTextNode = {
   content?: RichTextNode[];
 };
 
+export type CmsHeroSlide = {
+  url: string;
+  alt?: string;
+};
+
 export type CmsBlockData = Record<string, unknown> & {
   eyebrow?: string;
   title?: string;
   text?: string;
   imageUrl?: string;
   imageAlt?: string;
+  images?: CmsHeroSlide[];
   label?: string;
   href?: string;
   content?: RichTextNode;

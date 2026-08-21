@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeftIcon, FabricIcon, PaisleyIcon, StitchIcon } from "@/components/ui/icons";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ProductCarousel } from "@/features/products/components/product-carousel";
+import { HeroSlideshow } from "@/features/products/components/hero-slideshow";
 import { listProducts } from "@/features/products/product-api";
 import type { Product } from "@/features/products/models";
 import { getPublicContent, type PublicContent } from "@/features/content/content-api";
@@ -19,12 +20,6 @@ const sizes = [
   { title: "۴ نفره", size: 4, image: "/images/table-4p.webp", alt: "سفره ترمه روی میز چهار نفره", desc: "مناسب صبحانه و وعده‌های دونفره تا چهارنفره" },
   { title: "۶ نفره", size: 6, image: "/images/table-6p.webp", alt: "سفره ترمه روی میز شش نفره", desc: "ابعاد استاندارد برای پذیرایی‌های خانوادگی" },
   { title: "۸ نفره", size: 8, image: "/images/table-8p.webp", alt: "سفره ترمه روی میز هشت نفره", desc: "مناسب مهمانی‌های بزرگ و سفره‌های اصیل" },
-];
-
-const heroImages = [
-  { src: "/images/firoozeh-folded.webp", alt: "سفره ترمه فیروزه با نقش‌های آبی، کرم و مسی" },
-  { src: "/images/lajvard-folded.webp", alt: "سفره ترمه لاجورد با نقش‌های سفید و مسی" },
-  { src: "/images/nila-folded.webp", alt: "سفره ترمه نیلا با نقش‌های بته‌جقه آبی" },
 ];
 
 const defaultValuesItems = [
@@ -143,6 +138,27 @@ export default async function Home({
     (typeof heroBlock?.data.secondaryHref === "string" ? heroBlock.data.secondaryHref : "") ||
     "#راهنمای-خرید";
 
+  const rawHeroSlides = Array.isArray(heroBlock?.data.images)
+    ? (heroBlock.data.images as Array<Record<string, unknown>>)
+    : [];
+
+  const heroSlides =
+    rawHeroSlides.length > 0
+      ? rawHeroSlides
+          .map((item) => ({
+            src: typeof item.url === "string" ? resolveCmsMediaUrl(item.url) || item.url : "",
+            alt: typeof item.alt === "string" ? item.alt : "",
+          }))
+          .filter((item) => Boolean(item.src))
+      : typeof heroBlock?.data.imageUrl === "string" && heroBlock.data.imageUrl
+        ? [
+            {
+              src: resolveCmsMediaUrl(heroBlock.data.imageUrl) || heroBlock.data.imageUrl,
+              alt: typeof heroBlock.data.imageAlt === "string" ? heroBlock.data.imageAlt : "",
+            },
+          ]
+        : undefined;
+
   const categoryEyebrow =
     (typeof categoryBlock?.data.eyebrow === "string" ? categoryBlock.data.eyebrow : "") ||
     "دسته‌بندی";
@@ -254,20 +270,7 @@ export default async function Home({
                 <Link className="text-link" href={heroSecondaryHref}>{heroSecondaryLabel}</Link>
               </div>
             </div>
-            <figure className="hero-visual">
-              {heroImages.map((image, index) => (
-                <Image
-                  className="hero-slide"
-                  src={image.src}
-                  alt={image.alt}
-                  fill
-                  priority={index === 0}
-                  loading="eager"
-                  sizes="(max-width: 767px) 92vw, 55vw"
-                  key={image.src}
-                />
-              ))}
-            </figure>
+            <HeroSlideshow slides={heroSlides} />
           </Container>
         </section>
 

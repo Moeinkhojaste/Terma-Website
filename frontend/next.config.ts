@@ -6,9 +6,9 @@ const cspHeader = `
   default-src 'self';
   script-src 'self' 'unsafe-inline' 'unsafe-eval';
   style-src 'self' 'unsafe-inline';
-  img-src 'self' data: blob: https:;
+  img-src 'self' data: blob: https: ${configuredApi ? configuredApi.origin : ""} http://localhost:* http://127.0.0.1:*;
   font-src 'self' data:;
-  connect-src 'self' ${configuredApi ? configuredApi.origin : ""} http://localhost:* https://localhost:*;
+  connect-src 'self' ${configuredApi ? configuredApi.origin : ""} http://localhost:* https://localhost:* http://127.0.0.1:*;
   frame-ancestors 'none';
   form-action 'self';
   base-uri 'self';
@@ -19,9 +19,14 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     qualities: [75, 90, 95],
-    remotePatterns: configuredApi
-      ? [{ protocol: configuredApi.protocol.replace(":", "") as "http" | "https", hostname: configuredApi.hostname, port: configuredApi.port, pathname: "/api/media/**" }]
-      : [],
+    remotePatterns: [
+      { protocol: "http", hostname: "localhost", pathname: "/**" },
+      { protocol: "https", hostname: "localhost", pathname: "/**" },
+      { protocol: "http", hostname: "127.0.0.1", pathname: "/**" },
+      ...(configuredApi
+        ? [{ protocol: configuredApi.protocol.replace(":", "") as "http" | "https", hostname: configuredApi.hostname, port: configuredApi.port, pathname: "/**" }]
+        : []),
+    ],
   },
   async headers() {
     return [
