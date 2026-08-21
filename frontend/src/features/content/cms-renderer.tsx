@@ -4,6 +4,7 @@ import { Container } from "@/components/layout/container";
 import { Button } from "@/components/ui/button";
 import { ProductCarousel } from "@/features/products/components/product-carousel";
 import type { Product } from "@/features/products/models";
+import { ClockIcon, InstagramIcon, MailIcon, PhoneIcon, TelegramIcon, WhatsAppIcon } from "@/components/ui/icons";
 import { ContactForm } from "@/features/brand/contact-form";
 import { getApiBaseUrl } from "@/lib/api-client";
 import type { CmsBlock, CmsDocument, RichTextNode } from "./cms-types";
@@ -58,14 +59,115 @@ export function CmsBlockRenderer({ block, products = [], showContactForm = false
   const imageAlt = stringValue(data.imageAlt, title);
   const items = itemsValue(data.items);
 
+  const rawImages = Array.isArray(data.images) ? (data.images as Array<Record<string, unknown>>) : [];
+  const heroMediaUrl = (rawImages.length > 0 && typeof rawImages[0]?.url === "string" && resolveCmsMediaUrl(rawImages[0].url)) || imageUrl;
+  const heroMediaAlt = (rawImages.length > 0 && typeof rawImages[0]?.alt === "string" ? rawImages[0].alt : "") || imageAlt;
+
   if (block.type === "announcement") return <div className="announcement cms-announcement">{text}</div>;
-  if (block.type === "hero") return <section className="cms-hero section-pad"><Container className="cms-hero__grid"><div className="cms-copy">{eyebrow && <p className="section-eyebrow">{eyebrow}</p>}<h1>{title}</h1>{text && <p>{text}</p>}<div className="cms-actions">{stringValue(data.primaryLabel) && <Button href={safeHref(data.primaryHref)}>{stringValue(data.primaryLabel)}</Button>}{stringValue(data.secondaryLabel) && <Button href={safeHref(data.secondaryHref)} variant="secondary">{stringValue(data.secondaryLabel)}</Button>}</div></div>{imageUrl && <figure className="cms-media"><CmsImage src={imageUrl} alt={imageAlt} /></figure>}</Container></section>;
+  if (block.type === "hero") return (
+    <section className={`cms-hero ${!heroMediaUrl ? "cms-hero--no-media" : ""} section-pad`}>
+      <Container className={`cms-hero__grid ${!heroMediaUrl ? "cms-hero__grid--no-media" : ""}`}>
+        <div className="cms-copy">
+          {eyebrow && <p className="section-eyebrow">{eyebrow}</p>}
+          <h1>{title}</h1>
+          {text && <p>{text}</p>}
+          {(stringValue(data.primaryLabel) || stringValue(data.secondaryLabel)) && (
+            <div className="cms-actions">
+              {stringValue(data.primaryLabel) && <Button href={safeHref(data.primaryHref)}>{stringValue(data.primaryLabel)}</Button>}
+              {stringValue(data.secondaryLabel) && <Button href={safeHref(data.secondaryHref)} variant="secondary">{stringValue(data.secondaryLabel)}</Button>}
+            </div>
+          )}
+        </div>
+        {heroMediaUrl && <figure className="cms-media"><CmsImage src={heroMediaUrl} alt={heroMediaAlt} /></figure>}
+      </Container>
+    </section>
+  );
   if (block.type === "richText") return <section className="cms-rich section-pad"><Container>{eyebrow && <p className="section-eyebrow">{eyebrow}</p>}{title && <h2>{title}</h2>}{data.content ? <RichTextOutput node={data.content as RichTextNode} /> : <p>{text}</p>}</Container></section>;
   if (block.type === "imageText") return <section className="cms-image-text section-pad section-rule"><Container className={`cms-image-text__grid ${data.imageSide === "left" ? "cms-image-text__grid--reverse" : ""}`}>{imageUrl && <figure className="cms-media"><CmsImage src={imageUrl} alt={imageAlt} /></figure>}<div className="cms-copy">{eyebrow && <p className="section-eyebrow">{eyebrow}</p>}<h2>{title}</h2><p>{text}</p></div></Container></section>;
   if (block.type === "featureGrid") return <section className="cms-features section-pad" id={stringValue(data.anchor) || undefined}><Container>{eyebrow && <p className="section-eyebrow">{eyebrow}</p>}<h2>{title}</h2>{text && <p className="cms-lead">{text}</p>}<div className="cms-card-grid">{items.map((item, index) => <article key={`${item.title}-${index}`}><span>{new Intl.NumberFormat("fa-IR", { minimumIntegerDigits: 2 }).format(index + 1)}</span><h3>{item.title}</h3><p>{item.text}</p></article>)}</div></Container></section>;
   if (block.type === "faq") return <section className="cms-faq section-pad"><Container><h2>{title}</h2><div>{items.map((item, index) => <details key={`${item.question}-${index}`}><summary>{item.question}<span aria-hidden="true">+</span></summary><p>{item.answer}</p></details>)}</div></Container></section>;
   if (block.type === "cta") return <section className="cms-cta section-pad"><Container><div><h2>{title}</h2><p>{text}</p></div>{data.label && <Button href={safeHref(data.href)}>{stringValue(data.label)}</Button>}</Container></section>;
-  if (block.type === "contactInfo") return <section className="cms-contact section-pad"><Container className="cms-contact__grid"><div><h2>{title || "راه‌های ارتباط"}</h2>{text && <p>{text}</p>}<dl>{stringValue(data.email) && <><dt>ایمیل</dt><dd><a href={`mailto:${stringValue(data.email)}`} dir="ltr">{stringValue(data.email)}</a></dd></>}{stringValue(data.phone) && <><dt>تلفن</dt><dd><a href={`tel:${stringValue(data.phone)}`} dir="ltr">{stringValue(data.phone)}</a></dd></>}{stringValue(data.responseHours) && <><dt>زمان پاسخ‌گویی</dt><dd>{stringValue(data.responseHours)}</dd></>}</dl></div>{showContactForm && <ContactForm contactEmail={stringValue(data.email) || undefined} />}</Container></section>;
+  if (block.type === "contactInfo") {
+    const email = stringValue(data.email);
+    const phone = stringValue(data.phone);
+    const responseHours = stringValue(data.responseHours);
+    const instagramUrl = stringValue(data.instagramUrl);
+    const telegramUrl = stringValue(data.telegramUrl);
+    const whatsappUrl = stringValue(data.whatsappUrl);
+    return (
+      <section className="cms-contact section-pad">
+        <Container className="cms-contact__grid">
+          <div className="cms-contact__info">
+            <div className="cms-contact__header">
+              <h2>{title || "راه‌های ارتباط"}</h2>
+              {text && <p>{text}</p>}
+            </div>
+            <div className="cms-contact__cards">
+              {email && (
+                <article className="cms-contact-card">
+                  <span className="cms-contact-card__icon"><MailIcon className="size-5" /></span>
+                  <div>
+                    <strong>ایمیل</strong>
+                    <a href={`mailto:${email}`} dir="ltr">{email}</a>
+                  </div>
+                </article>
+              )}
+              {phone && (
+                <article className="cms-contact-card">
+                  <span className="cms-contact-card__icon"><PhoneIcon className="size-5" /></span>
+                  <div>
+                    <strong>تلفن پشتیبانی</strong>
+                    <a href={`tel:${phone}`} dir="ltr">{phone}</a>
+                  </div>
+                </article>
+              )}
+              {instagramUrl && (
+                <article className="cms-contact-card">
+                  <span className="cms-contact-card__icon"><InstagramIcon className="size-5" /></span>
+                  <div>
+                    <strong>اینستاگرام</strong>
+                    <a href={instagramUrl} target="_blank" rel="noreferrer" dir="ltr">صفحه رسمی ترما</a>
+                  </div>
+                </article>
+              )}
+              {telegramUrl && (
+                <article className="cms-contact-card">
+                  <span className="cms-contact-card__icon"><TelegramIcon className="size-5" /></span>
+                  <div>
+                    <strong>تلگرام</strong>
+                    <a href={telegramUrl} target="_blank" rel="noreferrer" dir="ltr">کانال و پشتیبانی تلگرام</a>
+                  </div>
+                </article>
+              )}
+              {whatsappUrl && (
+                <article className="cms-contact-card">
+                  <span className="cms-contact-card__icon"><WhatsAppIcon className="size-5" /></span>
+                  <div>
+                    <strong>واتساپ</strong>
+                    <a href={whatsappUrl} target="_blank" rel="noreferrer" dir="ltr">گفت‌وگو در واتساپ</a>
+                  </div>
+                </article>
+              )}
+              {responseHours && (
+                <article className="cms-contact-card">
+                  <span className="cms-contact-card__icon"><ClockIcon className="size-5" /></span>
+                  <div>
+                    <strong>ساعت پاسخ‌گویی</strong>
+                    <p>{responseHours}</p>
+                  </div>
+                </article>
+              )}
+            </div>
+            <aside className="cms-contact__note">
+              <strong>پیام شما درباره سفارش است؟</strong>
+              <p>نام خریدار، شماره تماس و شماره سفارش را بنویسید. از ارسال اطلاعات کارت بانکی خودداری فرمایید.</p>
+            </aside>
+          </div>
+          {showContactForm && <ContactForm contactEmail={email || undefined} />}
+        </Container>
+      </section>
+    );
+  }
   if (block.type === "linkList" || block.type === "categoryLinks") return <section className="cms-links section-pad"><Container>{title && <h2>{title}</h2>}<div className="cms-link-grid">{items.map((item, index) => <Link href={safeHref(item.href)} key={`${item.label}-${index}`}>{item.label}<span aria-hidden="true">←</span></Link>)}</div></Container></section>;
   if (block.type === "productShowcase") return <section className="section-pad products-section"><Container><div className="heading-row"><div><p className="section-eyebrow">{eyebrow}</p><h2>{title}</h2><p>{text}</p></div><Button href="/products" variant="secondary">مشاهده همه محصولات</Button></div>{products.length ? <ProductCarousel products={products.slice(0, numberValue(data.count, 3))} /> : <div className="catalog-empty catalog-empty--compact"><h3>هنوز محصول فعالی ثبت نشده است</h3></div>}</Container></section>;
   return null;

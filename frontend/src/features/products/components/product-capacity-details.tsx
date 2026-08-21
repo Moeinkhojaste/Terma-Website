@@ -5,6 +5,8 @@ import { AddToCartButton } from "@/features/cart/add-to-cart-button";
 import { getDefaultCapacity, selectProductCapacity } from "@/features/products/product-selection";
 import type { Product, ProductCapacityOption } from "@/features/products/models";
 
+import { WishlistButton } from "@/features/account/components/wishlist-button";
+
 export function ProductCapacityDetails({ product, selectedSize, onSelect, purchaseAnchor }: { product: Product; selectedSize: number; onSelect: (option: ProductCapacityOption) => void; purchaseAnchor: RefObject<HTMLDivElement | null> }) {
   const capacities = [...product.capacities].sort((first, second) => first.tableCapacity - second.tableCapacity);
   const selectedOption = capacities.find((option) => option.tableCapacity === selectedSize) ?? getDefaultCapacity(product);
@@ -28,6 +30,15 @@ export function ProductCapacityDetails({ product, selectedSize, onSelect, purcha
       <div><dt>آستر</dt><dd>{product.lining}</dd></div>
       <div><dt>کد محصول</dt><dd dir="ltr">{activeProduct.sku}</dd></div>
     </dl>
-    <div ref={purchaseAnchor} className="product-purchase-anchor"><AddToCartButton product={activeProduct} /></div>
+    <div ref={purchaseAnchor} className="product-purchase-actions">
+      <div className="product-purchase-main">
+        <AddToCartButton product={activeProduct} />
+      </div>
+      <WishlistButton
+        productId={product.id}
+        productName={product.name}
+        className="product-purchase-wishlist"
+      />
+    </div>
   </>;
 }

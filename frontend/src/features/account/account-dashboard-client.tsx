@@ -2,61 +2,244 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
-import { Container } from "@/components/layout/container";
-import { formatPrice } from "@/lib/format";
-import { ApiError } from "@/lib/api-client";
-import { getCustomerOrders, getCustomerSession, logoutCustomer, orderStatusLabels, type CustomerOrderSummary, type CustomerSession } from "./account-api";
+import { AccountShell } from "./components/account-shell";
+import {
+  getCustomerDashboard,
+  orderStatusLabels,
+  type CustomerDashboard,
+} from "./account-api";
+import { formatPrice, formatPersianDate } from "@/lib/format";
+import {
+  PackageIcon,
+  TruckIcon,
+  HeartIcon,
+  MapPinIcon,
+  ArrowLeftIcon,
+  CopyIcon,
+  ExternalLinkIcon,
+} from "@/components/ui/icons";
 
 export function AccountDashboardClient() {
-  const router = useRouter();
-  const [session, setSession] = useState<CustomerSession>();
-  const [orders, setOrders] = useState<CustomerOrderSummary[]>([]);
-  const [error, setError] = useState("");
+  const [dashboard, setDashboard] = useState<CustomerDashboard | null>(null);
   const [loading, setLoading] = useState(true);
-  const [retryKey, setRetryKey] = useState(0);
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [logoutError, setLogoutError] = useState("");
+  const [error, setError] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   useEffect(() => {
-    Promise.all([getCustomerSession(), getCustomerOrders()])
-      .then(([me, list]) => { setSession(me); setOrders(list.items); })
-      .catch((caught) => {
-        if (caught instanceof ApiError && caught.status === 401) router.replace("/account/login");
-        else setError(accountLoadError(caught));
+    getCustomerDashboard()
+      .then(setDashboard)
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "خطا در دریافت اطلاعات حساب کاربری");
       })
       .finally(() => setLoading(false));
-  }, [router, retryKey]);
-  function retry() {
-    setLoading(true); setError(""); setRetryKey((value) => value + 1);
-  }
-  async function logout() {
-    setLoggingOut(true); setLogoutError("");
-    try {
-      await logoutCustomer();
-      router.replace("/account/login");
-      router.refresh();
-    } catch (caught) {
-      setLoggingOut(false);
-      setLogoutError(logoutMessage(caught));
-    }
-  }
-  return <><Header /><main className="commerce-page account-page"><Container>
-    <div className="account-heading"><div><p className="section-eyebrow">حساب من</p><h1>سفارش‌های من</h1>{session && <p>شماره تأییدشده: <b dir="ltr">{session.phone}</b></p>}{logoutError && <small className="form-field__error" role="alert">{logoutError}</small>}</div>{session && <button className="button button--secondary" onClick={logout} disabled={loggingOut}>{loggingOut ? "در حال خروج…" : "خروج از حساب"}</button>}</div>
-    {loading ? <div className="cart-loading" role="status">در حال دریافت سفارش‌ها…</div> : error ? <div className="account-error account-error--action" role="alert"><span>{error}</span><button type="button" className="button button--secondary" onClick={retry}>تلاش دوباره</button></div> : orders.length === 0 ? <section className="commerce-empty"><h2>هنوز سفارشی ندارید</h2><p>بعد از ثبت سفارش، وضعیت آن را از همین صفحه دنبال کنید.</p><Link className="button button--primary" href="/products">مشاهده محصولات</Link></section> : <div className="account-order-list">{orders.map(order => <Link href={`/account/orders/${order.id}`} className="account-order-card" key={order.id}><div><strong dir="ltr">{order.number}</strong><span>{new Date(order.createdAt).toLocaleDateString("fa-IR")}</span></div><div><span className="status-pill">{orderStatusLabels[order.status]}</span><b>{formatPrice(order.total)}</b><small>{order.itemCount.toLocaleString("fa-IR")} کالا</small></div></Link>)}</div>}
-  </Container></main><Footer /></>;
-}
+  }, []);
 
-function accountLoadError(error: unknown) {
-  if (!(error instanceof ApiError)) return "خطای پیش‌بینی‌نشده‌ای رخ داد. دوباره تلاش کنید.";
-  if (error.isNetworkError) return "ارتباط با سرویس حساب برقرار نشد. اتصال اینترنت و اجرای API را بررسی کنید.";
-  if (error.status === 404) return "سرویس حساب کاربری در API در دسترس نیست. بک‌اند را به‌روز و دوباره اجرا کنید.";
-  return "دریافت اطلاعات حساب انجام نشد. چند لحظه دیگر دوباره تلاش کنید.";
-}
+  const copyTracking = (code: string, id: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
-function logoutMessage(error: unknown) {
-  if (!(error instanceof ApiError)) return "خروج از حساب انجام نشد. دوباره تلاش کنید.";
-  if (error.isNetworkError) return "ارتباط با سرویس برقرار نشد. دوباره تلاش کنید.";
-  return "خروج از حساب انجام نشد. دوباره تلاش کنید.";
+  return (
+    <AccountShell>
+      {loading ? (
+        <div className="cart-loading" role="status">
+          در حال بارگذاری اطلاعات حساب…
+        </div>
+      ) : error ? (
+        <div className="account-error" role="alert">
+          {error}
+        </div>
+      ) : dashboard ? (
+        <div className="account-dashboard-view">
+          {/* Welcome Banner */}
+          <div className="dashboard-welcome-banner">
+            <div>
+              <h2>سلام، {dashboard.profile.fullName} عزیز</h2>
+              <p>به پنل کاربری ترما خوش آمدید. در این بخش می‌توانید سفارش‌ها، آدرس‌ها و علاقه‌مندی‌های خود را مدیریت کنید.</p>
+            </div>
+            <span className="dashboard-date-badge" dir="rtl">
+              {formatPersianDate(new Date())}
+            </span>
+          </div>
+
+          {/* Quick Stat Cards */}
+          <div className="dashboard-stats-grid">
+            <Link href="/account/orders" className="dashboard-stat-card">
+              <div className="dashboard-stat-top">
+                <div className="dashboard-stat-icon dashboard-stat-icon--amber">
+                  <TruckIcon className="size-5" />
+                </div>
+                <strong className="dashboard-stat-value">{dashboard.pendingOrders.toLocaleString("fa-IR")}</strong>
+              </div>
+              <div className="dashboard-stat-body">
+                <span className="dashboard-stat-label">سفارش‌های در حال انجام</span>
+              </div>
+            </Link>
+
+            <Link href="/account/orders" className="dashboard-stat-card">
+              <div className="dashboard-stat-top">
+                <div className="dashboard-stat-icon dashboard-stat-icon--blue">
+                  <PackageIcon className="size-5" />
+                </div>
+                <strong className="dashboard-stat-value">{dashboard.totalOrders.toLocaleString("fa-IR")}</strong>
+              </div>
+              <div className="dashboard-stat-body">
+                <span className="dashboard-stat-label">کل سفارش‌ها</span>
+              </div>
+            </Link>
+
+            <Link href="/account/wishlist" className="dashboard-stat-card">
+              <div className="dashboard-stat-top">
+                <div className="dashboard-stat-icon dashboard-stat-icon--rose">
+                  <HeartIcon className="size-5" />
+                </div>
+                <strong className="dashboard-stat-value">{dashboard.wishlistCount.toLocaleString("fa-IR")}</strong>
+              </div>
+              <div className="dashboard-stat-body">
+                <span className="dashboard-stat-label">علاقه‌مندی‌ها</span>
+              </div>
+            </Link>
+
+            <Link href="/account/addresses" className="dashboard-stat-card">
+              <div className="dashboard-stat-top">
+                <div className="dashboard-stat-icon dashboard-stat-icon--teal">
+                  <MapPinIcon className="size-5" />
+                </div>
+                <strong className="dashboard-stat-value">{dashboard.addressCount.toLocaleString("fa-IR")}</strong>
+              </div>
+              <div className="dashboard-stat-body">
+                <span className="dashboard-stat-label">آدرس‌های ثبت‌شده</span>
+              </div>
+            </Link>
+          </div>
+
+          {/* Dashboard 2-column Grid */}
+          <div className="dashboard-sections-grid">
+            {/* Recent Orders */}
+            <div className="dashboard-section-card">
+              <div className="dashboard-section-header">
+                <h3>آخرین سفارش‌ها</h3>
+                <Link href="/account/orders" className="text-link text-link--sm">
+                  <span>مشاهده همه</span>
+                  <ArrowLeftIcon className="size-3.5" />
+                </Link>
+              </div>
+
+              {dashboard.recentOrders.length === 0 ? (
+                <div className="dashboard-empty-card">
+                  <p>هنوز هیچ سفارشی ثبت نکرده‌اید.</p>
+                  <Link href="/products" className="button button--secondary button--sm">
+                    مشاهده محصولات
+                  </Link>
+                </div>
+              ) : (
+                <div className="dashboard-order-list">
+                  {dashboard.recentOrders.map((order) => (
+                    <div key={order.id} className="dashboard-order-item">
+                      <div className="dashboard-order-top">
+                        <div className="dashboard-order-info">
+                          <strong dir="ltr">{order.number}</strong>
+                          <span>{formatPersianDate(order.createdAt, { includeWeekday: false })}</span>
+                        </div>
+                        <span className={`status-pill status-pill--${order.status.toLowerCase()}`}>
+                          {orderStatusLabels[order.status]}
+                        </span>
+                      </div>
+
+                      {order.status === "Shipped" && order.postalTrackingCode && (
+                        <div className="tracking-inline-pill">
+                          <span>کد رهگیری پست:</span>
+                          <code dir="ltr">{order.postalTrackingCode}</code>
+                          <button
+                            type="button"
+                            onClick={() => copyTracking(order.postalTrackingCode!, order.id)}
+                            className="tracking-copy-btn"
+                            title="کپی کد رهگیری"
+                          >
+                            <CopyIcon className="size-3.5" />
+                            <span>{copiedId === order.id ? "کپی شد" : "کپی"}</span>
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="dashboard-order-bottom">
+                        <div>
+                          <span>{order.itemCount.toLocaleString("fa-IR")} کالا</span>
+                          <b>{formatPrice(order.total)}</b>
+                        </div>
+                        <Link href={`/account/orders/${order.id}`} className="button button--secondary button--sm">
+                          جزئیات سفارش
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Default Address & Quick Links */}
+            <div className="dashboard-side-cards">
+              <div className="dashboard-section-card">
+                <div className="dashboard-section-header">
+                  <h3>آدرس پیش‌فرض</h3>
+                  <Link href="/account/addresses" className="text-link text-link--sm">
+                    <span>مدیریت آدرس‌ها</span>
+                    <ArrowLeftIcon className="size-3.5" />
+                  </Link>
+                </div>
+
+                {dashboard.defaultAddress ? (
+                  <div className="dashboard-address-preview">
+                    <div className="address-badge-row">
+                      <strong>{dashboard.defaultAddress.title}</strong>
+                      <span className="address-default-badge">پیش‌فرض</span>
+                    </div>
+                    <p className="address-receiver">
+                      {dashboard.defaultAddress.receiverName} ({dashboard.defaultAddress.receiverPhone})
+                    </p>
+                    <p className="address-text">
+                      {dashboard.defaultAddress.province}، {dashboard.defaultAddress.city}، {dashboard.defaultAddress.address}
+                    </p>
+                    <p className="address-postal">کد پستی: <span dir="ltr">{dashboard.defaultAddress.postalCode}</span></p>
+                  </div>
+                ) : (
+                  <div className="dashboard-empty-card">
+                    <p>هیچ آدرسی ثبت نشده است.</p>
+                    <Link href="/account/addresses" className="button button--secondary button--sm">
+                      افزودن آدرس جدید
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Actions Panel */}
+              <div className="dashboard-section-card dashboard-actions-card">
+                <h3>دسترسی‌های سریع</h3>
+                <div className="dashboard-quick-links">
+                  <Link href="/account/profile" className="quick-action-link">
+                    <span>ویرایش اطلاعات و شماره تماس</span>
+                    <ArrowLeftIcon className="size-4" />
+                  </Link>
+                  <Link href="/account/wishlist" className="quick-action-link">
+                    <span>مشاهده لیست علاقه‌مندی‌ها</span>
+                    <ArrowLeftIcon className="size-4" />
+                  </Link>
+                  <a
+                    href="https://tracking.post.ir/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="quick-action-link"
+                  >
+                    <span>سامانه رهگیری مرسولات شرکت ملی پست</span>
+                    <ExternalLinkIcon className="size-4" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </AccountShell>
+  );
 }

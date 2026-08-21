@@ -203,13 +203,35 @@ export function AdminVariantsPage() {
             </label>
 
             <label className="form-field">
-              <span>موجودی این ظرفیت</span>
+              <span>موجودی کل انبار (فیزیکی)</span>
               <input
                 type="number"
                 value={form.stockQuantity}
                 onChange={(e) => setForm((v) => ({ ...v, stockQuantity: e.target.value }))}
                 required
+                min="0"
               />
+              {editingId && (() => {
+                const currentVariant = items.find((i) => i.id === editingId);
+                if (currentVariant && currentVariant.reservedQuantity > 0) {
+                  return (
+                    <div
+                      style={{
+                        fontSize: "0.8rem",
+                        color: "var(--color-warning, #b45309)",
+                        background: "rgba(245, 158, 11, 0.08)",
+                        padding: "0.4rem 0.6rem",
+                        borderRadius: "6px",
+                        marginTop: "0.35rem",
+                        border: "1px solid rgba(245, 158, 11, 0.25)",
+                      }}
+                    >
+                      ⚠️ <strong>{currentVariant.reservedQuantity} عدد</strong> در سفارش‌های در انتظار رزرو است (موجودی آزاد قابل فروش: <strong>{currentVariant.availableQuantity} عدد</strong>).
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </label>
 
             <label className="form-field">
@@ -256,7 +278,7 @@ export function AdminVariantsPage() {
                 <th>ظرفیت میز</th>
                 <th>ابعاد (طول × عرض)</th>
                 <th>قیمت</th>
-                <th>موجودی</th>
+                <th>وضعیت موجودی انبار</th>
                 <th>SKU</th>
                 <th>عملیات</th>
               </tr>
@@ -283,7 +305,25 @@ export function AdminVariantsPage() {
                       formatPrice(x.price)
                     )}
                   </td>
-                  <td>{x.availableQuantity}</td>
+                  <td>
+                    {x.reservedQuantity > 0 ? (
+                      <div>
+                        <strong style={{ color: "var(--color-primary, #047857)" }}>
+                          {x.availableQuantity} عدد قابل فروش
+                        </strong>
+                        <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: "2px" }}>
+                          (کل انبار: {x.stockQuantity} | رزرو شده: {x.reservedQuantity})
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <strong>{x.stockQuantity} عدد</strong>
+                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", display: "block" }}>
+                          (تماماً قابل فروش)
+                        </span>
+                      </div>
+                    )}
+                  </td>
                   <td dir="ltr">{x.sku}</td>
                   <td>
                     <div className="admin-row-actions">

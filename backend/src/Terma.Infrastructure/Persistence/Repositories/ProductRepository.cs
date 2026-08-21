@@ -58,7 +58,18 @@ public sealed class ProductRepository(TermaDbContext dbContext) : IProductReposi
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
-        var items = await query.OrderBy(product => product.Name).ThenBy(product => product.Id)
+        var normalizedSort = request.Sort?.Trim().ToLowerInvariant();
+        var orderedQuery = normalizedSort switch
+        {
+            "price_asc" or "price-asc" or "cheapest" => query.OrderBy(product => (double)product.Price).ThenBy(product => product.Id),
+            "price_desc" or "price-desc" or "expensive" => query.OrderByDescending(product => (double)product.Price).ThenByDescending(product => product.Id),
+            "name_asc" or "name-asc" or "name" => query.OrderBy(product => product.Name).ThenBy(product => product.Id),
+            "name_desc" or "name-desc" => query.OrderByDescending(product => product.Name).ThenByDescending(product => product.Id),
+            "newest" or "created_desc" or "created-desc" => query.OrderByDescending(product => product.CreatedAt).ThenByDescending(product => product.Id),
+            _ => query.OrderByDescending(product => product.CreatedAt).ThenByDescending(product => product.Id)
+        };
+
+        var items = await orderedQuery
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
             .ToListAsync(cancellationToken);

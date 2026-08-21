@@ -62,6 +62,89 @@ public sealed class CmsApiTests(TermaApiFactory factory) : IClassFixture<TermaAp
         var home = pages!.Single(x => x.Slug == "home");
         var response = await SendAsync(admin, HttpMethod.Delete, $"/api/admin/cms/pages/{home.Id}", null, home.RowVersion);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var privacy = pages!.Single(x => x.Slug == "privacy");
+        var privacyArchive = await SendAsync(admin, HttpMethod.Delete, $"/api/admin/cms/pages/{privacy.Id}", null, privacy.RowVersion);
+        Assert.Equal(HttpStatusCode.BadRequest, privacyArchive.StatusCode);
+
+        var terms = pages!.Single(x => x.Slug == "terms");
+        var termsArchive = await SendAsync(admin, HttpMethod.Delete, $"/api/admin/cms/pages/{terms.Id}", null, terms.RowVersion);
+        Assert.Equal(HttpStatusCode.BadRequest, termsArchive.StatusCode);
+    }
+
+    [Fact]
+    public async Task PrivacyAndTermsPages_AreSeededPublished_AndEditableByAdmin()
+    {
+        using var anonymous = factory.CreateHttpsClient();
+
+        // 1. Verify public access to privacy page
+        var privacyResponse = await anonymous.GetAsync("/api/store/cms/pages/privacy");
+        Assert.Equal(HttpStatusCode.OK, privacyResponse.StatusCode);
+        var privacy = (await privacyResponse.Content.ReadFromJsonAsync<CmsPublishedPageDto>(JsonOptions))!;
+        Assert.Equal("privacy", privacy.Slug);
+        Assert.Equal("حریم خصوصی", privacy.Name);
+        Assert.NotEmpty(privacy.Document.Blocks);
+
+        // 2. Verify public access to terms page
+        var termsResponse = await anonymous.GetAsync("/api/store/cms/pages/terms");
+        Assert.Equal(HttpStatusCode.OK, termsResponse.StatusCode);
+        var terms = (await termsResponse.Content.ReadFromJsonAsync<CmsPublishedPageDto>(JsonOptions))!;
+        Assert.Equal("terms", terms.Slug);
+        Assert.Equal("شرایط استفاده", terms.Name);
+        Assert.NotEmpty(terms.Document.Blocks);
+
+        // 3. Verify footer link list in site-settings includes privacy and terms, but not buying guide
+        var siteResponse = await anonymous.GetAsync("/api/store/cms/site");
+        Assert.Equal(HttpStatusCode.OK, siteResponse.StatusCode);
+        var site = (await siteResponse.Content.ReadFromJsonAsync<CmsPublishedPageDto>(JsonOptions))!;
+        var footerBlock = site.Document.Blocks.FirstOrDefault(b => b.Type == "linkList" && b.Data.TryGetProperty("placement", out var p) && p.GetString() == "footer");
+        Assert.NotNull(footerBlock);
+        var footerJson = footerBlock.Data.GetRawText();
+        Assert.Contains("/privacy", footerJson);
+        Assert.Contains("/terms", footerJson);
+        Assert.DoesNotContain("#راهنمای-خرید", footerJson);
+
+        var contactBlock = site.Document.Blocks.FirstOrDefault(b => b.Type == "contactInfo");
+        Assert.NotNull(contactBlock);
+        var contactJson = contactBlock.Data.GetRawText();
+        Assert.Contains("instagramUrl", contactJson);
+        Assert.Contains("telegramUrl", contactJson);
+        Assert.Contains("whatsappUrl", contactJson);
+
+        // 4. Verify admin can edit and update privacy page
+        using var admin = await factory.CreateAdminClientAsync();
+        var pages = await admin.GetFromJsonAsync<List<CmsPageSummaryDto>>("/api/admin/cms/pages", JsonOptions);
+        var privacySummary = pages!.Single(x => x.Slug == "privacy");
+        var privacyDetail = await admin.GetFromJsonAsync<CmsPageDetailDto>($"/api/admin/cms/pages/{privacySummary.Id}", JsonOptions);
+        Assert.NotNull(privacyDetail);
+
+        var updatedDoc = new CmsDocumentDto
+        {
+            SchemaVersion = privacyDetail.Document.SchemaVersion,
+            Seo = new CmsSeoDto
+            {
+                Title = privacyDetail.Document.Seo.Title,
+                Description = "توضیحات به‌روزشده سیاست حریم خصوصی",
+                CanonicalPath = privacyDetail.Document.Seo.CanonicalPath,
+                OgImageUrl = privacyDetail.Document.Seo.OgImageUrl,
+                NoIndex = privacyDetail.Document.Seo.NoIndex
+            },
+            Blocks = privacyDetail.Document.Blocks
+        };
+        var saveDraft = await SendAsync(admin, HttpMethod.Put, $"/api/admin/cms/pages/{privacyDetail.Id}/draft", new SaveCmsDraftRequest
+        {
+            Name = privacyDetail.Name,
+            Slug = privacyDetail.Slug,
+            Document = updatedDoc
+        }, privacyDetail.RowVersion);
+        Assert.Equal(HttpStatusCode.OK, saveDraft.StatusCode);
+        var savedDetail = (await saveDraft.Content.ReadFromJsonAsync<CmsPageDetailDto>(JsonOptions))!;
+
+        var publishUpdate = await SendAsync(admin, HttpMethod.Post, $"/api/admin/cms/pages/{savedDetail.Id}/publish", null, savedDetail.RowVersion);
+        Assert.Equal(HttpStatusCode.OK, publishUpdate.StatusCode);
+
+        var publishedUpdated = await anonymous.GetFromJsonAsync<CmsPublishedPageDto>("/api/store/cms/pages/privacy", JsonOptions);
+        Assert.Equal("توضیحات به‌روزشده سیاست حریم خصوصی", publishedUpdated!.Document.Seo.Description);
     }
 
     [Fact]

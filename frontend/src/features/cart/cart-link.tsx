@@ -10,12 +10,12 @@ export function CartLink() {
   return (
     <button
       type="button"
-      className="icon-button cart-button"
+      className={`icon-button cart-button ${itemCount > 0 ? "cart-button--has-items" : ""}`}
       onClick={openCart}
       aria-label={label}
     >
-      <BagIcon />
-      <span aria-hidden="true">{new Intl.NumberFormat("fa-IR").format(itemCount)}</span>
+      <BagIcon className="size-5 cart-button__icon" />
+      <span className="cart-button__badge" aria-hidden="true">{new Intl.NumberFormat("fa-IR").format(itemCount)}</span>
     </button>
   );
 }

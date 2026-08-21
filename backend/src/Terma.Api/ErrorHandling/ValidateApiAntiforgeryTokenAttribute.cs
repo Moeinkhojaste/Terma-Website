@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Terma.Application.Common.Authorization;
@@ -9,16 +10,21 @@ namespace Terma.Api.ErrorHandling;
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
 public sealed class ValidateApiAntiforgeryTokenAttribute : Attribute, IAsyncAuthorizationFilter
 {
-    public bool RequireAuthenticatedOnly { get; set; }
+    public bool RequireAuthenticatedOnly { get; set; } = true;
 
     public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
     {
-        if (!(context.HttpContext.User.Identity?.IsAuthenticated ?? false))
+        var customerAuth = await context.HttpContext.AuthenticateAsync(CustomerAuthorization.AuthenticationScheme);
+        if (customerAuth.Succeeded && customerAuth.Principal is not null)
         {
-            var customerAuth = await context.HttpContext.AuthenticateAsync(CustomerAuthorization.AuthenticationScheme);
-            if (customerAuth.Succeeded && customerAuth.Principal is not null)
+            context.HttpContext.User = customerAuth.Principal;
+        }
+        else if (!(context.HttpContext.User.Identity?.IsAuthenticated ?? false))
+        {
+            var adminAuth = await context.HttpContext.AuthenticateAsync(IdentityConstants.ApplicationScheme);
+            if (adminAuth.Succeeded && adminAuth.Principal is not null)
             {
-                context.HttpContext.User = customerAuth.Principal;
+                context.HttpContext.User = adminAuth.Principal;
             }
         }
 

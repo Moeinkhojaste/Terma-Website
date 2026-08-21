@@ -1,6 +1,9 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Terma.Api.ErrorHandling;
+using Terma.Application.Common.Authorization;
 using Terma.Application.Common.Interfaces;
 using Terma.Application.Products;
 using Terma.Application.Store;
@@ -20,7 +23,7 @@ public sealed class StoreController(
 
     [HttpPost("messages")]
     [EnableRateLimiting("contact-message")]
-    [ValidateApiAntiforgeryToken]
+    [ValidateApiAntiforgeryToken(RequireAuthenticatedOnly = false)]
     public async Task<ContactMessageDto> CreateMessage(ContactMessageWriteRequest request, CancellationToken ct)
     {
         var result = await service.CreateMessageAsync(request, ct);
@@ -32,6 +35,20 @@ public sealed class StoreController(
     [ProducesResponseType<SeoSitemapDto>(StatusCodes.Status200OK)]
     public Task<SeoSitemapDto> Sitemap(CancellationToken ct) =>
         productService.SeoSitemapAsync(ct);
+
+    [HttpPost("cart/sync")]
+    public async Task<IActionResult> SyncCart([FromBody] SyncCartSessionRequest request, CancellationToken ct)
+    {
+        var auth = await HttpContext.AuthenticateAsync(CustomerAuthorization.AuthenticationScheme);
+        Guid? userId = null;
+        if (auth.Succeeded && Guid.TryParse(auth.Principal.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedId))
+        {
+            userId = parsedId;
+        }
+
+        await service.SyncCartSessionAsync(request, userId, ct);
+        return NoContent();
+    }
 
     private string? GetClientIp()
     {

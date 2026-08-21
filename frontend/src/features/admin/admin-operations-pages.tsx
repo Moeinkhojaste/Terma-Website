@@ -5,6 +5,7 @@ import { AdminShell } from "@/features/admin/admin-shell";
 import { apiRequest, getApiErrorMessage } from "@/lib/api-client";
 import { formatPrice } from "@/lib/format";
 import { changeMessageStatus, changeOrderStatus, getCustomers, getMessages, getOrders, getPromotions, getShippingRules, type AdminCustomer, type AdminOrder, type ContactMessage, type Promotion, type ShippingRule } from "@/features/admin/store-api";
+import { CheckIcon, DocumentTextIcon, MapPinIcon, PackageIcon, ShoppingCartIcon } from "@/components/ui/icons";
 
 function useEffect(effect: () => void | Promise<void>, dependencies: unknown[]) { reactUseEffect(() => { void effect(); }, dependencies); }
 
@@ -12,13 +13,37 @@ export function AdminOrdersPage() {
   const [items, setItems] = useState<AdminOrder[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string>();
+  const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
+  const [trackingSaved, setTrackingSaved] = useState<Record<string, boolean>>({});
 
-  const load = () => getOrders().then(setItems).catch((e) => setError(getApiErrorMessage(e)));
+  const load = () =>
+    getOrders()
+      .then((data) => {
+        setItems(data);
+        const map: Record<string, string> = {};
+        data.forEach((o) => {
+          if (o.postalTrackingCode) map[o.id] = o.postalTrackingCode;
+        });
+        setTrackingInputs((prev) => ({ ...map, ...prev }));
+      })
+      .catch((e) => setError(getApiErrorMessage(e)));
+
   useEffect(load, []);
 
   async function update(id: string, status: string) {
     try {
-      await changeOrderStatus(id, status);
+      await changeOrderStatus(id, status, trackingInputs[id]);
+      load();
+    } catch (e) {
+      setError(getApiErrorMessage(e));
+    }
+  }
+
+  async function saveTracking(id: string, currentStatus: string) {
+    try {
+      await changeOrderStatus(id, currentStatus, trackingInputs[id] || "");
+      setTrackingSaved((prev) => ({ ...prev, [id]: true }));
+      setTimeout(() => setTrackingSaved((prev) => ({ ...prev, [id]: false })), 3000);
       load();
     } catch (e) {
       setError(getApiErrorMessage(e));
@@ -42,6 +67,7 @@ export function AdminOrdersPage() {
               <th>مبلغ</th>
               <th>وضعیت</th>
               <th>تاریخ و ساعت ثبت</th>
+              <th>کد رهگیری</th>
               <th>جزئیات</th>
             </tr>
           </thead>
@@ -77,6 +103,15 @@ export function AdminOrdersPage() {
                     </td>
                     <td dir="rtl">{formattedDate}</td>
                     <td>
+                      {x.postalTrackingCode ? (
+                        <span dir="ltr" style={{ fontSize: "0.85rem", fontWeight: 600, color: "#0f766e" }}>
+                          {x.postalTrackingCode}
+                        </span>
+                      ) : (
+                        <span style={{ color: "#94a3b8", fontSize: "0.8rem" }}>—</span>
+                      )}
+                    </td>
+                    <td>
                       <button
                         type="button"
                         className="button button--secondary"
@@ -89,11 +124,13 @@ export function AdminOrdersPage() {
                   </tr>
                   {isExpanded && (
                     <tr>
-                      <td colSpan={7} style={{ padding: 0, backgroundColor: "var(--surface-subtle, #f9fafb)" }}>
+                      <td colSpan={8} style={{ padding: 0, backgroundColor: "var(--surface-subtle, #f9fafb)" }}>
                         <div style={{ padding: "1rem 1.25rem", borderBottom: "2px solid var(--line, #e5e7eb)" }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", marginBottom: "1rem" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1.25rem", marginBottom: "1rem" }}>
                             <div style={{ background: "#fff", padding: "0.85rem", borderRadius: "8px", border: "1px solid var(--line, #e5e7eb)" }}>
-                              <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)" }}>📍 آدرس ارسال</h4>
+                              <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                <MapPinIcon className="size-4" /> آدرس ارسال
+                              </h4>
                               <p style={{ margin: 0, fontSize: "0.9rem", lineHeight: "1.6", color: "#334155" }}>
                                 <strong>استان:</strong> {x.province} | <strong>شهر:</strong> {x.city}<br />
                                 <strong>نشانی دقیق:</strong> {x.address}<br />
@@ -101,14 +138,44 @@ export function AdminOrdersPage() {
                               </p>
                             </div>
                             <div style={{ background: "#fff", padding: "0.85rem", borderRadius: "8px", border: "1px solid var(--line, #e5e7eb)" }}>
-                              <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)" }}>📝 توضیحات خریدار</h4>
+                              <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                <DocumentTextIcon className="size-4" /> توضیحات خریدار
+                              </h4>
                               <p style={{ margin: 0, fontSize: "0.9rem", lineHeight: "1.6", color: x.customerNotes ? "#0f172a" : "#94a3b8" }}>
                                 {x.customerNotes || "توضیحاتی برای این سفارش ثبت نشده است."}
                               </p>
                             </div>
+                            <div style={{ background: "#fff", padding: "0.85rem", borderRadius: "8px", border: "1px solid var(--line, #e5e7eb)" }}>
+                              <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                <PackageIcon className="size-4" /> کد رهگیری مرسوله پستی
+                              </h4>
+                              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                                <input
+                                  type="text"
+                                  dir="ltr"
+                                  placeholder="کد ۲۴ رقمی پست..."
+                                  value={trackingInputs[x.id] ?? x.postalTrackingCode ?? ""}
+                                  onChange={(e) => setTrackingInputs((prev) => ({ ...prev, [x.id]: e.target.value }))}
+                                  style={{ flex: 1, padding: "0.4rem 0.6rem", fontSize: "0.85rem", borderRadius: "6px", border: "1px solid #cbd5e1" }}
+                                />
+                                <button
+                                  type="button"
+                                  className="button button--primary"
+                                  onClick={() => saveTracking(x.id, x.status)}
+                                  style={{ padding: "0.4rem 0.75rem", fontSize: "0.85rem", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
+                                >
+                                  {trackingSaved[x.id] ? <><CheckIcon className="size-3.5" /> ثبت شد</> : "ثبت کد"}
+                                </button>
+                              </div>
+                              <small style={{ display: "block", marginTop: "0.4rem", color: "#64748b", fontSize: "0.75rem" }}>
+                                این کد در پنل کاربر نمایش داده خواهد شد.
+                              </small>
+                            </div>
                           </div>
                           <div style={{ background: "#fff", padding: "0.85rem", borderRadius: "8px", border: "1px solid var(--line, #e5e7eb)" }}>
-                            <h4 style={{ margin: "0 0 0.75rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)" }}>🛒 اقلام سفارش ({x.items.length} محصول)</h4>
+                            <h4 style={{ margin: "0 0 0.75rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                              <ShoppingCartIcon className="size-4" /> اقلام سفارش ({x.items.length} محصول)
+                            </h4>
                             <table className="admin-table" style={{ width: "100%", margin: 0, fontSize: "0.85rem" }}>
                               <thead>
                                 <tr>

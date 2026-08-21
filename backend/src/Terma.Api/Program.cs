@@ -47,7 +47,7 @@ if (!string.IsNullOrWhiteSpace(dataProtectionKeyPath))
 {
     dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath));
 }
-else if (!isDevelopment)
+else
 {
     var defaultKeysPath = Path.Combine(AppContext.BaseDirectory, "dataprotection-keys");
     dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(defaultKeysPath));
@@ -350,6 +350,10 @@ await using (var scope = app.Services.CreateAsyncScope())
         await dbContext.Database.MigrateAsync();
     }
     await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();
+    if (isDevelopment)
+    {
+        await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.AnalyticsDemoSeeder>().SeedAsync();
+    }
 }
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
@@ -383,6 +387,20 @@ app.Use(async (context, next) =>
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();
+
+app.Use(async (context, next) =>
+{
+    if (!(context.User.Identity?.IsAuthenticated ?? false))
+    {
+        var customerAuth = await context.AuthenticateAsync(CustomerAuthorization.AuthenticationScheme);
+        if (customerAuth.Succeeded && customerAuth.Principal is not null)
+        {
+            context.User = customerAuth.Principal;
+        }
+    }
+    await next();
+});
+
 app.UseAuthorization();
 app.MapControllers();
 

@@ -312,7 +312,7 @@ export function AdminProductsPage() {
                   <th>عنوان ظرفیت</th>
                   <th>ابعاد (طول × عرض)</th>
                   <th>قیمت فروش</th>
-                  <th>موجودی</th>
+                  <th>وضعیت موجودی انبار</th>
                   <th>SKU</th>
                   <th>عملیات</th>
                 </tr>
@@ -332,7 +332,25 @@ export function AdminProductsPage() {
                         formatPrice(v.price)
                       )}
                     </td>
-                    <td>{v.availableQuantity}</td>
+                    <td>
+                      {v.reservedQuantity > 0 ? (
+                        <div>
+                          <strong style={{ color: "var(--color-primary, #047857)" }}>
+                            {v.availableQuantity} عدد قابل فروش
+                          </strong>
+                          <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: "2px" }}>
+                            (کل انبار: {v.stockQuantity} | رزرو: {v.reservedQuantity})
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <strong>{v.stockQuantity} عدد</strong>
+                          <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", display: "block" }}>
+                            (تماماً قابل فروش)
+                          </span>
+                        </div>
+                      )}
+                    </td>
                     <td dir="ltr">{v.sku}</td>
                     <td>
                       <div className="admin-row-actions">
@@ -392,7 +410,39 @@ export function AdminProductsPage() {
                 <Field label="عرض (سانتی‌متر)" value={variantForm.width} onChange={(v) => setVariantForm((x) => ({ ...x, width: v }))} required />
                 <Field label="قیمت فروش (تومان)" value={variantForm.price} onChange={(v) => setVariantForm((x) => ({ ...x, price: v }))} type="number" required />
                 <Field label="قیمت اصلی / قبل از تخفیف (تومان)" value={variantForm.compareAtPrice} onChange={(v) => setVariantForm((x) => ({ ...x, compareAtPrice: v }))} type="number" placeholder="اختیاری جهت تخفیف" />
-                <Field label="موجودی این ظرفیت" value={variantForm.stockQuantity} onChange={(v) => setVariantForm((x) => ({ ...x, stockQuantity: v }))} type="number" required />
+                <Field
+                  label="موجودی کل انبار (فیزیکی)"
+                  value={variantForm.stockQuantity}
+                  onChange={(v) => setVariantForm((x) => ({ ...x, stockQuantity: v }))}
+                  type="number"
+                  required
+                  min="0"
+                  hint={
+                    editingVariantId
+                      ? (() => {
+                          const cur = variants.find((i) => i.id === editingVariantId);
+                          if (cur && cur.reservedQuantity > 0) {
+                            return (
+                              <div
+                                style={{
+                                  fontSize: "0.8rem",
+                                  color: "var(--color-warning, #b45309)",
+                                  background: "rgba(245, 158, 11, 0.08)",
+                                  padding: "0.4rem 0.6rem",
+                                  borderRadius: "6px",
+                                  marginTop: "0.35rem",
+                                  border: "1px solid rgba(245, 158, 11, 0.25)",
+                                }}
+                              >
+                                ⚠️ <strong>{cur.reservedQuantity} عدد</strong> در سفارش‌های در انتظار رزرو است (موجودی آزاد قابل فروش: <strong>{cur.availableQuantity} عدد</strong>).
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()
+                      : undefined
+                  }
+                />
                 <Field label="SKU اختصاصی این ظرفیت" value={variantForm.sku} onChange={(v) => setVariantForm((x) => ({ ...x, sku: v }))} required dir="ltr" />
               </div>
 
@@ -489,6 +539,7 @@ function Field({
   min,
   max,
   placeholder,
+  hint,
 }: {
   label: string;
   value: string;
@@ -499,11 +550,13 @@ function Field({
   min?: string;
   max?: string;
   placeholder?: string;
+  hint?: React.ReactNode;
 }) {
   return (
     <label className="form-field">
       <span>{label}</span>
       <input type={type} value={value} onChange={(e) => onChange(e.target.value)} required={required} dir={dir} min={min} max={max} placeholder={placeholder} />
+      {hint}
     </label>
   );
 }

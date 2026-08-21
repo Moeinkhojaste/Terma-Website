@@ -144,6 +144,7 @@ export type ProductListQuery = {
   color?: string;
   inStock?: boolean;
   search?: string;
+  sort?: string;
   page?: number;
   pageSize?: number;
 };

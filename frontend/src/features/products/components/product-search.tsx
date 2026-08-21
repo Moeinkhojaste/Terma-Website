@@ -46,7 +46,7 @@ export function ProductSearch() {
   };
 
   return <>
-    <button className="icon-button" type="button" onClick={() => { setRecent(readRecentSearches()); setOpen(true); }} aria-label="جست‌وجوی محصولات"><SearchIcon /></button>
+    <button className="icon-button header-search-button" type="button" onClick={() => { setRecent(readRecentSearches()); setOpen(true); }} aria-label="جست‌وجوی محصولات"><SearchIcon /></button>
     <AccessibleDialog open={open} onClose={() => setOpen(false)} className="search-dialog sheet-dialog" label="جست‌وجوی محصولات">
       <div className="search-panel">
         <div className="search-panel__heading"><div><p className="section-eyebrow">جست‌وجوی سریع</p><h2>چه سفره‌ای می‌خواهید؟</h2></div><button className="dialog-close" type="button" onClick={() => setOpen(false)} aria-label="بستن جست‌وجو"><XIcon /></button></div>

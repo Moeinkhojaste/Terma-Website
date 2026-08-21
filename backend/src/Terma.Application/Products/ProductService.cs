@@ -48,6 +48,7 @@ public sealed class ProductService(
             InStock = request.InStock,
             IsActive = true,
             Search = request.Search,
+            Sort = request.Sort,
             Page = request.Page,
             PageSize = request.PageSize
         };

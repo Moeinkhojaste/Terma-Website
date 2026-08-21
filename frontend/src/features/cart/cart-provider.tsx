@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useFeedback } from "@/components/ui/feedback-provider";
 import type { Product } from "@/features/products/models";
+import { apiRequest } from "@/lib/api-client";
 
 export type CartItem = {
   lineId: string;
@@ -31,7 +32,18 @@ type CartContextValue = {
 };
 
 const STORAGE_KEY = "terma-cart";
+const SESSION_KEY = "terma-cart-session-key";
 const CartContext = createContext<CartContextValue | null>(null);
+
+function getOrCreateSessionKey(): string {
+  if (typeof window === "undefined") return "";
+  let key = window.localStorage.getItem(SESSION_KEY);
+  if (!key) {
+    key = "cs_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now().toString(36);
+    window.localStorage.setItem(SESSION_KEY, key);
+  }
+  return key;
+}
 
 export function getCartLineId(product: Pick<Product, "id" | "variantId">) {
   return `${product.id}:${product.variantId ?? "default"}`;
@@ -115,7 +127,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (hydrated) window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 3, items } satisfies StoredCartV3));
+    if (!hydrated) return;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 3, items } satisfies StoredCartV3));
+
+    const sessionKey = getOrCreateSessionKey();
+    if (!sessionKey) return;
+
+    const timeout = window.setTimeout(() => {
+      const syncItems = items.map((item) => ({
+        productId: item.productId,
+        variantId: item.variantId || null,
+        productName: item.product.name,
+        sku: item.product.sku,
+        unitPrice: item.product.priceValue,
+        quantity: item.quantity,
+      }));
+
+      apiRequest("/api/store/cart/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionKey,
+          items: syncItems,
+        }),
+      }).catch(() => {});
+    }, 1200);
+
+    return () => window.clearTimeout(timeout);
   }, [hydrated, items]);
 
   const addItem = useCallback((product: Product, openDrawer = true) => {

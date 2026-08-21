@@ -16,6 +16,10 @@ test("customer can sign in with the development OTP and open the account", async
   const scan = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(scan.violations).toEqual([]);
   await page.getByRole("button", { name: "خروج از حساب" }).click();
+  const confirmBtn = page.getByRole("button", { name: "بله، خروج از حساب" });
+  if (await confirmBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await confirmBtn.click();
+  }
   await expect(page).toHaveURL(/\/account\/login$/);
-  await expect(page.getByRole("heading", { name: "ورود با شماره موبایل" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "ورود به حساب کاربری" })).toBeVisible();
 });

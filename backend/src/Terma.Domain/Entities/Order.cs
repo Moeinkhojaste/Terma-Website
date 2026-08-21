@@ -30,6 +30,7 @@ public sealed class Order : BaseEntity
     public decimal Total { get; private set; }
     public DateTime ReservationExpiresAtUtc { get; private set; }
     public string? TrackingTokenHash { get; private set; }
+    public string? PostalTrackingCode { get; private set; }
     public string? IdempotencyKey { get; private set; }
     public string? RequestFingerprint { get; private set; }
     public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
@@ -85,28 +86,20 @@ public sealed class Order : BaseEntity
         MarkUpdated();
     }
 
-    public bool CanTransitionTo(OrderStatus next)
-    {
-        if (Status == next) return true;
-        return Status switch
-        {
-            OrderStatus.PendingConfirmation => next is OrderStatus.Confirmed or OrderStatus.Cancelled or OrderStatus.Expired,
-            OrderStatus.Confirmed => next is OrderStatus.Preparing or OrderStatus.Cancelled,
-            OrderStatus.Preparing => next is OrderStatus.Shipped or OrderStatus.Cancelled,
-            OrderStatus.Shipped => next is OrderStatus.Delivered or OrderStatus.Cancelled,
-            OrderStatus.Delivered => false,
-            OrderStatus.Cancelled => false,
-            OrderStatus.Expired => false,
-            _ => false
-        };
-    }
+    public bool CanTransitionTo(OrderStatus next) => true;
 
     public void ChangeStatus(OrderStatus next)
     {
         if (Status == next) return;
-        if (!CanTransitionTo(next))
-            throw new DomainException($"Cannot transition order status from '{Status}' to '{next}'.");
         Status = next;
+        MarkUpdated();
+    }
+
+    public void SetPostalTrackingCode(string? trackingCode)
+    {
+        var normalized = string.IsNullOrWhiteSpace(trackingCode) ? null : trackingCode.Trim();
+        if (PostalTrackingCode == normalized) return;
+        PostalTrackingCode = normalized;
         MarkUpdated();
     }
 }

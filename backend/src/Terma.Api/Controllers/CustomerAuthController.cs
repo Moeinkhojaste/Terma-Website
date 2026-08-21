@@ -76,9 +76,11 @@ public sealed class CustomerAuthController(
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<ActionResult<CustomerSessionDto>> Me()
     {
-        if (!TryGetUserId(out var userId)) return Unauthorized();
         var auth = await HttpContext.AuthenticateAsync(CustomerAuthorization.AuthenticationScheme);
-        var phone = User.FindFirstValue(ClaimTypes.MobilePhone) ?? string.Empty;
+        var principal = (auth.Succeeded && auth.Principal is not null) ? auth.Principal : User;
+        var userIdStr = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdStr, out var userId)) return Unauthorized();
+        var phone = principal.FindFirstValue(ClaimTypes.MobilePhone) ?? string.Empty;
         return Ok(new CustomerSessionDto(userId, ToLocalPhone(phone), auth.Properties?.ExpiresUtc ?? timeProvider.GetUtcNow()));
     }
 

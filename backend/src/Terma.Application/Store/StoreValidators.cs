@@ -19,6 +19,7 @@ public sealed class CheckoutRequestValidator : AbstractValidator<CheckoutRequest
         RuleForEach(x => x.Items).SetValidator(new CheckoutItemRequestValidator());
         RuleFor(x => x.FullName).NotEmpty().Length(3, 200);
         RuleFor(x => x.Phone).NotEmpty().Matches(@"^(09\d{9}|989\d{9}|\+989\d{9})$").WithMessage("A valid Iranian mobile number is required.");
+        RuleFor(x => x.Email).EmailAddress().MaximumLength(320).When(x => !string.IsNullOrWhiteSpace(x.Email));
         RuleFor(x => x.Province).NotEmpty().Length(2, 120);
         RuleFor(x => x.City).NotEmpty().Length(2, 120);
         RuleFor(x => x.Address).NotEmpty().Length(10, 1000);

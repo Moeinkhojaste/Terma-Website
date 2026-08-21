@@ -1,7 +1,7 @@
 import { apiRequest } from "@/lib/api-client";
 
 export type CheckoutItemRequest = { productId: string; variantId?: string | null; quantity: number };
-export type CheckoutRequest = { items: CheckoutItemRequest[]; fullName: string; phone: string; province: string; city: string; address: string; postalCode: string; customerNotes?: string; couponCode?: string };
+export type CheckoutRequest = { items: CheckoutItemRequest[]; fullName: string; phone: string; email?: string; province: string; city: string; address: string; postalCode: string; customerNotes?: string; couponCode?: string };
 export type CreatedOrder = { id: string; number: string; total: number; reservationExpiresAtUtc: string };
 export type CheckoutQuote = { subtotal: number; discountTotal: number; shippingTotal: number; total: number };
 

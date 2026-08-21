@@ -24,6 +24,25 @@ public sealed class AdminStoreController(
     [HttpGet("dashboard")]
     public Task<DashboardDto> Dashboard(CancellationToken ct) => service.DashboardAsync(ct);
 
+    [HttpGet("analytics")]
+    public Task<AdminAnalyticsDto> Analytics(CancellationToken ct) => service.AnalyticsAsync(ct);
+
+    [HttpGet("abandoned-carts")]
+    public Task<AbandonedCartsReportDto> AbandonedCarts([FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default) =>
+        service.AbandonedCartsAsync(page, pageSize, ct);
+
+    [HttpGet("loyal-customers")]
+    public Task<IReadOnlyList<LoyalCustomerDto>> LoyalCustomers([FromQuery] int limit = 20, CancellationToken ct = default) =>
+        service.LoyalCustomersAsync(limit, ct);
+
+    [HttpGet("products/top-selling")]
+    public Task<IReadOnlyList<TopSellingProductDto>> TopSellingProducts([FromQuery] int days = 30, [FromQuery] int limit = 10, CancellationToken ct = default) =>
+        service.TopSellingProductsAsync(days, limit, ct);
+
+    [HttpGet("products/top-viewed")]
+    public Task<IReadOnlyList<TopViewedProductDto>> TopViewedProducts([FromQuery] int days = 30, [FromQuery] int limit = 10, CancellationToken ct = default) =>
+        service.TopViewedProductsAsync(days, limit, ct);
+
     [HttpGet("settings")]
     public object Settings() => new
     {
@@ -44,8 +63,8 @@ public sealed class AdminStoreController(
     [ValidateApiAntiforgeryToken]
     public async Task<AdminOrderDto> ChangeOrderStatus(Guid id, [FromBody] OrderStatusRequest request, CancellationToken ct)
     {
-        var result = await service.ChangeOrderStatusAsync(id, request.Status, ct);
-        await auditService.LogAsync(GetActor(), "ChangeOrderStatus", $"{id} -> {request.Status}", "Success", HttpContext.TraceIdentifier, GetClientIp(), ct);
+        var result = await service.ChangeOrderStatusAsync(id, request.Status, request.PostalTrackingCode, ct);
+        await auditService.LogAsync(GetActor(), "ChangeOrderStatus", $"{id} -> {request.Status} (tracking: {request.PostalTrackingCode ?? "none"})", "Success", HttpContext.TraceIdentifier, GetClientIp(), ct);
         return result;
     }
 

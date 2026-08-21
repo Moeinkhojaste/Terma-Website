@@ -258,6 +258,26 @@ public sealed class CatalogApiTests(TermaApiFactory factory) : IClassFixture<Ter
         Assert.Equal(best.Id, recommendations![0].Id);
     }
 
+    [Fact]
+    public async Task PublicCatalog_SupportsSortingByPriceAndNewest()
+    {
+        var category = await CreateCategoryAsync();
+        var cheap = await CreateProductAsync(category.Id, $"SORT-CHEAP-{Guid.NewGuid():N}", "Cheap Product", 500_000, 4);
+        var expensive = await CreateProductAsync(category.Id, $"SORT-EXP-{Guid.NewGuid():N}", "Expensive Product", 3_000_000, 6);
+
+        var priceAsc = await ListAsync($"categoryId={category.Id}&sort=price-asc");
+        Assert.Equal(cheap.Id, priceAsc.Items[0].Id);
+        Assert.Equal(expensive.Id, priceAsc.Items[1].Id);
+
+        var priceDesc = await ListAsync($"categoryId={category.Id}&sort=price-desc");
+        Assert.Equal(expensive.Id, priceDesc.Items[0].Id);
+        Assert.Equal(cheap.Id, priceDesc.Items[1].Id);
+
+        var newest = await ListAsync($"categoryId={category.Id}&sort=newest");
+        Assert.Equal(expensive.Id, newest.Items[0].Id);
+        Assert.Equal(cheap.Id, newest.Items[1].Id);
+    }
+
     private Task<PagedResult<PublicProductDto>> ListAsync(string query) =>
         _client.GetFromJsonAsync<PagedResult<PublicProductDto>>($"/api/products?{query}")!;
 

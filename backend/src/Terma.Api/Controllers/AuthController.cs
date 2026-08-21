@@ -30,12 +30,17 @@ public sealed class AuthController(
     [ProducesResponseType<AntiforgeryTokenResponse>(StatusCodes.Status200OK)]
     public async Task<ActionResult<AntiforgeryTokenResponse>> GetAntiforgeryToken()
     {
-        if (!(User.Identity?.IsAuthenticated ?? false))
+        var customerAuth = await HttpContext.AuthenticateAsync(CustomerAuthorization.AuthenticationScheme);
+        if (customerAuth.Succeeded && customerAuth.Principal is not null)
         {
-            var customerAuth = await HttpContext.AuthenticateAsync(CustomerAuthorization.AuthenticationScheme);
-            if (customerAuth.Succeeded && customerAuth.Principal is not null)
+            HttpContext.User = customerAuth.Principal;
+        }
+        else if (!(User.Identity?.IsAuthenticated ?? false))
+        {
+            var adminAuth = await HttpContext.AuthenticateAsync(IdentityConstants.ApplicationScheme);
+            if (adminAuth.Succeeded && adminAuth.Principal is not null)
             {
-                HttpContext.User = customerAuth.Principal;
+                HttpContext.User = adminAuth.Principal;
             }
         }
         var tokens = antiforgery.GetAndStoreTokens(HttpContext);

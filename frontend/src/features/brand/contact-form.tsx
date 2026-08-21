@@ -33,7 +33,7 @@ export function ContactForm({ contactEmail }: ContactFormProps) {
       <div className="contact-form__heading">
         <p className="section-eyebrow">فرم پیام</p>
         <h2>چطور می‌توانیم کمک کنیم؟</h2>
-        <p>اطلاعات زیر را بنویسید تا پیام آماده و در برنامه ایمیل شما باز شود.</p>
+        <p>اطلاعات زیر را بنویسید تا پیام برای تیم پشتیبانی ترما ارسال شود.</p>
       </div>
       <div className="contact-form__grid">
         <label className="form-field">
@@ -56,12 +56,12 @@ export function ContactForm({ contactEmail }: ContactFormProps) {
         </label>
         <label className="form-field form-field--full">
           <span>متن پیام *</span>
-          <textarea name="message" rows={6} required minLength={10} placeholder="لطفاً درخواست خود را با جزئیات بنویسید." />
+          <textarea name="message" rows={4} required minLength={10} placeholder="لطفاً درخواست خود را با جزئیات بنویسید." />
           <small>اگر پیام شما درباره سفارش است، شماره سفارش را هم بنویسید.</small>
         </label>
       </div>
       <button className="button button--primary contact-form__submit" type="submit" disabled={!contactEmail}>
-        آماده‌کردن ایمیل <ArrowLeftIcon />
+        ارسال پیام <ArrowLeftIcon />
       </button>
       <p className={`contact-form__status${contactEmail ? "" : " contact-form__status--notice"}`} id="contact-form-status" aria-live="polite">
         {contactEmail ? message : "ایمیل فروشگاه هنوز تنظیم نشده است. پس از ثبت ایمیل واقعی ترما، این فرم فعال می‌شود."}

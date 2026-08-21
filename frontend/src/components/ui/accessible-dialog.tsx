@@ -20,7 +20,10 @@ export function AccessibleDialog({ open, onClose, children, className = "", labe
     const dialog = reference.current;
     if (!dialog) return;
     const handleClose = () => {
-      document.body.classList.remove("dialog-open");
+      const remainingDialogs = document.querySelectorAll("dialog[open]");
+      if (remainingDialogs.length <= 1) {
+        document.body.classList.remove("dialog-open");
+      }
       returnFocus.current?.focus();
       if (open) onClose();
     };
@@ -30,7 +33,10 @@ export function AccessibleDialog({ open, onClose, children, className = "", labe
     return () => {
       dialog.removeEventListener("close", handleClose);
       dialog.removeEventListener("cancel", handleCancel);
-      document.body.classList.remove("dialog-open");
+      const remainingDialogs = document.querySelectorAll("dialog[open]");
+      if (remainingDialogs.length === 0) {
+        document.body.classList.remove("dialog-open");
+      }
     };
   }, [onClose, open]);
 

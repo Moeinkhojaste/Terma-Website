@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { BagIcon, MinusIcon, PlusIcon } from "@/components/ui/icons";
-import { useCart } from "@/features/cart/cart-provider";
+import { useCart, type CartItem } from "@/features/cart/cart-provider";
+import { RemoveCartItemDialog } from "@/features/cart/remove-cart-item-dialog";
 import type { Product } from "@/features/products/models";
 
 export function AddToCartButton({ product, compact = false, onOpenCart }: { product: Product; compact?: boolean; onOpenCart?: () => void }) {
   const { addItem, items, removeItem, setQuantity, openCart, getLineId } = useCart();
+  const [itemToRemove, setItemToRemove] = useState<CartItem | null>(null);
   const lineId = getLineId(product);
   const quantity = items.find((item) => item.lineId === lineId)?.quantity ?? 0;
   const unavailable = !product.isActive || product.stockQuantity === 0;
@@ -18,7 +21,13 @@ export function AddToCartButton({ product, compact = false, onOpenCart }: { prod
           <div className="product-order-quantity" role="group" aria-label={`تعداد ${product.name} در سبد خرید`}>
             <button
               type="button"
-              onClick={() => (quantity === 1 ? removeItem(lineId) : setQuantity(lineId, quantity - 1))}
+              onClick={() => {
+                if (quantity === 1) {
+                  setItemToRemove({ lineId, product, quantity: 1, productId: product.id });
+                } else {
+                  setQuantity(lineId, quantity - 1);
+                }
+              }}
               aria-label={quantity === 1 ? "حذف از سبد خرید" : "کاهش تعداد"}
               title={quantity === 1 ? "حذف از سبد" : "کاهش"}
             >
@@ -65,6 +74,17 @@ export function AddToCartButton({ product, compact = false, onOpenCart }: { prod
           تعداد بیشتری از این محصول قابل سفارش نیست.
         </div>
       )}
+
+      <RemoveCartItemDialog
+        item={itemToRemove}
+        onClose={() => setItemToRemove(null)}
+        onConfirm={() => {
+          if (itemToRemove) {
+            removeItem(itemToRemove.lineId);
+            setItemToRemove(null);
+          }
+        }}
+      />
     </div>
   );
 }

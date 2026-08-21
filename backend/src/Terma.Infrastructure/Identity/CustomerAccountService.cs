@@ -111,11 +111,49 @@ public sealed class CustomerAccountService(
             EnsureSucceeded(await userManager.AddToRoleAsync(user, CustomerAuthorization.Role), "Could not assign the customer role.");
 
         var customer = await db.Customers.SingleOrDefaultAsync(x => x.NormalizedPhone == challenge.NormalizedPhone, cancellationToken);
-        if (customer is not null) customer.AttachToUser(user.Id);
+        if (customer is not null)
+        {
+            customer.AttachToUser(user.Id);
+        }
+        else
+        {
+            customer = new Customer("کاربر گرامی", IranianPhoneNumber.ToLocalDisplay(challenge.NormalizedPhone), null);
+            customer.AttachToUser(user.Id);
+            await db.Customers.AddAsync(customer, cancellationToken);
+        }
+
         var orders = await db.Orders
+            .Include(x => x.Customer)
             .Where(x => x.UserId == null && x.Customer.NormalizedPhone == challenge.NormalizedPhone)
             .ToListAsync(cancellationToken);
         foreach (var order in orders) order.AttachToUser(user.Id);
+
+        var hasAddress = await db.CustomerAddresses.AnyAsync(x => x.UserId == user.Id, cancellationToken);
+        if (!hasAddress)
+        {
+            var latestOrder = orders.OrderByDescending(x => x.CreatedAt).FirstOrDefault()
+                ?? await db.Orders
+                    .Include(x => x.Customer)
+                    .Where(x => x.UserId == user.Id || x.Customer.NormalizedPhone == challenge.NormalizedPhone)
+                    .OrderByDescending(x => x.CreatedAt)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+            if (latestOrder is not null)
+            {
+                var userPhone = IranianPhoneNumber.ToLocalDisplay(challenge.NormalizedPhone);
+                var defaultAddress = new CustomerAddress(
+                    user.Id,
+                    "آدرس پیش‌فرض",
+                    string.IsNullOrWhiteSpace(latestOrder.Customer?.FullName) ? (customer?.FullName ?? user.UserName ?? "کاربر گرامی") : latestOrder.Customer.FullName,
+                    userPhone,
+                    latestOrder.Province,
+                    latestOrder.City,
+                    latestOrder.Address,
+                    latestOrder.PostalCode,
+                    isDefault: true);
+                await db.CustomerAddresses.AddAsync(defaultAddress, cancellationToken);
+            }
+        }
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -129,7 +167,7 @@ public sealed class CustomerAccountService(
         var query = db.Orders.AsNoTracking().Where(x => x.UserId == userId).OrderByDescending(x => x.CreatedAt);
         var total = await query.CountAsync(cancellationToken);
         var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(x => new CustomerOrderSummaryDto(x.Id, x.Number, x.Status, x.Total, x.CreatedAt, x.Items.Sum(i => i.Quantity)))
+            .Select(x => new CustomerOrderSummaryDto(x.Id, x.Number, x.Status, x.Total, x.CreatedAt, x.Items.Sum(i => i.Quantity), x.PostalTrackingCode))
             .ToListAsync(cancellationToken);
         return new(items, page, pageSize, total);
     }
@@ -139,11 +177,296 @@ public sealed class CustomerAccountService(
         var result = await db.Orders.AsNoTracking().Where(x => x.Id == orderId && x.UserId == userId)
             .Select(x => new CustomerOrderDetailsDto(
                 x.Id, x.Number, x.Status, x.FullNameSnapshot, x.PhoneSnapshot, x.Province, x.City, x.Address, x.PostalCode,
-                x.Subtotal, x.DiscountTotal, x.ShippingTotal, x.Total, x.CreatedAt,
+                x.Subtotal, x.DiscountTotal, x.ShippingTotal, x.Total, x.CreatedAt, x.PostalTrackingCode,
                 x.Items.OrderBy(i => i.CreatedAt).Select(i => new CustomerOrderItemDto(i.ProductId, i.VariantId, i.ProductName, i.Sku, i.UnitPrice, i.Quantity, i.UnitPrice * i.Quantity)).ToList(),
                 x.History.OrderBy(h => h.CreatedAt).Select(h => new CustomerOrderHistoryDto(h.Status, h.CreatedAt)).ToList()))
             .SingleOrDefaultAsync(cancellationToken);
         return result ?? throw new NotFoundException("Order was not found.");
+    }
+
+    public async Task<CustomerProfileDto> GetProfileAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString())
+            ?? throw new NotFoundException("حساب کاربری یافت نشد.");
+
+        var customer = await db.Customers.FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
+        var orderCount = await db.Orders.CountAsync(x => x.UserId == userId, cancellationToken);
+        var wishlistCount = await db.WishlistItems.CountAsync(x => x.UserId == userId, cancellationToken);
+        var addressCount = await db.CustomerAddresses.CountAsync(x => x.UserId == userId, cancellationToken);
+
+        var fullName = customer?.FullName ?? "کاربر گرامی";
+        var phone = IranianPhoneNumber.ToLocalDisplay(user.PhoneNumber ?? customer?.Phone ?? string.Empty);
+        var email = customer?.Email ?? user.Email;
+
+        return new CustomerProfileDto(
+            userId,
+            fullName,
+            phone,
+            email,
+            orderCount,
+            wishlistCount,
+            addressCount,
+            customer?.CreatedAt ?? DateTime.UtcNow);
+    }
+
+    public async Task<CustomerProfileDto> UpdateProfileAsync(Guid userId, UpdateProfileRequest request, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString())
+            ?? throw new NotFoundException("حساب کاربری یافت نشد.");
+
+        var customer = await db.Customers.FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
+        var phone = user.PhoneNumber ?? string.Empty;
+        var cleanEmail = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
+
+        if (customer is null)
+        {
+            customer = new Customer(request.FullName, phone, cleanEmail);
+            customer.AttachToUser(userId);
+            await db.Customers.AddAsync(customer, cancellationToken);
+        }
+        else
+        {
+            customer.RefreshProfile(request.FullName, customer.Phone, cleanEmail);
+        }
+
+        if (user.Email != cleanEmail)
+        {
+            user.Email = cleanEmail;
+            await userManager.UpdateAsync(user);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return await GetProfileAsync(userId, cancellationToken);
+    }
+
+    public async Task<CustomerDashboardDto> GetDashboardAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var profile = await GetProfileAsync(userId, cancellationToken);
+        var recentOrdersQuery = db.Orders.AsNoTracking().Where(x => x.UserId == userId).OrderByDescending(x => x.CreatedAt);
+        var recentOrders = await recentOrdersQuery.Take(5)
+            .Select(x => new CustomerOrderSummaryDto(x.Id, x.Number, x.Status, x.Total, x.CreatedAt, x.Items.Sum(i => i.Quantity), x.PostalTrackingCode))
+            .ToListAsync(cancellationToken);
+
+        var defaultAddress = await db.CustomerAddresses.AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.IsDefault)
+            .ThenByDescending(x => x.CreatedAt)
+            .Select(x => new CustomerAddressDto(x.Id, x.Title, x.ReceiverName, x.ReceiverPhone, x.Province, x.City, x.Address, x.PostalCode, x.IsDefault, x.CreatedAt))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var totalOrders = await recentOrdersQuery.CountAsync(cancellationToken);
+        var pendingOrders = await db.Orders.CountAsync(x => x.UserId == userId && (x.Status == OrderStatus.PendingConfirmation || x.Status == OrderStatus.Confirmed || x.Status == OrderStatus.Preparing), cancellationToken);
+        var wishlistCount = await db.WishlistItems.CountAsync(x => x.UserId == userId, cancellationToken);
+        var addressCount = await db.CustomerAddresses.CountAsync(x => x.UserId == userId, cancellationToken);
+
+        return new CustomerDashboardDto(
+            profile,
+            recentOrders,
+            defaultAddress,
+            totalOrders,
+            pendingOrders,
+            wishlistCount,
+            addressCount);
+    }
+
+    public async Task<IReadOnlyList<CustomerAddressDto>> GetAddressesAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return await db.CustomerAddresses.AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.IsDefault)
+            .ThenByDescending(x => x.CreatedAt)
+            .Select(x => new CustomerAddressDto(x.Id, x.Title, x.ReceiverName, x.ReceiverPhone, x.Province, x.City, x.Address, x.PostalCode, x.IsDefault, x.CreatedAt))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<CustomerAddressDto> CreateAddressAsync(Guid userId, AddressWriteRequest request, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString())
+            ?? throw new NotFoundException("حساب کاربری یافت نشد.");
+        var userPhone = IranianPhoneNumber.ToLocalDisplay(user.PhoneNumber ?? string.Empty);
+
+        var hasExistingAddresses = await db.CustomerAddresses.AnyAsync(x => x.UserId == userId, cancellationToken);
+        var shouldBeDefault = request.IsDefault || !hasExistingAddresses;
+
+        if (shouldBeDefault && hasExistingAddresses)
+        {
+            var defaults = await db.CustomerAddresses.Where(x => x.UserId == userId && x.IsDefault).ToListAsync(cancellationToken);
+            foreach (var addr in defaults) addr.SetDefault(false);
+        }
+
+        var address = new CustomerAddress(
+            userId,
+            request.Title,
+            request.ReceiverName,
+            userPhone,
+            request.Province,
+            request.City,
+            request.Address,
+            request.PostalCode,
+            shouldBeDefault);
+
+        await db.CustomerAddresses.AddAsync(address, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new CustomerAddressDto(
+            address.Id,
+            address.Title,
+            address.ReceiverName,
+            address.ReceiverPhone,
+            address.Province,
+            address.City,
+            address.Address,
+            address.PostalCode,
+            address.IsDefault,
+            address.CreatedAt);
+    }
+
+    public async Task<CustomerAddressDto> UpdateAddressAsync(Guid userId, Guid addressId, AddressWriteRequest request, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString())
+            ?? throw new NotFoundException("حساب کاربری یافت نشد.");
+        var userPhone = IranianPhoneNumber.ToLocalDisplay(user.PhoneNumber ?? string.Empty);
+
+        var address = await db.CustomerAddresses.FirstOrDefaultAsync(x => x.Id == addressId && x.UserId == userId, cancellationToken)
+            ?? throw new NotFoundException("آدرس مورد نظر یافت نشد.");
+
+        if (request.IsDefault && !address.IsDefault)
+        {
+            var otherDefaults = await db.CustomerAddresses.Where(x => x.UserId == userId && x.Id != addressId && x.IsDefault).ToListAsync(cancellationToken);
+            foreach (var addr in otherDefaults) addr.SetDefault(false);
+        }
+
+        address.Update(
+            request.Title,
+            request.ReceiverName,
+            userPhone,
+            request.Province,
+            request.City,
+            request.Address,
+            request.PostalCode,
+            request.IsDefault);
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new CustomerAddressDto(
+            address.Id,
+            address.Title,
+            address.ReceiverName,
+            address.ReceiverPhone,
+            address.Province,
+            address.City,
+            address.Address,
+            address.PostalCode,
+            address.IsDefault,
+            address.CreatedAt);
+    }
+
+    public async Task DeleteAddressAsync(Guid userId, Guid addressId, CancellationToken cancellationToken)
+    {
+        var address = await db.CustomerAddresses.FirstOrDefaultAsync(x => x.Id == addressId && x.UserId == userId, cancellationToken)
+            ?? throw new NotFoundException("آدرس مورد نظر یافت نشد.");
+
+        var wasDefault = address.IsDefault;
+        db.CustomerAddresses.Remove(address);
+        await db.SaveChangesAsync(cancellationToken);
+
+        if (wasDefault)
+        {
+            var nextDefault = await db.CustomerAddresses
+                .Where(x => x.UserId == userId)
+                .OrderByDescending(x => x.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (nextDefault is not null)
+            {
+                nextDefault.SetDefault(true);
+                await db.SaveChangesAsync(cancellationToken);
+            }
+        }
+    }
+
+    public async Task<CustomerAddressDto> SetDefaultAddressAsync(Guid userId, Guid addressId, CancellationToken cancellationToken)
+    {
+        var address = await db.CustomerAddresses.FirstOrDefaultAsync(x => x.Id == addressId && x.UserId == userId, cancellationToken)
+            ?? throw new NotFoundException("آدرس مورد نظر یافت نشد.");
+
+        var otherDefaults = await db.CustomerAddresses.Where(x => x.UserId == userId && x.Id != addressId && x.IsDefault).ToListAsync(cancellationToken);
+        foreach (var addr in otherDefaults) addr.SetDefault(false);
+
+        address.SetDefault(true);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new CustomerAddressDto(
+            address.Id,
+            address.Title,
+            address.ReceiverName,
+            address.ReceiverPhone,
+            address.Province,
+            address.City,
+            address.Address,
+            address.PostalCode,
+            address.IsDefault,
+            address.CreatedAt);
+    }
+
+    public async Task<IReadOnlyList<WishlistItemDto>> GetWishlistAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return await db.WishlistItems.AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .Include(x => x.Product)
+                .ThenInclude(p => p.Category)
+            .Include(x => x.Product)
+                .ThenInclude(p => p.Media)
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new WishlistItemDto(
+                x.Id,
+                x.ProductId,
+                x.Product.Name,
+                x.Product.Slug,
+                x.Product.Price,
+                x.Product.CompareAtPrice,
+                x.Product.Media.Where(m => m.IsPrimary).Select(m => m.PublicUrl).FirstOrDefault()
+                    ?? x.Product.Media.OrderBy(m => m.SortOrder).Select(m => m.PublicUrl).FirstOrDefault(),
+                x.Product.StockQuantity > 0,
+                x.Product.Category != null ? x.Product.Category.Name : null,
+                x.CreatedAt))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Guid>> GetWishlistProductIdsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return await db.WishlistItems.AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .Select(x => x.ProductId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<bool> ToggleWishlistAsync(Guid userId, Guid productId, CancellationToken cancellationToken)
+    {
+        var productExists = await db.Products.AnyAsync(x => x.Id == productId, cancellationToken);
+        if (!productExists) throw new NotFoundException("محصول مورد نظر یافت نشد.");
+
+        var existing = await db.WishlistItems.FirstOrDefaultAsync(x => x.UserId == userId && x.ProductId == productId, cancellationToken);
+        if (existing is not null)
+        {
+            db.WishlistItems.Remove(existing);
+            await db.SaveChangesAsync(cancellationToken);
+            return false; // Removed
+        }
+
+        var item = new WishlistItem(userId, productId);
+        await db.WishlistItems.AddAsync(item, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return true; // Added
+    }
+
+    public async Task RemoveFromWishlistAsync(Guid userId, Guid productId, CancellationToken cancellationToken)
+    {
+        var existing = await db.WishlistItems.FirstOrDefaultAsync(x => x.UserId == userId && x.ProductId == productId, cancellationToken);
+        if (existing is not null)
+        {
+            db.WishlistItems.Remove(existing);
+            await db.SaveChangesAsync(cancellationToken);
+        }
     }
 
     private async Task EnsureCustomerRoleAsync()

@@ -6,8 +6,8 @@ Terma CMS is a versioned, block-based content system. It manages public pages an
 
 - Pages, SEO, header, menus, footer, contact details, announcements, and media are managed in `/admin/content`.
 - Products, categories, orders, checkout, inventory, and payments remain in their dedicated modules.
-- `home`, `about`, `contact`, and `site-settings` are protected system pages.
-- Custom pages are rendered at root paths such as `/privacy`. Store routes keep priority over the dynamic CMS route.
+- `home`, `about`, `contact`, `privacy`, `terms`, and `site-settings` are protected system pages.
+- Custom pages are rendered at root paths such as `/custom-page`. Store routes keep priority over the dynamic CMS route.
 
 ## Content lifecycle
 
