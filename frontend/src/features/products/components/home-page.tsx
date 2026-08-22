@@ -11,7 +11,7 @@ import { HeroSlideshow } from "@/features/products/components/hero-slideshow";
 import { listProducts } from "@/features/products/product-api";
 import type { Product } from "@/features/products/models";
 import { getPublicContent, type PublicContent } from "@/features/content/content-api";
-import { getPublishedCmsPage } from "@/features/content/cms-api";
+import { getPublishedCmsPage, getPublishedSite } from "@/features/content/cms-api";
 import { getDraftCmsPage } from "@/features/content/cms-preview-server";
 import { resolveCmsMediaUrl } from "@/features/content/cms-renderer";
 import type { CmsDocument, CmsPublishedPage } from "@/features/content/cms-types";
@@ -93,13 +93,21 @@ export default async function Home({
     }
   }
 
+  let site: CmsPublishedPage | undefined;
+  try {
+    site = await getPublishedSite();
+  } catch {
+    // fallback to defaults if site settings fail to load
+  }
+
   const blocks = page?.document.blocks ?? [];
   const heroBlock = blocks.find((b) => b.type === "hero");
   const featureBlocks = blocks.filter((b) => b.type === "featureGrid");
   const valuesBlock = featureBlocks[0];
   const guideBlock = featureBlocks.find((b) => b.data.anchor === "راهنمای-خرید") ?? featureBlocks[1];
   const craftBlock = blocks.find((b) => b.type === "imageText");
-  const announcementBlock = blocks.find((b) => b.type === "announcement");
+  const homeAnnouncementBlock = blocks.find((b) => b.type === "announcement");
+  const siteAnnouncementBlock = site?.document.blocks.find((b) => b.type === "announcement");
   const categoryBlock = blocks.find((b) => b.type === "categoryLinks");
   const showcaseBlock = blocks.find((b) => b.type === "productShowcase");
 
@@ -109,10 +117,17 @@ export default async function Home({
   const legacyCraft = legacyContent.find((item) => item.sectionKey === "craft");
   const legacyGuide = legacyContent.find((item) => item.sectionKey === "guide");
 
+  const homeAnnouncementText =
+    typeof homeAnnouncementBlock?.data.text === "string" ? homeAnnouncementBlock.data.text.trim() : undefined;
+  const siteAnnouncementText =
+    typeof siteAnnouncementBlock?.data.text === "string" ? siteAnnouncementBlock.data.text.trim() : undefined;
+
   const announcementText =
-    (typeof announcementBlock?.data.text === "string" ? announcementBlock.data.text : "") ||
-    legacyAnnouncement?.body ||
-    "";
+    homeAnnouncementText !== undefined
+      ? homeAnnouncementText
+      : siteAnnouncementText !== undefined
+        ? siteAnnouncementText
+        : legacyAnnouncement?.body;
 
   const heroEyebrow =
     (typeof heroBlock?.data.eyebrow === "string" ? heroBlock.data.eyebrow : "") ||
@@ -256,8 +271,7 @@ export default async function Home({
         </div>
       )}
       <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
-      <Header />
-      {announcementText && <div className="announcement">{announcementText}</div>}
+      <Header announcementText={announcementText !== undefined ? (announcementText.length > 0 ? announcementText : null) : undefined} preview={preview} />
       <main id="محتوا">
         <section className="hero section-pad">
           <Container className="hero-grid">

@@ -1,5 +1,7 @@
 import HomePage from "@/features/products/components/home-page";
 
+export const dynamic = "force-dynamic";
+
 export default async function Page({
   searchParams,
 }: {

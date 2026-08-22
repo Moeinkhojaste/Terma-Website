@@ -82,31 +82,222 @@ export function ProductCatalog() {
   const currentPage = result?.page ?? query.page ?? 1; const totalPages = result?.totalPages ?? 0;
   const activeCount = Object.values(readDraft(new URLSearchParams(queryKey))).filter(Boolean).length;
 
-  const actions: ReactNode = <div className="catalog-filter-actions"><button className="button button--primary" type="submit">اعمال فیلترها</button><button className="button button--secondary" type="button" onClick={clear}>پاک‌کردن</button></div>;
-  return <section className="catalog-section section-pad" id="همه"><Container>
-    <div className="catalog-top-actions">
-      <button className="mobile-filter-button button button--secondary" type="button" onClick={() => setFilterOpen(true)}><FilterIcon /> فیلتر و مرتب‌سازی {activeCount > 0 && <span>{new Intl.NumberFormat("fa-IR").format(activeCount)}</span>}</button>
-      <label className="catalog-sort-select catalog-sort-select--mobile">
-        <span>مرتب‌سازی:</span>
-        <select
-          aria-label="مرتب‌سازی سریع محصولات"
-          value={draft.sort}
-          onChange={(event) => {
-            const next = { ...draft, sort: event.target.value };
-            setDraft(next);
-            navigate(next, 1);
-          }}
-        >
-          <option value="">جدیدترین</option>
-          <option value="price-asc">ارزان‌ترین</option>
-          <option value="price-desc">گران‌ترین</option>
-          <option value="name-asc">نام (الف تا ی)</option>
-        </select>
-      </label>
+  const activeCategoryName = categories.find((c) => c.id === (query.categoryId || draft.categoryId))?.name;
+
+  const removeFilter = (key: keyof FilterDraft) => {
+    const next = { ...draft, [key]: "" };
+    setDraft(next);
+    navigate(next, 1);
+  };
+
+  const actions: ReactNode = (
+    <div className="catalog-filter-actions">
+      <button className="button button--primary" type="submit">اعمال فیلترها</button>
+      <button className="button button--secondary" type="button" onClick={clear}>پاک‌کردن</button>
     </div>
-    <form className="catalog-filters catalog-filters--desktop" onSubmit={submit} aria-label="فیلتر محصولات"><FilterFields draft={draft} setDraft={setDraft} categories={categories} facets={facets} />{actions}</form>
-    <AccessibleDialog open={filterOpen} onClose={() => setFilterOpen(false)} className="filter-dialog sheet-dialog" label="فیلتر و مرتب‌سازی محصولات"><form className="filter-sheet" onSubmit={submit}><div className="filter-sheet__heading"><h2>فیلتر و مرتب‌سازی</h2><button className="dialog-close" type="button" onClick={() => setFilterOpen(false)} aria-label="بستن فیلترها"><XIcon /></button></div><div className="filter-sheet__body"><FilterFields draft={draft} setDraft={setDraft} categories={categories} facets={facets} /></div>{actions}</form></AccessibleDialog>
-    {filterError && <div className="catalog-inline-warning" role="alert"><span>گزینه‌های فیلتر بارگذاری نشدند.</span><button type="button" onClick={() => setFilterAttempt((value) => value + 1)}>تلاش دوباره</button></div>}
-    {loading ? <div aria-live="polite"><ProductCatalogLoading embedded /></div> : productError ? <div className="catalog-error" role="alert"><h2>محصولات بارگذاری نشدند</h2><ErrorDetails error={productError} /><button className="button button--secondary" type="button" onClick={() => { setLoading(true); setProductAttempt((value) => value + 1); }}>تلاش دوباره</button></div> : result && result.items.length === 0 ? <><div className="catalog-empty"><span>۰</span><h2>محصولی با این مشخصات پیدا نشد</h2><p>یک عبارت کوتاه‌تر امتحان کنید یا بعضی فیلترها را بردارید.</p><button className="button button--secondary" type="button" onClick={clear}>پاک‌کردن همه فیلترها</button></div><RecentlyViewedProducts title="شاید یکی از این محصولات را می‌خواستید" compact /></> : result ? <><div className="catalog-toolbar"><div><h2>محصولات</h2><span>{new Intl.NumberFormat("fa-IR").format(result.totalCount)} محصول</span></div><label className="catalog-sort-select catalog-sort-select--desktop"><span>مرتب‌سازی:</span><select aria-label="مرتب‌سازی محصولات" value={draft.sort} onChange={(event) => { const next = { ...draft, sort: event.target.value }; setDraft(next); navigate(next, 1); }}><option value="">جدیدترین</option><option value="price-asc">ارزان‌ترین</option><option value="price-desc">گران‌ترین</option><option value="name-asc">نام (الف تا ی)</option></select></label></div><div className="products-grid products-grid--catalog">{result.items.map((product) => <ProductCard product={product} key={product.id} />)}</div>{totalPages > 1 && <nav className="catalog-pagination" aria-label="صفحه‌بندی محصولات"><button type="button" disabled={currentPage <= 1} onClick={() => navigate(readDraft(new URLSearchParams(queryKey)), currentPage - 1)}>صفحه قبل</button><span>صفحه {new Intl.NumberFormat("fa-IR").format(currentPage)} از {new Intl.NumberFormat("fa-IR").format(totalPages)}</span><button type="button" disabled={currentPage >= totalPages} onClick={() => navigate(readDraft(new URLSearchParams(queryKey)), currentPage + 1)}>صفحه بعد</button></nav>}</> : null}
-  </Container></section>;
+  );
+
+  return (
+    <section className="catalog-section" id="همه">
+      <Container>
+        {/* Category Quick Chips Bar */}
+        {categories.length > 0 && (
+          <div className="catalog-category-chips" role="region" aria-label="انتخاب سریع دسته‌بندی">
+            <button
+              type="button"
+              className={`category-chip ${!draft.categoryId ? "category-chip--active" : ""}`}
+              onClick={() => {
+                const next = { ...draft, categoryId: "" };
+                setDraft(next);
+                navigate(next, 1);
+              }}
+            >
+              همه محصولات
+            </button>
+            {categories.map((category) => (
+              <button
+                type="button"
+                key={category.id}
+                className={`category-chip ${draft.categoryId === category.id ? "category-chip--active" : ""}`}
+                onClick={() => {
+                  const next = { ...draft, categoryId: category.id };
+                  setDraft(next);
+                  navigate(next, 1);
+                }}
+              >
+                {category.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="catalog-top-actions">
+          <button className="mobile-filter-button button button--secondary" type="button" onClick={() => setFilterOpen(true)}>
+            <FilterIcon /> فیلتر و مرتب‌سازی {activeCount > 0 && <span>{new Intl.NumberFormat("fa-IR").format(activeCount)}</span>}
+          </button>
+          <label className="catalog-sort-select catalog-sort-select--mobile">
+            <span>مرتب‌سازی:</span>
+            <select
+              aria-label="مرتب‌سازی سریع محصولات"
+              value={draft.sort}
+              onChange={(event) => {
+                const next = { ...draft, sort: event.target.value };
+                setDraft(next);
+                navigate(next, 1);
+              }}
+            >
+              <option value="">جدیدترین</option>
+              <option value="price-asc">ارزان‌ترین</option>
+              <option value="price-desc">گران‌ترین</option>
+              <option value="name-asc">نام (الف تا ی)</option>
+            </select>
+          </label>
+        </div>
+
+        <AccessibleDialog open={filterOpen} onClose={() => setFilterOpen(false)} className="filter-dialog sheet-dialog" label="فیلتر و مرتب‌سازی محصولات">
+          <form className="filter-sheet" onSubmit={submit}>
+            <div className="filter-sheet__heading">
+              <h2>فیلتر و مرتب‌سازی</h2>
+              <button className="dialog-close" type="button" onClick={() => setFilterOpen(false)} aria-label="بستن فیلترها"><XIcon /></button>
+            </div>
+            <div className="filter-sheet__body">
+              <FilterFields draft={draft} setDraft={setDraft} categories={categories} facets={facets} />
+            </div>
+            {actions}
+          </form>
+        </AccessibleDialog>
+
+        {filterError && (
+          <div className="catalog-inline-warning" role="alert">
+            <span>گزینه‌های فیلتر بارگذاری نشدند.</span>
+            <button type="button" onClick={() => setFilterAttempt((value) => value + 1)}>تلاش دوباره</button>
+          </div>
+        )}
+
+        <div className="catalog-layout">
+          {/* Desktop Filter Sidebar */}
+          <aside className="catalog-sidebar">
+            <form className="catalog-filters catalog-filters--desktop" onSubmit={submit} aria-label="فیلتر محصولات">
+              <div className="catalog-sidebar__header">
+                <span className="catalog-sidebar__title"><FilterIcon /> فیلترهای پیشرفته</span>
+                {activeCount > 0 && (
+                  <button type="button" className="catalog-sidebar__clear" onClick={clear}>
+                    پاک‌کردن
+                  </button>
+                )}
+              </div>
+              <FilterFields draft={draft} setDraft={setDraft} categories={categories} facets={facets} />
+              {actions}
+            </form>
+          </aside>
+
+          {/* Main Products Area */}
+          <div className="catalog-main">
+            {/* Active filter chips */}
+            {activeCount > 0 && (
+              <div className="catalog-active-filters" aria-label="فیلترهای فعال">
+                <span className="catalog-active-filters__label">فیلترهای فعال:</span>
+                {draft.search && (
+                  <button type="button" className="active-filter-badge" onClick={() => removeFilter("search")}>
+                    جست‌وجو: «{draft.search}» <XIcon />
+                  </button>
+                )}
+                {activeCategoryName && (
+                  <button type="button" className="active-filter-badge" onClick={() => removeFilter("categoryId")}>
+                    دسته: {activeCategoryName} <XIcon />
+                  </button>
+                )}
+                {draft.color && (
+                  <button type="button" className="active-filter-badge" onClick={() => removeFilter("color")}>
+                    رنگ: {draft.color} <XIcon />
+                  </button>
+                )}
+                {draft.tableCapacity && (
+                  <button type="button" className="active-filter-badge" onClick={() => removeFilter("tableCapacity")}>
+                    ظرفیت: {new Intl.NumberFormat("fa-IR").format(Number(draft.tableCapacity))} نفره <XIcon />
+                  </button>
+                )}
+                {draft.inStock && (
+                  <button type="button" className="active-filter-badge" onClick={() => removeFilter("inStock")}>
+                    {draft.inStock === "true" ? "فقط کالاهای موجود" : "فقط کالاهای ناموجود"} <XIcon />
+                  </button>
+                )}
+                {draft.minPrice && (
+                  <button type="button" className="active-filter-badge" onClick={() => removeFilter("minPrice")}>
+                    حداقل قیمت: {new Intl.NumberFormat("fa-IR").format(Number(draft.minPrice))} <XIcon />
+                  </button>
+                )}
+                {draft.maxPrice && (
+                  <button type="button" className="active-filter-badge" onClick={() => removeFilter("maxPrice")}>
+                    حداکثر قیمت: {new Intl.NumberFormat("fa-IR").format(Number(draft.maxPrice))} <XIcon />
+                  </button>
+                )}
+                <button type="button" className="active-filter-clear-all" onClick={clear}>
+                  پاک‌کردن همه
+                </button>
+              </div>
+            )}
+
+            {loading ? (
+              <div aria-live="polite"><ProductCatalogLoading embedded /></div>
+            ) : productError ? (
+              <div className="catalog-error" role="alert">
+                <h2>محصولات بارگذاری نشدند</h2>
+                <ErrorDetails error={productError} />
+                <button className="button button--secondary" type="button" onClick={() => { setLoading(true); setProductAttempt((value) => value + 1); }}>تلاش دوباره</button>
+              </div>
+            ) : result && result.items.length === 0 ? (
+              <>
+                <div className="catalog-empty">
+                  <span>۰</span>
+                  <h2>محصولی با این مشخصات پیدا نشد</h2>
+                  <p>یک عبارت کوتاه‌تر امتحان کنید یا بعضی فیلترها را بردارید.</p>
+                  <button className="button button--secondary" type="button" onClick={clear}>پاک‌کردن همه فیلترها</button>
+                </div>
+                <RecentlyViewedProducts title="شاید یکی از این محصولات را می‌خواستید" compact />
+              </>
+            ) : result ? (
+              <>
+                <div className="catalog-toolbar">
+                  <div className="catalog-toolbar__info">
+                    <h2>محصولات</h2>
+                    <span className="catalog-toolbar__count">{new Intl.NumberFormat("fa-IR").format(result.totalCount)} محصول</span>
+                  </div>
+                  <label className="catalog-sort-select catalog-sort-select--desktop">
+                    <span>مرتب‌سازی:</span>
+                    <select
+                      aria-label="مرتب‌سازی محصولات"
+                      value={draft.sort}
+                      onChange={(event) => {
+                        const next = { ...draft, sort: event.target.value };
+                        setDraft(next);
+                        navigate(next, 1);
+                      }}
+                    >
+                      <option value="">جدیدترین</option>
+                      <option value="price-asc">ارزان‌ترین</option>
+                      <option value="price-desc">گران‌ترین</option>
+                      <option value="name-asc">نام (الف تا ی)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="products-grid products-grid--catalog">
+                  {result.items.map((product) => <ProductCard product={product} key={product.id} />)}
+                </div>
+
+                {totalPages > 1 && (
+                  <nav className="catalog-pagination" aria-label="صفحه‌بندی محصولات">
+                    <button type="button" disabled={currentPage <= 1} onClick={() => navigate(readDraft(new URLSearchParams(queryKey)), currentPage - 1)}>صفحه قبل</button>
+                    <span>صفحه {new Intl.NumberFormat("fa-IR").format(currentPage)} از {new Intl.NumberFormat("fa-IR").format(totalPages)}</span>
+                    <button type="button" disabled={currentPage >= totalPages} onClick={() => navigate(readDraft(new URLSearchParams(queryKey)), currentPage + 1)}>صفحه بعد</button>
+                  </nav>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
+      </Container>
+    </section>
+  );
 }

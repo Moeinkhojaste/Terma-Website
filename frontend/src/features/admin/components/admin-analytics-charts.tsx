@@ -76,7 +76,22 @@ export function AdminTrendChart({
   const values = points.map((p) => p.value);
   const maxValue = Math.max(...values, 1) || 1;
   const totalValue = values.reduce((acc, cur) => acc + (isNaN(cur) ? 0 : cur), 0);
-  const avgValue = values.length > 0 ? Math.round(totalValue / values.length) : 0;
+  const avgValue = values.length > 0 ? totalValue / values.length : 0;
+
+  // Compute neat Y-axis ticks
+  const yTicks = useMemo(() => {
+    const safeMax = Math.max(maxValue, 1);
+    if (safeMax <= 5 && Number.isInteger(safeMax)) {
+      return Array.from({ length: safeMax + 1 }, (_, i) => ({
+        val: i,
+        ratio: i / safeMax,
+      }));
+    }
+    return [0, 0.25, 0.5, 0.75, 1].map((ratio) => ({
+      val: Math.round(safeMax * ratio),
+      ratio,
+    }));
+  }, [maxValue]);
 
   // SVG dimensions
   const width = 800;
@@ -135,7 +150,7 @@ export function AdminTrendChart({
           <h3>
             {metric === "sales" && "روند فروش ریالی"}
             {metric === "orders" && "روند تعداد سفارشات"}
-            {metric === "items" && "روند تعداد اقلام فروخته شده"}
+            {metric === "items" && "روند اقلام فروخته‌شده"}
           </h3>
         </div>
 
@@ -196,19 +211,29 @@ export function AdminTrendChart({
         <div className="analytics-summary-item">
           <span>مجموع در این دوره:</span>
           <strong>
-            {metric === "sales" ? formatPrice(totalValue) : `${formatNumber(totalValue)} مورد`}
+            {metric === "sales"
+              ? formatPrice(totalValue)
+              : `${formatNumber(totalValue)} ${metric === "orders" ? "سفارش" : "عدد"}`}
           </strong>
         </div>
         <div className="analytics-summary-item">
           <span>میانگین {range === "30days" ? "روزانه" : "ماهانه"}:</span>
           <strong>
-            {metric === "sales" ? formatPrice(avgValue) : `${formatNumber(avgValue)} مورد`}
+            {metric === "sales"
+              ? formatPrice(Math.round(avgValue))
+              : `${formatNumber(
+                  avgValue > 0 && avgValue < 10 && avgValue % 1 !== 0
+                    ? Number(avgValue.toFixed(1))
+                    : Math.round(avgValue)
+                )} ${metric === "orders" ? "سفارش" : "عدد"}`}
           </strong>
         </div>
         <div className="analytics-summary-item">
           <span>بالاترین رکورد:</span>
           <strong>
-            {metric === "sales" ? formatPrice(maxValue) : `${formatNumber(maxValue)} مورد`}
+            {metric === "sales"
+              ? formatPrice(maxValue)
+              : `${formatNumber(maxValue)} ${metric === "orders" ? "سفارش" : "عدد"}`}
           </strong>
         </div>
       </div>
@@ -237,9 +262,8 @@ export function AdminTrendChart({
           </defs>
 
           {/* Grid lines */}
-          {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+          {yTicks.map(({ val, ratio }) => {
             const y = paddingTop + chartH * (1 - ratio);
-            const gridVal = Math.round(maxValue * ratio);
             return (
               <g key={ratio} className="analytics-grid-row">
                 <line
@@ -260,10 +284,10 @@ export function AdminTrendChart({
                   className="analytics-axis-text"
                 >
                   {metric === "sales"
-                    ? gridVal >= 1_000_000
-                      ? `${(gridVal / 1_000_000).toFixed(1)} م`
-                      : formatNumber(gridVal)
-                    : formatNumber(gridVal)}
+                    ? val >= 1_000_000
+                      ? `${(val / 1_000_000).toFixed(1)} م`
+                      : formatNumber(val)
+                    : formatNumber(val)}
                 </text>
               </g>
             );
@@ -337,6 +361,7 @@ export function AdminTrendChart({
                     fontSize="11"
                     fill="#716b64"
                     className="analytics-axis-text"
+                    style={{ direction: "ltr", unicodeBidi: "isolate" }}
                   >
                     {c.point.shortLabel}
                   </text>
@@ -359,7 +384,7 @@ export function AdminTrendChart({
             <div className="tooltip-value">
               {metric === "sales"
                 ? formatPrice(hovered.point.value)
-                : `${formatNumber(hovered.point.value)} ${metric === "orders" ? "سفارش" : "کالا"}`}
+                : `${formatNumber(hovered.point.value)} ${metric === "orders" ? "سفارش" : "عدد کالا"}`}
             </div>
           </div>
         )}

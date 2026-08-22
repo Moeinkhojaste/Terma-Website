@@ -114,4 +114,23 @@ describe("ProductCatalog", () => {
 
     expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining("sort=price-asc"), expect.anything());
   });
+
+  it("filters immediately when clicking category quick chip", async () => {
+    render(
+      <FeedbackProvider>
+        <CartProvider>
+          <WishlistProvider>
+            <ProductCatalog />
+          </WishlistProvider>
+        </CartProvider>
+      </FeedbackProvider>
+    );
+
+    expect(await screen.findByRole("heading", { level: 3, name: "ترمه نیلا آبی" })).toBeInTheDocument();
+
+    const categoryChip = screen.getByRole("button", { name: "رومیزی" });
+    fireEvent.click(categoryChip);
+
+    expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining("categoryId=c1"), expect.anything());
+  });
 });

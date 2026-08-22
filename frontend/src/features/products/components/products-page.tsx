@@ -23,9 +23,12 @@ export default function ProductsPage() {
             <nav className="breadcrumbs" aria-label="مسیر صفحه">
               <Link href="/">خانه</Link><span>/</span><span aria-current="page">محصولات</span>
             </nav>
-            <p className="section-eyebrow">مجموعه فعلی ترما</p>
-            <h1>همه محصولات</h1>
-            <p>محصولات ترما را بر اساس دسته‌بندی، قیمت، ظرفیت یا نام محصول جست‌وجو کنید.</p>
+            <div className="catalog-hero__header">
+              <div>
+                <p className="section-eyebrow">مجموعه اصیل ترما</p>
+                <h1>همه محصولات</h1>
+              </div>
+            </div>
           </Container>
         </section>
         <Suspense fallback={<ProductCatalogLoading />}>

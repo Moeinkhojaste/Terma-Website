@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getQuote: vi.fn(),
   getCustomerSession: vi.fn(),
   getCustomerAddresses: vi.fn(),
+  logoutCustomer: vi.fn(),
   useCart: vi.fn(),
   clearCart: vi.fn(),
   replace: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("@/features/account/account-api", () => ({
   getCustomerSession: mocks.getCustomerSession,
   getCustomerProfile: vi.fn().mockResolvedValue({ email: "" }),
   getCustomerAddresses: mocks.getCustomerAddresses,
+  logoutCustomer: mocks.logoutCustomer,
 }));
 vi.mock("@/components/layout/header", () => ({ Header: () => null }));
 vi.mock("@/components/layout/footer", () => ({ Footer: () => null }));
@@ -55,6 +57,8 @@ describe("checkout order review", () => {
     vi.clearAllMocks();
     Object.defineProperty(window.navigator, "onLine", { configurable: true, value: true });
     mocks.getCustomerSession.mockRejectedValue(new Error("guest"));
+    mocks.getCustomerAddresses.mockResolvedValue([]);
+    mocks.logoutCustomer.mockResolvedValue(undefined);
     const product = createProduct();
     mocks.useCart.mockReturnValue({
       hydrated: true,
@@ -194,7 +198,7 @@ describe("checkout order review", () => {
     expect(within(citySelect).getByText("کاشان")).toBeInTheDocument();
   });
 
-  it("keeps the review and cart available when order creation fails", async () => {
+  it("keeps the review and cart available and shows error popup when order creation fails", async () => {
     mocks.createOrder.mockRejectedValue(new Error("failure"));
     render(<CheckoutPageClient />);
     fillValidCheckout();
@@ -203,10 +207,49 @@ describe("checkout order review", () => {
     const dialog = await screen.findByRole("dialog", { name: "بازبینی و تأیید سفارش" });
     fireEvent.click(within(dialog).getByRole("button", { name: "تأیید و ثبت سفارش" }));
 
-    expect(await within(dialog).findByRole("alert")).toHaveTextContent("خطای پیش‌بینی‌نشده‌ای رخ داد. دوباره تلاش کنید.");
+    const errorDialog = await screen.findByRole("dialog", { name: "خطای پیش‌بینی‌نشده" });
+    expect(within(errorDialog).getByText(/خطایی در فرآیند ثبت سفارش رخ داد/)).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "تأیید و ثبت سفارش" })).toBeEnabled();
     expect(mocks.clearCart).not.toHaveBeenCalled();
     expect(mocks.replace).not.toHaveBeenCalled();
   });
+
+  it("shows session mismatch popup and allows logging out to retry order", async () => {
+    const { ApiError } = await import("@/lib/api-client");
+    mocks.getCustomerSession.mockResolvedValue({ phone: "09121111111" });
+    mocks.getCustomerAddresses.mockResolvedValue([]);
+    mocks.logoutCustomer.mockResolvedValue(undefined);
+
+    mocks.createOrder
+      .mockRejectedValueOnce(new ApiError("Conflict", { status: 409, problem: { detail: "The checkout mobile number must match the verified account mobile number." } }))
+      .mockResolvedValueOnce({ number: "TRM-9999-123456" });
+
+    render(<CheckoutPageClient />);
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^شماره موبایل \*/)).toHaveValue("09121111111");
+    });
+    fireEvent.change(screen.getByLabelText(/^نام و نام خانوادگی \*/), { target: { value: "مریم احمدی" } });
+    fireEvent.change(screen.getByLabelText(/^استان \*/), { target: { value: "تهران" } });
+    fireEvent.change(screen.getByLabelText(/^شهر \*/), { target: { value: "تهران" } });
+    fireEvent.change(screen.getByLabelText(/^آدرس کامل \*/), { target: { value: "خیابان ولیعصر، کوچه یازدهم، پلاک ۲۴" } });
+    fireEvent.change(screen.getByLabelText(/^کد پستی \*/), { target: { value: "۱۲۳۴۵۶۷۸۹۰" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "ثبت سفارش" }));
+    const dialog = await screen.findByRole("dialog", { name: "بازبینی و تأیید سفارش" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "تأیید و ثبت سفارش" }));
+
+    const errorDialog = await screen.findByRole("dialog", { name: "عدم تطابق شماره با حساب فعال" });
+    expect(within(errorDialog).getByText(/شماره موبایل واردشده با حسابی که هم‌اکنون در مرورگر شما فعال است مطابقت ندارد/)).toBeInTheDocument();
+
+    const logoutAndRetryBtn = within(errorDialog).getByRole("button", { name: "خروج از حساب قبلی و ثبت سفارش" });
+    fireEvent.click(logoutAndRetryBtn);
+
+    await waitFor(() => {
+      expect(mocks.logoutCustomer).toHaveBeenCalled();
+      expect(mocks.clearCart).toHaveBeenCalled();
+      expect(mocks.replace).toHaveBeenCalledWith("/order/success?order=TRM-9999-123456");
+    });
+  });
 });
+
 

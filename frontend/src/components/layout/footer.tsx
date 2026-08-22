@@ -67,7 +67,6 @@ export function Footer({ socialLinks: initialSocialLinks }: { socialLinks?: Foot
           <h2>ارتباط با ترما</h2>
           <Link href="/about">درباره ما</Link>
           <Link href="/contact">ارتباط با ما</Link>
-          <Link href="/style-guide">راهنمای سبک داخلی</Link>
         </div>
         <div>
           <h2>قوانین</h2>

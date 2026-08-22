@@ -4,7 +4,7 @@ import { Footer } from "@/components/layout/footer";
 import { ApiError } from "@/lib/api-client";
 import { listProducts } from "@/features/products/product-api";
 import type { Product } from "@/features/products/models";
-import { getPublishedCmsPage } from "./cms-api";
+import { getPublishedCmsPage, getPublishedSite } from "./cms-api";
 import { CmsDocumentRenderer } from "./cms-renderer";
 import { getDraftCmsPage } from "./cms-preview-server";
 
@@ -17,6 +17,29 @@ export async function CmsPageView({ slug, previewId }: { slug: string; previewId
   if (page.document.blocks.some((block) => block.type === "productShowcase")) {
     try { products = (await listProducts({ page: 1, pageSize: 6 })).items; } catch { products = []; }
   }
+
+  let announcementText: string | null | undefined;
+  const pageAnnouncement = page.document.blocks.find((block) => block.type === "announcement");
+  if (pageAnnouncement && typeof pageAnnouncement.data?.text === "string") {
+    const text = pageAnnouncement.data.text.trim();
+    announcementText = text.length > 0 ? text : null;
+  } else if (pageAnnouncement) {
+    announcementText = null;
+  } else {
+    try {
+      const site = slug === "site-settings" ? page : await getPublishedSite();
+      const siteAnnouncement = site.document.blocks.find((block) => block.type === "announcement");
+      if (siteAnnouncement && typeof siteAnnouncement.data?.text === "string") {
+        const text = siteAnnouncement.data.text.trim();
+        announcementText = text.length > 0 ? text : null;
+      } else if (siteAnnouncement) {
+        announcementText = null;
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   return (
     <>
       {preview && (
@@ -32,7 +55,7 @@ export async function CmsPageView({ slug, previewId }: { slug: string; previewId
       <a className="skip-link" href="#محتوا">
         رفتن به محتوای اصلی
       </a>
-      <Header />
+      <Header announcementText={announcementText} preview={preview} />
       <main id="محتوا">
         <CmsDocumentRenderer document={page.document} products={products} showContactForm={slug === "contact"} />
       </main>
