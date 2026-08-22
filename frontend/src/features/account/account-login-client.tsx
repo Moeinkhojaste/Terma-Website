@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
 import { Container } from "@/components/layout/container";
 import { ApiError } from "@/lib/api-client";
 import { requestOtp, verifyOtp, type OtpChallenge } from "./account-api";
@@ -167,7 +165,6 @@ export function AccountLoginClient() {
 
   return (
     <>
-      <Header />
       <main className="commerce-page account-auth-page">
         <Container>
           <nav className="breadcrumbs commerce-breadcrumbs" aria-label="مسیر صفحه">
@@ -399,7 +396,6 @@ export function AccountLoginClient() {
           </div>
         </Container>
       </main>
-      <Footer />
     </>
   );
 }

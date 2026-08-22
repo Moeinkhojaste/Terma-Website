@@ -6,8 +6,6 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FocusE
 import { useRouter } from "next/navigation";
 import { useCart } from "@/features/cart/cart-provider";
 import { Container } from "@/components/layout/container";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
 import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { formatPrice } from "@/lib/format";
 import { ApiError } from "@/lib/api-client";
@@ -329,8 +327,6 @@ export function CheckoutPageClient() {
 
   return (
     <>
-      <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
-      <Header />
       <main id="محتوا" className="commerce-page checkout-page">
         <Container>
           <nav className="breadcrumbs commerce-breadcrumbs" aria-label="مسیر صفحه">
@@ -586,7 +582,6 @@ export function CheckoutPageClient() {
         onEdit={editOrder}
         onLogoutAndRetry={handleLogoutAndRetry}
       />
-      <Footer />
     </>
   );
 }

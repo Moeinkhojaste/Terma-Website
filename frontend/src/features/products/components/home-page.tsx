@@ -1,8 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { ArrowLeftIcon, FabricIcon, PaisleyIcon, StitchIcon } from "@/components/ui/icons";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -11,7 +9,7 @@ import { HeroSlideshow } from "@/features/products/components/hero-slideshow";
 import { listProducts } from "@/features/products/product-api";
 import type { Product } from "@/features/products/models";
 import { getPublicContent, type PublicContent } from "@/features/content/content-api";
-import { getPublishedCmsPage, getPublishedSite } from "@/features/content/cms-api";
+import { getPublishedCmsPage } from "@/features/content/cms-api";
 import { getDraftCmsPage } from "@/features/content/cms-preview-server";
 import { resolveCmsMediaUrl } from "@/features/content/cms-renderer";
 import type { CmsDocument, CmsPublishedPage } from "@/features/content/cms-types";
@@ -93,41 +91,19 @@ export default async function Home({
     }
   }
 
-  let site: CmsPublishedPage | undefined;
-  try {
-    site = await getPublishedSite();
-  } catch {
-    // fallback to defaults if site settings fail to load
-  }
-
   const blocks = page?.document.blocks ?? [];
   const heroBlock = blocks.find((b) => b.type === "hero");
   const featureBlocks = blocks.filter((b) => b.type === "featureGrid");
   const valuesBlock = featureBlocks[0];
   const guideBlock = featureBlocks.find((b) => b.data.anchor === "راهنمای-خرید") ?? featureBlocks[1];
   const craftBlock = blocks.find((b) => b.type === "imageText");
-  const homeAnnouncementBlock = blocks.find((b) => b.type === "announcement");
-  const siteAnnouncementBlock = site?.document.blocks.find((b) => b.type === "announcement");
   const categoryBlock = blocks.find((b) => b.type === "categoryLinks");
   const showcaseBlock = blocks.find((b) => b.type === "productShowcase");
 
   const legacyHero = legacyContent.find((item) => item.sectionKey === "hero");
-  const legacyAnnouncement = legacyContent.find((item) => item.sectionKey === "announcement");
   const legacyValues = legacyContent.find((item) => item.sectionKey === "values");
   const legacyCraft = legacyContent.find((item) => item.sectionKey === "craft");
   const legacyGuide = legacyContent.find((item) => item.sectionKey === "guide");
-
-  const homeAnnouncementText =
-    typeof homeAnnouncementBlock?.data.text === "string" ? homeAnnouncementBlock.data.text.trim() : undefined;
-  const siteAnnouncementText =
-    typeof siteAnnouncementBlock?.data.text === "string" ? siteAnnouncementBlock.data.text.trim() : undefined;
-
-  const announcementText =
-    homeAnnouncementText !== undefined
-      ? homeAnnouncementText
-      : siteAnnouncementText !== undefined
-        ? siteAnnouncementText
-        : legacyAnnouncement?.body;
 
   const heroEyebrow =
     (typeof heroBlock?.data.eyebrow === "string" ? heroBlock.data.eyebrow : "") ||
@@ -270,8 +246,6 @@ export default async function Home({
           </form>
         </div>
       )}
-      <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
-      <Header announcementText={announcementText !== undefined ? (announcementText.length > 0 ? announcementText : null) : undefined} preview={preview} />
       <main id="محتوا">
         <section className="hero section-pad">
           <Container className="hero-grid">
@@ -398,7 +372,6 @@ export default async function Home({
           </Container>
         </section>
       </main>
-      <Footer />
     </>
   );
 }

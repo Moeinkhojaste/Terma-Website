@@ -3,8 +3,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
 import { ProductDetailExperience } from "@/features/products/components/product-detail-experience";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 import { getProduct } from "@/features/products/product-api";
@@ -124,10 +122,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
       />
-      <a className="skip-link" href="#محتوا">
-        رفتن به محتوای اصلی
-      </a>
-      <Header />
       <main id="محتوا" className="product-page">
         <Container>
           <nav className="breadcrumbs product-breadcrumbs" aria-label="مسیر صفحه">
@@ -151,7 +145,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <RecentlyViewedProducts currentProductId={product.id} />
         </Container>
       </main>
-      <Footer />
     </>
   );
 }

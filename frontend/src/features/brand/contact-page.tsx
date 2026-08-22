@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
 import { ClockIcon, MailIcon, MessageIcon, PhoneIcon } from "@/components/ui/icons";
 import { ContactForm } from "@/features/brand/contact-form";
 import { getPublicContent, type PublicContent } from "@/features/content/content-api";
@@ -38,10 +36,7 @@ export async function ContactPage({ email, phone, instagramUrl }: ContactPagePro
   const finalFaqs = cmsFaqs.length > 0 ? cmsFaqs : defaultFaqs;
 
   return (
-    <>
-      <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
-      <Header />
-      <main id="محتوا">
+    <main id="محتوا">
         <section className="contact-hero section-pad">
           <Container className="contact-hero__grid">
             <div>
@@ -92,7 +87,5 @@ export async function ContactPage({ email, phone, instagramUrl }: ContactPagePro
           </Container>
         </section>
       </main>
-      <Footer />
-    </>
   );
 }
