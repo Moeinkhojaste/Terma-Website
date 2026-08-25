@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Terma.Domain\Terma.Domain.csproj" />
     <ProjectReference Include="..\..\src\Terma.Application\Terma.Application.csproj" />
+    <ProjectReference Include="..\..\src\Terma.Infrastructure\Terma.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

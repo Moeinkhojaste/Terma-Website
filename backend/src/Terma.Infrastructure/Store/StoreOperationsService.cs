@@ -3,8 +3,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Terma.Application.Common.Exceptions;
+using Terma.Application.Common.Interfaces;
 using Terma.Application.Store;
+using Terma.Application.Telegram;
 using Terma.Domain.Entities;
 using Terma.Domain.Exceptions;
 using Terma.Domain.Services;
@@ -12,7 +15,10 @@ using Terma.Infrastructure.Persistence;
 
 namespace Terma.Infrastructure.Store;
 
-public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperationsService
+public sealed class StoreOperationsService(
+    TermaDbContext db,
+    ITelegramBotService? telegramBotService = null,
+    ILogger<StoreOperationsService>? logger = null) : IStoreOperationsService
 {
     private static readonly PersianCalendar Pc = new();
     private static readonly TimeZoneInfo IranTimeZone = GetIranTimeZone();
@@ -1038,6 +1044,55 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
         {
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+
+            if (telegramBotService is not null)
+            {
+                var notificationDto = new OrderNotificationDto(
+                    order.Id,
+                    order.Number,
+                    order.FullNameSnapshot,
+                    order.PhoneSnapshot,
+                    order.EmailSnapshot,
+                    order.Province,
+                    order.City,
+                    order.Address,
+                    order.PostalCode,
+                    order.CustomerNotes,
+                    order.Subtotal,
+                    order.DiscountTotal,
+                    order.ShippingTotal,
+                    order.Total,
+                    lines.Select(l => new OrderNotificationItemDto(
+                        l.ProductId,
+                        l.VariantId,
+                        l.ProductName,
+                        l.Sku,
+                        l.Variant.Title,
+                        l.Variant.Color,
+                        l.Variant.TableCapacity > 0 ? l.Variant.TableCapacity : l.Product.TableCapacity,
+                        l.Variant.Length > 0 ? l.Variant.Length : l.Product.Length,
+                        l.Variant.Width > 0 ? l.Variant.Width : l.Product.Width,
+                        l.Product.FabricType,
+                        l.Product.LiningType,
+                        l.Product.Pattern,
+                        l.UnitPrice,
+                        l.Quantity
+                    )).ToList(),
+                    order.CreatedAt
+                );
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await telegramBotService.NotifyNewOrderAsync(notificationDto, CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger?.LogError(ex, "Background Telegram notification failed for order {OrderNumber}", order.Number);
+                    }
+                });
+            }
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -1145,12 +1200,12 @@ public sealed class StoreOperationsService(TermaDbContext db) : IStoreOperations
                 : product.Variants.FirstOrDefault(x => x.IsActive);
             if (variant is null) throw new NotFoundException("Product variant was not found.");
             if (request.Quantity > variant.AvailableQuantity) throw new ConflictException($"Only {variant.AvailableQuantity} items of '{product.Name}' are available.");
-            result.Add(new CheckoutLine(product.Id, variant.Id, product.Name, variant.Sku, variant.Price, request.Quantity, variant.AvailableQuantity, variant));
+            result.Add(new CheckoutLine(product.Id, variant.Id, product.Name, variant.Sku, variant.Price, request.Quantity, variant.AvailableQuantity, variant, product));
         }
         return result;
     }
 
-    private sealed record CheckoutLine(Guid ProductId, Guid? VariantId, string ProductName, string Sku, decimal UnitPrice, int Quantity, int AvailableQuantity, ProductVariant Variant);
+    private sealed record CheckoutLine(Guid ProductId, Guid? VariantId, string ProductName, string Sku, decimal UnitPrice, int Quantity, int AvailableQuantity, ProductVariant Variant, Product Product);
 
     private static string CalculateRequestFingerprint(CheckoutRequest request)
     {
