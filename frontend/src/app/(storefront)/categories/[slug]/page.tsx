@@ -3,14 +3,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
 import { ProductCatalog } from "@/features/products/components/product-catalog";
 import { ProductCatalogLoading } from "@/features/products/components/product-catalog-loading";
 import { getCategory } from "@/features/products/product-api";
 import { ApiError } from "@/lib/api-client";
 
 type CategoryPageProps = { params: Promise<{ slug: string }> };
+export const dynamic = "force-dynamic";
 const getCategoryForRequest = cache(getCategory);
 const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -101,10 +100,6 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
       />
-      <a className="skip-link" href="#محتوا">
-        رفتن به محتوای اصلی
-      </a>
-      <Header />
       <main id="محتوا">
         <section className="catalog-hero">
           <Container>
@@ -115,16 +110,19 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
               <span>/</span>
               <span aria-current="page">{category.name}</span>
             </nav>
-            <p className="section-eyebrow">دسته‌بندی محصولات</p>
-            <h1>{category.name}</h1>
-            {category.description && <p>{category.description}</p>}
+            <div className="catalog-hero__header">
+              <div>
+                <p className="section-eyebrow">دسته‌بندی محصولات</p>
+                <h1>{category.name}</h1>
+              </div>
+              {category.description && <p className="catalog-hero__desc">{category.description}</p>}
+            </div>
           </Container>
         </section>
         <Suspense fallback={<ProductCatalogLoading />}>
           <ProductCatalog />
         </Suspense>
       </main>
-      <Footer />
     </>
   );
 }

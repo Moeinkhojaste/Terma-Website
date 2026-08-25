@@ -6,18 +6,16 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FocusE
 import { useRouter } from "next/navigation";
 import { useCart } from "@/features/cart/cart-provider";
 import { Container } from "@/components/layout/container";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
 import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { formatPrice } from "@/lib/format";
 import { ApiError } from "@/lib/api-client";
-import { MapPinIcon, UserIcon, TruckIcon } from "@/components/ui/icons";
+import { MapPinIcon, UserIcon, TruckIcon, AlertTriangleIcon, XIcon } from "@/components/ui/icons";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 import { createOrder, getQuote, type CheckoutRequest } from "@/features/checkout/checkout-api";
 import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
 import { IRAN_PROVINCES, getIranCities } from "@/lib/iran-locations";
-import { getCustomerSession, getCustomerProfile, getCustomerAddresses, type CustomerAddress } from "@/features/account/account-api";
+import { getCustomerSession, getCustomerProfile, getCustomerAddresses, logoutCustomer, type CustomerAddress } from "@/features/account/account-api";
 
 type FieldName = "fullName" | "mobile" | "email" | "province" | "city" | "address" | "postalCode";
 type FormErrors = Partial<Record<FieldName, string>>;
@@ -28,6 +26,14 @@ export type CheckoutReviewSnapshot = {
   subtotal: number;
   discountTotal: number;
   total: number;
+};
+
+export type CheckoutErrorInfo = {
+  title: string;
+  message: string;
+  isSessionMismatch?: boolean;
+  isInventory?: boolean;
+  isNetwork?: boolean;
 };
 
 const fieldLabels: Record<FieldName, string> = {
@@ -72,8 +78,10 @@ export function CheckoutPageClient() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [serverError, setServerError] = useState("");
+  const [errorModal, setErrorModal] = useState<CheckoutErrorInfo | null>(null);
   const [review, setReview] = useState<CheckoutReviewSnapshot | null>(null);
   const [mobile, setMobile] = useState("");
+  const [loggedInPhone, setLoggedInPhone] = useState("");
   const [verifiedMobile, setVerifiedMobile] = useState(false);
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>("manual");
@@ -88,6 +96,7 @@ export function CheckoutPageClient() {
     getCustomerSession()
       .then((session) => {
         setMobile(session.phone);
+        setLoggedInPhone(session.phone);
         setVerifiedMobile(true);
         getCustomerProfile()
           .then((p) => {
@@ -110,6 +119,19 @@ export function CheckoutPageClient() {
       })
       .catch(() => undefined);
   }, []);
+
+  async function handleLogout() {
+    try {
+      await logoutCustomer();
+    } catch {
+      // ignore
+    }
+    setVerifiedMobile(false);
+    setLoggedInPhone("");
+    setAddresses([]);
+    setSelectedAddressId("manual");
+    setErrorModal(null);
+  }
 
   function selectAddress(addr: CustomerAddress) {
     setSelectedAddressId(addr.id);
@@ -244,12 +266,16 @@ export function CheckoutPageClient() {
     });
     setRequestState("idle");
     setServerError("");
+    setErrorModal(null);
   }
 
-  async function confirmOrder() {
-    if (!review || submissionLockRef.current) return;
+  async function confirmOrder(customRequest?: CheckoutRequest) {
+    const targetReview = customRequest ? { ...review!, request: customRequest } : review;
+    if (!targetReview || submissionLockRef.current) return;
     if (!window.navigator.onLine) {
-      setServerError("اتصال اینترنت را بررسی کنید. اطلاعات سفارش شما حفظ شده است.");
+      const errInfo = parseCheckoutError(new Error("offline"));
+      setServerError(errInfo.message);
+      setErrorModal(errInfo);
       setRequestState("network-error");
       return;
     }
@@ -257,21 +283,33 @@ export function CheckoutPageClient() {
     submissionLockRef.current = true;
     setRequestState("submitting");
     setServerError("");
+    setErrorModal(null);
     try {
-      const order = await createOrder(review.request);
+      const order = await createOrder(targetReview.request);
       clearCart();
       router.replace(`/order/success?order=${encodeURIComponent(order.number)}`);
     } catch (caught) {
-      setServerError(getCheckoutErrorMessage(caught));
+      const errInfo = parseCheckoutError(caught);
+      setServerError(errInfo.message);
+      setErrorModal(errInfo);
       setRequestState(caught instanceof ApiError && caught.isNetworkError ? "network-error" : "server-error");
     } finally {
       submissionLockRef.current = false;
     }
   }
 
+  async function handleLogoutAndRetry() {
+    await handleLogout();
+    if (review) {
+      submissionLockRef.current = false;
+      await confirmOrder();
+    }
+  }
+
   const editOrder = useCallback(() => {
     if (submissionLockRef.current) return;
     setReview(null);
+    setErrorModal(null);
     setRequestState("idle");
     setServerError("");
   }, []);
@@ -289,8 +327,6 @@ export function CheckoutPageClient() {
 
   return (
     <>
-      <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
-      <Header />
       <main id="محتوا" className="commerce-page checkout-page">
         <Container>
           <nav className="breadcrumbs commerce-breadcrumbs" aria-label="مسیر صفحه">
@@ -387,12 +423,24 @@ export function CheckoutPageClient() {
                       <input name="fullName" autoComplete="name" value={fullName} {...field("fullName")} />
                       {fieldError("fullName")}
                     </label>
-                    <label className="form-field">
-                      <span>شماره موبایل *</span>
-                      <input name="mobile" type="tel" inputMode="tel" autoComplete="tel" placeholder="۰۹۱۲... یا +۹۸۹۱۲..." value={mobile} readOnly={verifiedMobile} aria-readonly={verifiedMobile} {...field("mobile")} />
+                    <div className="form-field">
+                      <div className="form-field__label-row">
+                        <label htmlFor="checkout-mobile">شماره موبایل *</label>
+                        {verifiedMobile && (
+                          <button
+                            type="button"
+                            className="checkout-inline-logout"
+                            onClick={handleLogout}
+                            title="خروج از حساب جهت ثبت سفارش با شماره دیگر"
+                          >
+                            خروج از حساب ({loggedInPhone || mobile})
+                          </button>
+                        )}
+                      </div>
+                      <input id="checkout-mobile" name="mobile" type="tel" inputMode="tel" autoComplete="tel" placeholder="۰۹۱۲... یا +۹۸۹۱۲..." value={mobile} readOnly={verifiedMobile} aria-readonly={verifiedMobile} {...field("mobile")} />
                       {fieldError("mobile")}
-                      {verifiedMobile && <small>این شماره قبلاً تأیید شده است.</small>}
-                    </label>
+                      {verifiedMobile && <small className="form-field__hint">این شماره قبلاً در حساب شما تأیید شده است. برای ثبت با شماره دیگر، روی «خروج از حساب» کلیک کنید.</small>}
+                    </div>
                     <label className="form-field">
                       <span>استان *</span>
                       <select
@@ -525,9 +573,15 @@ export function CheckoutPageClient() {
         requestState={requestState}
         error={serverError}
         onEdit={editOrder}
-        onConfirm={confirmOrder}
+        onConfirm={() => confirmOrder()}
       />
-      <Footer />
+      <CheckoutErrorDialog
+        error={errorModal}
+        review={review}
+        onClose={() => setErrorModal(null)}
+        onEdit={editOrder}
+        onLogoutAndRetry={handleLogoutAndRetry}
+      />
     </>
   );
 }
@@ -544,7 +598,7 @@ export function CheckoutReviewDialog({
   error: string;
   onEdit: () => void;
   onConfirm: () => void;
-  }) {
+}) {
   const submitting = requestState === "submitting";
 
   return (
@@ -592,7 +646,7 @@ export function CheckoutReviewDialog({
               </dl>
             </section>
 
-            {(requestState === "network-error" || requestState === "server-error") && (
+            {(requestState === "network-error" || requestState === "server-error") && error && (
               <div className="checkout-review__error" role="alert">
                 <strong>{requestState === "network-error" ? "ارتباط با شبکه برقرار نشد." : "ثبت سفارش انجام نشد."}</strong>
                 <p>{error}</p>
@@ -613,14 +667,170 @@ export function CheckoutReviewDialog({
   );
 }
 
-function getCheckoutErrorMessage(error: unknown) {
-  if (!(error instanceof ApiError)) return "خطای پیش‌بینی‌نشده‌ای رخ داد. دوباره تلاش کنید.";
-  if (error.isNetworkError) return "ارتباط با سرویس برقرار نشد. اتصال اینترنت و اجرای API را بررسی کنید.";
-  if (error.status === 409) return "شماره موبایل سفارش باید با شماره تأییدشده حساب شما یکسان باشد.";
-  const detail = `${error.problem?.detail ?? ""} ${error.message}`.toLowerCase();
-  if (detail.includes("available") || detail.includes("inventory") || detail.includes("stock")) {
-    return "موجودی یکی از محصولات کافی نیست. سبد خرید را بررسی کنید.";
+export function CheckoutErrorDialog({
+  error,
+  review,
+  onClose,
+  onEdit,
+  onLogoutAndRetry,
+}: {
+  error: CheckoutErrorInfo | null;
+  review: CheckoutReviewSnapshot | null;
+  onClose: () => void;
+  onEdit: () => void;
+  onLogoutAndRetry: () => Promise<void>;
+}) {
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  if (!error) return null;
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await onLogoutAndRetry();
+    } finally {
+      setLoggingOut(false);
+    }
   }
-  if (error.status === 400) return "اطلاعات سفارش معتبر نیست. موارد مشخص‌شده را بررسی کنید.";
-  return "سرویس ثبت سفارش پاسخ مناسبی نداد. چند لحظه دیگر دوباره تلاش کنید.";
+
+  return (
+    <AccessibleDialog open={Boolean(error)} onClose={onClose} className="checkout-error-dialog" label={error.title}>
+      <div className="checkout-error-modal" role="alertdialog" aria-labelledby="checkout-error-title" aria-describedby="checkout-error-desc">
+        <button type="button" className="checkout-error-modal__close" onClick={onClose} aria-label="بستن پنجره خطا">
+          <XIcon className="size-4" />
+        </button>
+
+        <div className="checkout-error-modal__icon-badge" aria-hidden="true">
+          <AlertTriangleIcon className="size-7" />
+        </div>
+
+        <div className="checkout-error-modal__header">
+          <h3 id="checkout-error-title" className="checkout-error-modal__title">{error.title}</h3>
+          <p id="checkout-error-desc" className="checkout-error-modal__message">{error.message}</p>
+        </div>
+
+        {error.isSessionMismatch && (
+          <div className="checkout-error-modal__info-box">
+            <span>شماره واردشده در فرم: <strong dir="ltr">{review?.request.phone}</strong></span>
+            <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", color: "var(--teal-deep)" }}>
+              با خروج از حساب فعال فعلی، سفارش شما با این شماره ثبت خواهد شد.
+            </p>
+          </div>
+        )}
+
+        <div className="checkout-error-modal__actions">
+          {error.isSessionMismatch ? (
+            <>
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={handleLogout}
+                disabled={loggingOut}
+              >
+                {loggingOut && <span className="button-spinner" aria-hidden="true" />}
+                {loggingOut ? "در حال ثبت سفارش…" : "خروج از حساب قبلی و ثبت سفارش"}
+              </button>
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => {
+                  onClose();
+                  onEdit();
+                }}
+                disabled={loggingOut}
+              >
+                ویرایش شماره موبایل
+              </button>
+            </>
+          ) : error.isInventory ? (
+            <>
+              <Link className="button button--primary" href="/cart" onClick={onClose}>
+                بررسی سبد خرید
+              </Link>
+              <button type="button" className="button button--secondary" onClick={onClose}>
+                بستن
+              </button>
+            </>
+          ) : (
+            <button type="button" className="button button--primary" onClick={onClose}>
+              متوجه شدم
+            </button>
+          )}
+        </div>
+      </div>
+    </AccessibleDialog>
+  );
+}
+
+export function parseCheckoutError(error: unknown): CheckoutErrorInfo {
+  if (typeof window !== "undefined" && !window.navigator.onLine) {
+    return {
+      title: "عدم دسترسی به اینترنت",
+      message: "ارتباط با شبکه برقرار نیست. لطفاً اتصال اینترنت خود را بررسی کرده و مجدداً تلاش کنید.",
+      isNetwork: true,
+    };
+  }
+
+  if (!(error instanceof ApiError)) {
+    return {
+      title: "خطای پیش‌بینی‌نشده",
+      message: "خطایی در فرآیند ثبت سفارش رخ داد. لطفاً چند لحظه بعد مجدداً تلاش کنید.",
+    };
+  }
+
+  if (error.isNetworkError) {
+    return {
+      title: "خطای ارتباط با سرور",
+      message: "ارتباط با سرویس فروشگاه برقرار نشد. لطفاً وضعیت اینترنت و اجرای سرور را بررسی نمایید.",
+      isNetwork: true,
+    };
+  }
+
+  const detail = `${error.problem?.detail ?? ""} ${error.message}`.toLowerCase();
+
+  if (detail.includes("verified account mobile number") || detail.includes("checkout mobile number")) {
+    return {
+      title: "عدم تطابق شماره با حساب فعال",
+      message: "شماره موبایل واردشده با حسابی که هم‌اکنون در مرورگر شما فعال است مطابقت ندارد. برای ثبت سفارش با این شماره، می‌توانید از حساب قبلی خارج شوید یا شماره را اصلاح کنید.",
+      isSessionMismatch: true,
+    };
+  }
+
+  if (detail.includes("available") || detail.includes("inventory") || detail.includes("stock") || detail.includes("no longer available")) {
+    return {
+      title: "محدودیت موجودی کالا",
+      message: "موجودی یک یا چند مورد از محصولات انتخابی در سبد خرید کافی نیست یا تغییر کرده است. لطفاً سبد خرید خود را بازبینی کنید.",
+      isInventory: true,
+    };
+  }
+
+  if (detail.includes("idempotency") || detail.includes("concurrency")) {
+    return {
+      title: "تداخل در پردازش سفارش",
+      message: "سفارش شما در حال پردازش بوده یا تداخلی رخ داده است. لطفاً چند لحظه صبر کرده و دوباره امتحان کنید.",
+    };
+  }
+
+  if (error.problem?.detail) {
+    return {
+      title: "خطا در ثبت سفارش",
+      message: error.problem.detail,
+    };
+  }
+
+  if (error.status === 400) {
+    return {
+      title: "اطلاعات سفارش نامعتبر است",
+      message: error.message || "اطلاعات واردشده برای سفارش کامل یا معتبر نیست. لطفاً موارد مشخص‌شده را بررسی کنید.",
+    };
+  }
+
+  return {
+    title: "خطا در ثبت سفارش",
+    message: error.message || "سرویس ثبت سفارش پاسخ مناسبی نداد. چند لحظه دیگر دوباره تلاش کنید.",
+  };
+}
+
+export function getCheckoutErrorMessage(error: unknown) {
+  return parseCheckoutError(error).message;
 }

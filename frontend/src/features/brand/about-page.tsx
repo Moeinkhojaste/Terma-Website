@@ -1,7 +1,5 @@
 import Image from "next/image";
 import { Container } from "@/components/layout/container";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { ArrowLeftIcon, FabricIcon, PaisleyIcon, StitchIcon } from "@/components/ui/icons";
 import { getPublicContent, type PublicContent } from "@/features/content/content-api";
@@ -20,10 +18,7 @@ export async function AboutPage() {
   const valuesContent = content.find((item) => item.sectionKey === "values");
 
   return (
-    <>
-      <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
-      <Header />
-      <main id="محتوا">
+    <main id="محتوا">
         <section className="brand-page-hero section-pad">
           <Container className="brand-page-hero__grid">
             <div className="brand-page-hero__copy">
@@ -97,7 +92,5 @@ export async function AboutPage() {
           </Container>
         </section>
       </main>
-      <Footer />
-    </>
   );
 }

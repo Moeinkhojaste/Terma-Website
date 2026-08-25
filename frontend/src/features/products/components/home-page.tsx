@@ -1,8 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { ArrowLeftIcon, FabricIcon, PaisleyIcon, StitchIcon } from "@/components/ui/icons";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -99,20 +97,13 @@ export default async function Home({
   const valuesBlock = featureBlocks[0];
   const guideBlock = featureBlocks.find((b) => b.data.anchor === "راهنمای-خرید") ?? featureBlocks[1];
   const craftBlock = blocks.find((b) => b.type === "imageText");
-  const announcementBlock = blocks.find((b) => b.type === "announcement");
   const categoryBlock = blocks.find((b) => b.type === "categoryLinks");
   const showcaseBlock = blocks.find((b) => b.type === "productShowcase");
 
   const legacyHero = legacyContent.find((item) => item.sectionKey === "hero");
-  const legacyAnnouncement = legacyContent.find((item) => item.sectionKey === "announcement");
   const legacyValues = legacyContent.find((item) => item.sectionKey === "values");
   const legacyCraft = legacyContent.find((item) => item.sectionKey === "craft");
   const legacyGuide = legacyContent.find((item) => item.sectionKey === "guide");
-
-  const announcementText =
-    (typeof announcementBlock?.data.text === "string" ? announcementBlock.data.text : "") ||
-    legacyAnnouncement?.body ||
-    "";
 
   const heroEyebrow =
     (typeof heroBlock?.data.eyebrow === "string" ? heroBlock.data.eyebrow : "") ||
@@ -255,9 +246,6 @@ export default async function Home({
           </form>
         </div>
       )}
-      <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
-      <Header />
-      {announcementText && <div className="announcement">{announcementText}</div>}
       <main id="محتوا">
         <section className="hero section-pad">
           <Container className="hero-grid">
@@ -384,7 +372,6 @@ export default async function Home({
           </Container>
         </section>
       </main>
-      <Footer />
     </>
   );
 }

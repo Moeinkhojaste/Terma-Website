@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { CmsPageView } from "@/features/content/cms-page-view";
 import { cmsMetadata } from "@/features/content/cms-metadata";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   return cmsMetadata((await params).slug);
 }

@@ -4,8 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckIcon, ClockIcon, CopyIcon, MinusIcon, TruckIcon, XIcon } from "@/components/ui/icons";
 import { Container } from "@/components/layout/container";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 
 type StatusType = "success" | "failed" | "cancelled";
@@ -42,10 +40,7 @@ export function OrderStatus({ type, orderNumber }: { type: StatusType; orderNumb
   }
 
   return (
-    <>
-      <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
-      <Header />
-      <main id="محتوا" className="status-page">
+    <main id="محتوا" className="status-page">
         <Container>
           <CheckoutProgress current={type === "success" ? 5 : 4} />
           
@@ -169,7 +164,5 @@ export function OrderStatus({ type, orderNumber }: { type: StatusType; orderNumb
           </section>
         </Container>
       </main>
-      <Footer />
-    </>
   );
 }

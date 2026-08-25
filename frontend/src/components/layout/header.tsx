@@ -1,14 +1,50 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { UserIcon } from "@/components/ui/icons";
 import { Container } from "@/components/layout/container";
 import { CartLink } from "@/features/cart/cart-link";
 import { ProductSearch } from "@/features/products/components/product-search";
+import { getPublishedSite } from "@/features/content/cms-api";
 
-export function Header() {
+export type HeaderProps = {
+  announcementText?: string | null;
+  preview?: boolean;
+};
+
+export function Header({ announcementText: initialAnnouncementText, preview = false }: HeaderProps = {}) {
+  const [fetchedAnnouncement, setFetchedAnnouncement] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (preview) return;
+
+    getPublishedSite()
+      .then((site) => {
+        const announcementBlock = site.document.blocks.find((b) => b.type === "announcement");
+        if (announcementBlock && typeof announcementBlock.data?.text === "string") {
+          const text = announcementBlock.data.text.trim();
+          setFetchedAnnouncement(text.length > 0 ? text : null);
+        } else {
+          setFetchedAnnouncement(null);
+        }
+      })
+      .catch(() => {
+        setFetchedAnnouncement(null);
+      });
+  }, [preview]);
+
+  const announcementText =
+    preview && initialAnnouncementText !== undefined
+      ? initialAnnouncementText
+      : fetchedAnnouncement !== undefined
+        ? fetchedAnnouncement
+        : (initialAnnouncementText ?? null);
+
   return (
     <>
-      <div className="announcement">نقش ایرانی، دوخت دقیق، برای خانه امروز</div>
+      {announcementText && <div className="announcement">{announcementText}</div>}
       <header className="site-header">
         <Container className="header-main">
           <Link className="brand" href="/" aria-label="ترما، صفحه اصلی">

@@ -3,8 +3,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
 import { Container } from "@/components/layout/container";
 import {
   DashboardIcon,
@@ -72,7 +70,6 @@ export function AccountShell({ children, title, breadcrumbs }: AccountShellProps
 
   return (
     <>
-      <Header />
       <main className="commerce-page account-layout-page">
         <Container>
           <nav className="breadcrumbs commerce-breadcrumbs" aria-label="مسیر صفحه">
@@ -207,8 +204,6 @@ export function AccountShell({ children, title, breadcrumbs }: AccountShellProps
           </div>
         </div>
       )}
-
-      <Footer />
     </>
   );
 }

@@ -1,6 +1,4 @@
 import { notFound } from "next/navigation";
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
 import { ApiError } from "@/lib/api-client";
 import { listProducts } from "@/features/products/product-api";
 import type { Product } from "@/features/products/models";
@@ -17,6 +15,7 @@ export async function CmsPageView({ slug, previewId }: { slug: string; previewId
   if (page.document.blocks.some((block) => block.type === "productShowcase")) {
     try { products = (await listProducts({ page: 1, pageSize: 6 })).items; } catch { products = []; }
   }
+
   return (
     <>
       {preview && (
@@ -29,14 +28,9 @@ export async function CmsPageView({ slug, previewId }: { slug: string; previewId
           </form>
         </div>
       )}
-      <a className="skip-link" href="#محتوا">
-        رفتن به محتوای اصلی
-      </a>
-      <Header />
       <main id="محتوا">
         <CmsDocumentRenderer document={page.document} products={products} showContactForm={slug === "contact"} />
       </main>
-      <Footer />
     </>
   );
 }

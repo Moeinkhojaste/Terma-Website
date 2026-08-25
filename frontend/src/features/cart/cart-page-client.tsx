@@ -4,8 +4,6 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
 import { MinusIcon, PlusIcon, TrashIcon } from "@/components/ui/icons";
 import { useCart, type CartItem } from "@/features/cart/cart-provider";
 import { RemoveCartItemDialog } from "@/features/cart/remove-cart-item-dialog";
@@ -20,8 +18,6 @@ export function CartPageClient() {
 
   return (
     <>
-      <a className="skip-link" href="#محتوا">رفتن به محتوای اصلی</a>
-      <Header />
       <main id="محتوا" className="commerce-page cart-page">
         <Container>
           <nav className="breadcrumbs commerce-breadcrumbs" aria-label="مسیر صفحه">
@@ -110,7 +106,6 @@ export function CartPageClient() {
           )}
         </Container>
       </main>
-      <Footer />
 
       <RemoveCartItemDialog
         item={itemToRemove}

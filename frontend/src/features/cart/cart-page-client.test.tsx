@@ -11,6 +11,8 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/cart",
 }));
 
+vi.mock("@/components/layout/header", () => ({ Header: () => null }));
+
 describe("CartPageClient", () => {
   beforeEach(() => {
     localStorage.clear();
