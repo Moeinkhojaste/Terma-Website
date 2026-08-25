@@ -14,8 +14,10 @@ using Terma.Infrastructure.Cms;
 using Terma.Application.Customers;
 using Terma.Application.Reviews;
 using Terma.Infrastructure.Reviews;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+using Terma.Application.Telegram;
+using Terma.Infrastructure.Telegram;
 
 namespace Terma.Infrastructure;
 
@@ -76,6 +78,19 @@ public static class DependencyInjection
         services.AddSingleton<IMediaStorage, LocalMediaStorage>();
         services.AddSingleton<IImageOptimizer, ImageOptimizer>();
         services.AddHostedService<CmsPublishingService>();
+
+        services.Configure<TelegramOptions>(configuration.GetSection(TelegramOptions.SectionName));
+        services.AddHttpClient<ITelegramBotService, TelegramBotService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+        services.AddHttpClient("TelegramBotClient", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(35);
+        });
+        services.AddScoped<ITelegramUpdateHandler, TelegramUpdateHandler>();
+        services.AddHostedService<TelegramPollingService>();
+
         return services;
     }
 }
