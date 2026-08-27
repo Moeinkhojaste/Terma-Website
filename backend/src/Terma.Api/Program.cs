@@ -21,7 +21,7 @@ using Terma.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 var isDevelopment = builder.Environment.IsDevelopment();
-var useSecureCookies = !isDevelopment;
+var useSecureCookies = builder.Configuration.GetValue<bool?>("Security:RequireSecureCookies") ?? !isDevelopment;
 
 // Validate production configuration
 if (!isDevelopment)
@@ -363,15 +363,19 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 
 app.UseExceptionHandler();
 
-if (isDevelopment)
+if (isDevelopment || builder.Configuration.GetValue<bool>("EnableSwagger"))
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-else
+
+if (!isDevelopment)
 {
-    app.UseHsts();
-    app.UseHttpsRedirection();
+    if (builder.Configuration.GetValue<bool?>("Security:EnforceHttps") ?? true)
+    {
+        app.UseHsts();
+        app.UseHttpsRedirection();
+    }
 }
 
 // Security Headers Middleware

@@ -1,0 +1,79 @@
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: terma-db
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${DB_PASSWORD}"
+      MSSQL_PID: "Developer"
+      MSSQL_MEMORY_LIMIT_MB: 2048
+    deploy:
+      resources:
+        limits:
+          memory: 2048M
+    volumes:
+      - mssql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: terma-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=TermaDb;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=True"
+      Otp__HashKey: "${OTP_HASH_KEY}"
+      DataProtection__KeyPath: "/app/dataprotection-keys"
+      Cors__AllowedOrigins__0: "http://${SERVER_HOST}"
+      Cors__AllowedOrigins__1: "https://${SERVER_HOST}"
+      Cors__AllowedOrigins__2: "http://localhost:3000"
+      Security__RequireSecureCookies: "${REQUIRE_SECURE_COOKIES:-false}"
+      Security__EnforceHttps: "${ENFORCE_HTTPS:-false}"
+      EnableSwagger: "${ENABLE_SWAGGER:-true}"
+      AdminSeed__Email: "${ADMIN_EMAIL:-admin@terma.local}"
+      AdminSeed__Password: "${ADMIN_PASSWORD:-AdminPass12345!}"
+    volumes:
+      - terma_media:/app/media
+      - terma_dp_keys:/app/dataprotection-keys
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: "http://${SERVER_HOST}"
+    container_name: terma-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: "production"
+      NEXT_PUBLIC_API_BASE_URL: "http://${SERVER_HOST}"
+
+  nginx:
+    image: nginx:alpine
+    container_name: terma-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  mssql_data:
+  terma_media:
+  terma_dp_keys:

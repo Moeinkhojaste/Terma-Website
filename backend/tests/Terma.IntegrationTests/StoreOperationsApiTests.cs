@@ -135,6 +135,37 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
         Assert.Equal(OrderStatus.Shipped, shippedOrder.Status);
     }
 
+    [Fact]
+    public async Task TelegramWebhook_ProcessesUpdateSuccessfully()
+    {
+        using var client = factory.CreateHttpsClient();
+        var options = factory.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<Terma.Infrastructure.Telegram.TelegramOptions>>().Value;
+
+        var update = new
+        {
+            update_id = 9999,
+            message = new
+            {
+                message_id = 1,
+                chat = new { id = 12345, type = "private" },
+                from = new { id = 12345, is_bot = false, first_name = "Admin" },
+                date = 1700000000,
+                text = "/help"
+            }
+        };
+
+        if (!string.IsNullOrWhiteSpace(options.WebhookSecret))
+        {
+            var unauthorizedResponse = await client.PostAsJsonAsync("/api/telegram/webhook", update);
+            Assert.Equal(HttpStatusCode.Unauthorized, unauthorizedResponse.StatusCode);
+
+            client.DefaultRequestHeaders.Add("X-Telegram-Bot-Api-Secret-Token", options.WebhookSecret);
+        }
+
+        var response = await client.PostAsJsonAsync("/api/telegram/webhook", update);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     private static async Task<CategoryDto> CreateCategory(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/admin/categories", new CreateCategoryRequest { Name = $"Checkout {Guid.NewGuid():N}" });
