@@ -69,7 +69,10 @@ RETRY_COUNT=0
 HEALTHY=false
 
 while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
-    if docker exec terma-staging-backend curl -s -f http://localhost:8080/health/ready | grep -q '"Healthy"'; then
+    if docker exec terma-staging-backend curl -s -f http://localhost:8080/health/ready 2>/dev/null | grep -q '"Healthy"'; then
+        HEALTHY=true
+        break
+    elif docker exec terma-staging-backend wget -q -O - http://localhost:8080/health/ready 2>/dev/null | grep -q '"Healthy"'; then
         HEALTHY=true
         break
     fi
