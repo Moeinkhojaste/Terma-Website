@@ -54,12 +54,12 @@ test.describe("Full End-to-End Purchase Flow & Mobile Audit", () => {
     await expect(page).toHaveURL(/\/checkout/);
 
     // Fill checkout form with Iranian details
-    await page.getByLabel(/نام و نام خانوادگی/).fill("مبین خجسته");
-    await page.getByLabel(/شماره موبایل/).fill("09121112233");
-    await page.getByLabel(/استان/).fill("تهران");
-    await page.getByLabel(/شهر/).fill("تهران");
-    await page.getByLabel(/آدرس کامل/).fill("خیابان ولیعصر، بالاتر از ظفر، پلاک ۱۰۰");
-    await page.getByLabel(/کد پستی/).fill("1994612345");
+    await page.locator('input[name="fullName"]').fill("مبین خجسته");
+    await page.locator('input[name="mobile"]').fill("09121112233");
+    await page.locator('select[name="province"]').selectOption("تهران");
+    await page.locator('select[name="city"]').selectOption("تهران");
+    await page.locator('textarea[name="address"]').fill("خیابان ولیعصر، بالاتر از ظفر، پلاک ۱۰۰");
+    await page.locator('input[name="postalCode"]').fill("1994612345");
 
     // Submit form to review step
     const submitBtn = page.getByRole("button", { name: "ثبت سفارش" });
