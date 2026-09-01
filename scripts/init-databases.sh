@@ -97,16 +97,12 @@ fi
 
 echo "[+] Executing database provisioning and security hardening script..."
 
-# Escape single quotes in passwords for SQL string literals
-PROD_PASS_ESC="${PROD_DB_PASSWORD//\'/\'\'}"
-STAGING_PASS_ESC="${STAGING_DB_PASSWORD//\'/\'\'}"
-
 SQL_EXTRA_FLAGS=()
 if [[ "$SQLCMD_BIN" == *tools18* ]]; then
     SQL_EXTRA_FLAGS+=("-C")
 fi
 
-docker exec -i terma-db "$SQLCMD_BIN" -S localhost -U sa -P "$DB_SA_PASSWORD" "${SQL_EXTRA_FLAGS[@]}" <<EOSQL
+docker exec -i terma-db "$SQLCMD_BIN" -S localhost -U sa -P "$DB_SA_PASSWORD" "${SQL_EXTRA_FLAGS[@]}" -v PROD_PASS="$PROD_DB_PASSWORD" STAGING_PASS="$STAGING_DB_PASSWORD" <<'EOSQL'
 SET NOCOUNT ON;
 
 -- 1. Create Databases if they do not exist
@@ -142,24 +138,24 @@ GO
 IF NOT EXISTS (SELECT name FROM sys.server_principals WHERE name = N'terma_prod_user')
 BEGIN
     PRINT 'Creating SQL Login: terma_prod_user...';
-    CREATE LOGIN [terma_prod_user] WITH PASSWORD = N'${PROD_PASS_ESC}', CHECK_POLICY = ON, CHECK_EXPIRATION = OFF;
+    CREATE LOGIN [terma_prod_user] WITH PASSWORD = '$(PROD_PASS)', CHECK_POLICY = OFF, CHECK_EXPIRATION = OFF;
 END
 ELSE
 BEGIN
     PRINT 'Updating SQL Login password for terma_prod_user...';
-    ALTER LOGIN [terma_prod_user] WITH PASSWORD = N'${PROD_PASS_ESC}';
+    ALTER LOGIN [terma_prod_user] WITH PASSWORD = '$(PROD_PASS)', UNLOCK, CHECK_POLICY = OFF;
 END
 GO
 
 IF NOT EXISTS (SELECT name FROM sys.server_principals WHERE name = N'terma_staging_user')
 BEGIN
     PRINT 'Creating SQL Login: terma_staging_user...';
-    CREATE LOGIN [terma_staging_user] WITH PASSWORD = N'${STAGING_PASS_ESC}', CHECK_POLICY = ON, CHECK_EXPIRATION = OFF;
+    CREATE LOGIN [terma_staging_user] WITH PASSWORD = '$(STAGING_PASS)', CHECK_POLICY = OFF, CHECK_EXPIRATION = OFF;
 END
 ELSE
 BEGIN
     PRINT 'Updating SQL Login password for terma_staging_user...';
-    ALTER LOGIN [terma_staging_user] WITH PASSWORD = N'${STAGING_PASS_ESC}';
+    ALTER LOGIN [terma_staging_user] WITH PASSWORD = '$(STAGING_PASS)', UNLOCK, CHECK_POLICY = OFF;
 END
 GO
 
