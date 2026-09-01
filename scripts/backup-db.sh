@@ -75,24 +75,19 @@ docker exec terma-db mkdir -p /var/opt/mssql/backup
 # Execute BACKUP DATABASE with CHECKSUM and COMPRESSION
 SQL_CMD="BACKUP DATABASE [${DB_NAME}] TO DISK = N'${CONTAINER_BAK_PATH}' WITH FORMAT, INIT, CHECKSUM, COMPRESSION, STATS = 10;"
 
-docker exec terma-db bash -c "
-    if [ -f /opt/mssql-tools18/bin/sqlcmd ]; then
-        /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$DB_SA_PASSWORD\" -C -Q \"$SQL_CMD\"
-    else
-        /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$DB_SA_PASSWORD\" -Q \"$SQL_CMD\"
-    fi
-"
+SQLCMD_BIN="/opt/mssql-tools18/bin/sqlcmd"
+SQL_EXTRA_FLAGS=("-C")
+if ! docker exec terma-db test -f /opt/mssql-tools18/bin/sqlcmd 2>/dev/null; then
+    SQLCMD_BIN="/opt/mssql-tools/bin/sqlcmd"
+    SQL_EXTRA_FLAGS=()
+fi
+
+docker exec -i terma-db "$SQLCMD_BIN" -S localhost -U sa -P "$DB_SA_PASSWORD" "${SQL_EXTRA_FLAGS[@]}" -Q "$SQL_CMD"
 
 echo "[+] 2. Verifying backup integrity with RESTORE VERIFYONLY (CHECKSUM)..."
 VERIFY_CMD="RESTORE VERIFYONLY FROM DISK = N'${CONTAINER_BAK_PATH}' WITH CHECKSUM;"
 
-docker exec terma-db bash -c "
-    if [ -f /opt/mssql-tools18/bin/sqlcmd ]; then
-        /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$DB_SA_PASSWORD\" -C -Q \"$VERIFY_CMD\"
-    else
-        /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$DB_SA_PASSWORD\" -Q \"$VERIFY_CMD\"
-    fi
-"
+docker exec -i terma-db "$SQLCMD_BIN" -S localhost -U sa -P "$DB_SA_PASSWORD" "${SQL_EXTRA_FLAGS[@]}" -Q "$VERIFY_CMD"
 
 echo "[+] 3. Copying verified backup to host: ${HOST_BAK_PATH}..."
 docker cp "terma-db:${CONTAINER_BAK_PATH}" "$HOST_BAK_PATH"
