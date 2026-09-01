@@ -8,6 +8,9 @@ set -euo pipefail
 # Ensure script runs from repository root
 cd "$(dirname "$0")/.."
 
+# Automatically export all sourced variables for docker compose
+set -a
+
 # Load environment variables if available
 if [[ -f .env.production ]]; then
     # shellcheck disable=SC1091
@@ -25,9 +28,15 @@ elif [[ -f /opt/terma/staging/.env.staging ]]; then
     source /opt/terma/staging/.env.staging
 fi
 
-DB_SA_PASSWORD="${DB_SA_PASSWORD:-${DB_PASSWORD:-}}"
-PROD_DB_PASSWORD="${PROD_DB_PASSWORD:-${STAGING_DB_PASSWORD:-}}"
-STAGING_DB_PASSWORD="${STAGING_DB_PASSWORD:-${PROD_DB_PASSWORD:-}}"
+set +a
+
+export DB_SA_PASSWORD="${DB_SA_PASSWORD:-${DB_PASSWORD:-}}"
+export PROD_DB_PASSWORD="${PROD_DB_PASSWORD:-${STAGING_DB_PASSWORD:-}}"
+export STAGING_DB_PASSWORD="${STAGING_DB_PASSWORD:-${PROD_DB_PASSWORD:-}}"
+export PROD_DOMAIN="${PROD_DOMAIN:-termabrand.ir}"
+export STAGING_DOMAIN="${STAGING_DOMAIN:-staging.termabrand.ir}"
+export PROD_OTP_HASH_KEY="${PROD_OTP_HASH_KEY:-TermaProduction_OtpSecretKey_9876543210_Secure!#}"
+export STAGING_OTP_HASH_KEY="${STAGING_OTP_HASH_KEY:-TermaStaging_OtpSecretKey_9876543210_Secure!#}"
 
 if [[ -z "$DB_SA_PASSWORD" ]]; then
     echo "[-] Error: DB_SA_PASSWORD environment variable is required." >&2
@@ -40,6 +49,12 @@ if [[ -z "$PROD_DB_PASSWORD" ]] || [[ -z "$STAGING_DB_PASSWORD" ]]; then
 fi
 
 echo "[+] Ensuring SQL Server container (terma-db) is running and healthy..."
+# Handle any stale conflicting container from previous legacy setups
+if docker ps -a --format '{{.Names}}' | grep -Eq "^terma-db$"; then
+    docker stop terma-db &>/dev/null || true
+    docker rm -f terma-db &>/dev/null || true
+fi
+
 docker compose up -d db
 
 # Wait for healthy database
