@@ -60,7 +60,7 @@ docker compose "${ENV_ARGS[@]}" run --rm staging-backend dotnet Terma.Api.dll --
 
 # 2. Deploy updated staging containers
 echo "[+] Step 2: Starting staging services with tag ${COMMIT_SHA}..."
-docker compose "${ENV_ARGS[@]}" up -d staging-backend staging-frontend
+docker compose "${ENV_ARGS[@]}" up -d --build staging-backend staging-frontend
 
 # 3. Health check verification
 echo "[+] Step 3: Verifying staging readiness health check..."
@@ -83,8 +83,12 @@ done
 
 if [[ "$HEALTHY" != "true" ]]; then
     echo "[-] Staging health check verification failed!" >&2
+    echo "[-] Diagnostic backend logs:" >&2
+    docker logs --tail 30 terma-staging-backend >&2 || true
     exit 1
 fi
 
 echo "$COMMIT_SHA" > "/opt/terma/staging_current_sha.txt" 2>/dev/null || true
-echo "[+] Staging deployment verified and live for SHA: ${COMMIT_SHA}"
+echo "=============================================================================="
+echo " [SUCCESS] Staging deployment verified and live for SHA: ${COMMIT_SHA}"
+echo "=============================================================================="
