@@ -28,12 +28,27 @@ if [[ -f .env.production ]]; then
 elif [[ -f /opt/terma/production/.env.production ]]; then
     # shellcheck disable=SC1091
     source /opt/terma/production/.env.production
+elif [[ -f /opt/terma/production/.env ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/production/.env
+elif [[ -f /opt/terma/.env.production ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/.env.production
+elif [[ -f /opt/terma/.env ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/.env
 elif [[ -f .env.staging ]]; then
     # shellcheck disable=SC1091
     source .env.staging
 elif [[ -f /opt/terma/staging/.env.staging ]]; then
     # shellcheck disable=SC1091
     source /opt/terma/staging/.env.staging
+elif [[ -f /opt/terma/staging/.env ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/staging/.env
+elif [[ -f .env ]]; then
+    # shellcheck disable=SC1091
+    source .env
 fi
 
 DB_SA_PASSWORD="${DB_SA_PASSWORD:-${DB_PASSWORD:-}}"

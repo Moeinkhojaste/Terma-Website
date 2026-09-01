@@ -45,7 +45,8 @@ services:
     container_name: terma-prod-backend
     restart: unless-stopped
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: "Production"
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=TermaDb_Production;User Id=terma_prod_user;Password=${PROD_DB_PASSWORD};TrustServerCertificate=True"
@@ -115,7 +116,8 @@ services:
     container_name: terma-staging-backend
     restart: unless-stopped
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: "Staging"
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=TermaDb_Staging;User Id=terma_staging_user;Password=${STAGING_DB_PASSWORD};TrustServerCertificate=True"

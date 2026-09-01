@@ -19,6 +19,15 @@ if [[ -f .env.production ]]; then
 elif [[ -f /opt/terma/production/.env.production ]]; then
     # shellcheck disable=SC1091
     source /opt/terma/production/.env.production
+elif [[ -f /opt/terma/production/.env ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/production/.env
+elif [[ -f /opt/terma/.env.production ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/.env.production
+elif [[ -f /opt/terma/.env ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/.env
 elif [[ -f .env ]]; then
     # shellcheck disable=SC1091
     source .env
@@ -33,6 +42,9 @@ if [[ -f .env.staging ]]; then
 elif [[ -f /opt/terma/staging/.env.staging ]]; then
     # shellcheck disable=SC1091
     source /opt/terma/staging/.env.staging
+elif [[ -f /opt/terma/staging/.env ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/staging/.env
 fi
 STAGING_SAVED_PASS="${STAGING_DB_PASSWORD:-${DB_PASSWORD:-${PROD_SAVED_PASS}}}"
 
@@ -61,16 +73,22 @@ if [[ -f .env.production ]]; then
     ENV_ARGS+=(--env-file .env.production)
 elif [[ -f /opt/terma/production/.env.production ]]; then
     ENV_ARGS+=(--env-file /opt/terma/production/.env.production)
+elif [[ -f /opt/terma/production/.env ]]; then
+    ENV_ARGS+=(--env-file /opt/terma/production/.env)
+elif [[ -f /opt/terma/.env.production ]]; then
+    ENV_ARGS+=(--env-file /opt/terma/.env.production)
 elif [[ -f .env.staging ]]; then
     ENV_ARGS+=(--env-file .env.staging)
 elif [[ -f /opt/terma/staging/.env.staging ]]; then
     ENV_ARGS+=(--env-file /opt/terma/staging/.env.staging)
 elif [[ -f .env ]]; then
     ENV_ARGS+=(--env-file .env)
+elif [[ -f /opt/terma/.env ]]; then
+    ENV_ARGS+=(--env-file /opt/terma/.env)
 fi
 
 echo "[+] Ensuring SQL Server container (terma-db) is running and healthy..."
-docker compose "${ENV_ARGS[@]}" up -d db
+docker compose -p terma "${ENV_ARGS[@]}" up -d db
 
 # Wait for healthy database
 MAX_RETRIES=30

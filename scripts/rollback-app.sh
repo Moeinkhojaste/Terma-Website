@@ -68,7 +68,7 @@ fi
 
 echo "[+] 1. Rolling back container images to version: ${PREVIOUS_TAG}..."
 # shellcheck disable=SC2086
-docker compose "${ENV_ARGS[@]}" up -d --no-build $SERVICES
+docker compose -p terma "${ENV_ARGS[@]}" up -d --no-build $SERVICES
 
 echo "[+] 2. Performing post-rollback health verification..."
 MAX_RETRIES=20
