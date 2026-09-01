@@ -1,3 +1,5 @@
+name: terma
+
 services:
   # ============================================================================
   # Shared Database Engine (Dual Network Attached - No Public Ports)

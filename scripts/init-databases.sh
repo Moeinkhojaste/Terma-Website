@@ -11,15 +11,22 @@ cd "$(dirname "$0")/.."
 # Automatically export all sourced variables for docker compose
 set -a
 
-# Load environment variables if available
+# Load production environment variables
+PROD_DB_PASSWORD=""
 if [[ -f .env.production ]]; then
     # shellcheck disable=SC1091
     source .env.production
 elif [[ -f /opt/terma/production/.env.production ]]; then
     # shellcheck disable=SC1091
     source /opt/terma/production/.env.production
+elif [[ -f .env ]]; then
+    # shellcheck disable=SC1091
+    source .env
 fi
+PROD_SAVED_PASS="${PROD_DB_PASSWORD:-${DB_PASSWORD:-}}"
 
+# Load staging environment variables
+STAGING_DB_PASSWORD=""
 if [[ -f .env.staging ]]; then
     # shellcheck disable=SC1091
     source .env.staging
@@ -27,16 +34,17 @@ elif [[ -f /opt/terma/staging/.env.staging ]]; then
     # shellcheck disable=SC1091
     source /opt/terma/staging/.env.staging
 fi
+STAGING_SAVED_PASS="${STAGING_DB_PASSWORD:-${DB_PASSWORD:-${PROD_SAVED_PASS}}}"
 
-set +a
-
-export DB_SA_PASSWORD="${DB_SA_PASSWORD:-${DB_PASSWORD:-}}"
-export PROD_DB_PASSWORD="${PROD_DB_PASSWORD:-${STAGING_DB_PASSWORD:-}}"
-export STAGING_DB_PASSWORD="${STAGING_DB_PASSWORD:-${PROD_DB_PASSWORD:-}}"
+export DB_SA_PASSWORD="${DB_SA_PASSWORD:-${DB_PASSWORD:-${PROD_SAVED_PASS}}}"
+export PROD_DB_PASSWORD="${PROD_SAVED_PASS:-${STAGING_SAVED_PASS}}"
+export STAGING_DB_PASSWORD="${STAGING_SAVED_PASS:-${PROD_SAVED_PASS}}"
 export PROD_DOMAIN="${PROD_DOMAIN:-termabrand.ir}"
 export STAGING_DOMAIN="${STAGING_DOMAIN:-staging.termabrand.ir}"
 export PROD_OTP_HASH_KEY="${PROD_OTP_HASH_KEY:-TermaProduction_OtpSecretKey_9876543210_Secure!#}"
 export STAGING_OTP_HASH_KEY="${STAGING_OTP_HASH_KEY:-TermaStaging_OtpSecretKey_9876543210_Secure!#}"
+
+set +a
 
 if [[ -z "$DB_SA_PASSWORD" ]]; then
     echo "[-] Error: DB_SA_PASSWORD environment variable is required." >&2
@@ -49,44 +57,136 @@ if [[ -z "$PROD_DB_PASSWORD" ]] || [[ -z "$STAGING_DB_PASSWORD" ]]; then
 fi
 
 echo "[+] Ensuring SQL Server container (terma-db) is running and healthy..."
-# Handle any stale conflicting container from previous legacy setups
-if docker ps -a --format '{{.Names}}' | grep -Eq "^terma-db$"; then
-    docker stop terma-db &>/dev/null || true
-    docker rm -f terma-db &>/dev/null || true
-fi
-
 docker compose up -d db
 
 # Wait for healthy database
 MAX_RETRIES=30
 RETRY_COUNT=0
-until docker exec terma-db /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$DB_SA_PASSWORD" -C -Q "SELECT 1" &>/dev/null || \
-      docker exec terma-db /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$DB_SA_PASSWORD" -Q "SELECT 1" &>/dev/null; do
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    if [[ $RETRY_COUNT -ge $MAX_RETRIES ]]; then
-        echo "[-] Timeout waiting for SQL Server to become available." >&2
-        exit 1
+SQLCMD_BIN=""
+
+while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
+    if docker exec terma-db /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$DB_SA_PASSWORD" -C -Q "SELECT 1" &>/dev/null; then
+        SQLCMD_BIN="/opt/mssql-tools18/bin/sqlcmd"
+        break
+    elif docker exec terma-db /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$DB_SA_PASSWORD" -Q "SELECT 1" &>/dev/null; then
+        SQLCMD_BIN="/opt/mssql-tools/bin/sqlcmd"
+        break
     fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
     echo "[*] Waiting for SQL Server... (${RETRY_COUNT}/${MAX_RETRIES})"
     sleep 2
 done
 
-echo "[+] Executing database provisioning and security hardening script..."
-docker exec -i terma-db bash -c "cat > /tmp/init-databases.sql" < sql/init-databases.sql
+if [[ -z "$SQLCMD_BIN" ]]; then
+    echo "[-] Timeout waiting for SQL Server to become available with SA credentials." >&2
+    exit 1
+fi
 
-docker exec terma-db bash -c "
-    if [ -f /opt/mssql-tools18/bin/sqlcmd ]; then
-        /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$DB_SA_PASSWORD\" -C \
-            -v PROD_DB_PASSWORD=\"$PROD_DB_PASSWORD\" \
-            -v STAGING_DB_PASSWORD=\"$STAGING_DB_PASSWORD\" \
-            -i /tmp/init-databases.sql
-    else
-        /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$DB_SA_PASSWORD\" \
-            -v PROD_DB_PASSWORD=\"$PROD_DB_PASSWORD\" \
-            -v STAGING_DB_PASSWORD=\"$STAGING_DB_PASSWORD\" \
-            -i /tmp/init-databases.sql
-    fi
-    rm -f /tmp/init-databases.sql
-"
+echo "[+] Executing database provisioning and security hardening script..."
+
+# Escape single quotes in passwords for SQL string literals
+PROD_PASS_ESC="${PROD_DB_PASSWORD//\'/\'\'}"
+STAGING_PASS_ESC="${STAGING_DB_PASSWORD//\'/\'\'}"
+
+SQL_EXTRA_FLAGS=()
+if [[ "$SQLCMD_BIN" == *tools18* ]]; then
+    SQL_EXTRA_FLAGS+=("-C")
+fi
+
+docker exec -i terma-db "$SQLCMD_BIN" -S localhost -U sa -P "$DB_SA_PASSWORD" "${SQL_EXTRA_FLAGS[@]}" <<EOSQL
+SET NOCOUNT ON;
+
+-- 1. Create Databases if they do not exist
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'TermaDb_Production')
+BEGIN
+    PRINT 'Creating database: TermaDb_Production...';
+    CREATE DATABASE [TermaDb_Production];
+    ALTER DATABASE [TermaDb_Production] SET AUTO_CLOSE OFF;
+    ALTER DATABASE [TermaDb_Production] SET RECOVERY FULL;
+    ALTER DATABASE [TermaDb_Production] SET READ_COMMITTED_SNAPSHOT ON;
+END
+ELSE
+BEGIN
+    PRINT 'Database TermaDb_Production already exists.';
+END
+GO
+
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'TermaDb_Staging')
+BEGIN
+    PRINT 'Creating database: TermaDb_Staging...';
+    CREATE DATABASE [TermaDb_Staging];
+    ALTER DATABASE [TermaDb_Staging] SET AUTO_CLOSE OFF;
+    ALTER DATABASE [TermaDb_Staging] SET RECOVERY SIMPLE;
+    ALTER DATABASE [TermaDb_Staging] SET READ_COMMITTED_SNAPSHOT ON;
+END
+ELSE
+BEGIN
+    PRINT 'Database TermaDb_Staging already exists.';
+END
+GO
+
+-- 2. Create / Update Logins with Strong Passwords
+IF NOT EXISTS (SELECT name FROM sys.server_principals WHERE name = N'terma_prod_user')
+BEGIN
+    PRINT 'Creating SQL Login: terma_prod_user...';
+    CREATE LOGIN [terma_prod_user] WITH PASSWORD = N'${PROD_PASS_ESC}', CHECK_POLICY = ON, CHECK_EXPIRATION = OFF;
+END
+ELSE
+BEGIN
+    PRINT 'Updating SQL Login password for terma_prod_user...';
+    ALTER LOGIN [terma_prod_user] WITH PASSWORD = N'${PROD_PASS_ESC}';
+END
+GO
+
+IF NOT EXISTS (SELECT name FROM sys.server_principals WHERE name = N'terma_staging_user')
+BEGIN
+    PRINT 'Creating SQL Login: terma_staging_user...';
+    CREATE LOGIN [terma_staging_user] WITH PASSWORD = N'${STAGING_PASS_ESC}', CHECK_POLICY = ON, CHECK_EXPIRATION = OFF;
+END
+ELSE
+BEGIN
+    PRINT 'Updating SQL Login password for terma_staging_user...';
+    ALTER LOGIN [terma_staging_user] WITH PASSWORD = N'${STAGING_PASS_ESC}';
+END
+GO
+
+-- 3. Configure TermaDb_Production Permissions
+USE [TermaDb_Production];
+GO
+
+IF NOT EXISTS (SELECT name FROM sys.database_principals WHERE name = N'terma_prod_user')
+BEGIN
+    CREATE USER [terma_prod_user] FOR LOGIN [terma_prod_user];
+END
+ALTER ROLE [db_owner] ADD MEMBER [terma_prod_user];
+PRINT 'terma_prod_user mapped to TermaDb_Production with db_owner role.';
+
+IF EXISTS (SELECT name FROM sys.database_principals WHERE name = N'terma_staging_user')
+BEGIN
+    PRINT 'Revoking and dropping terma_staging_user from TermaDb_Production...';
+    DROP USER [terma_staging_user];
+END
+GO
+
+-- 4. Configure TermaDb_Staging Permissions
+USE [TermaDb_Staging];
+GO
+
+IF NOT EXISTS (SELECT name FROM sys.database_principals WHERE name = N'terma_staging_user')
+BEGIN
+    CREATE USER [terma_staging_user] FOR LOGIN [terma_staging_user];
+END
+ALTER ROLE [db_owner] ADD MEMBER [terma_staging_user];
+PRINT 'terma_staging_user mapped to TermaDb_Staging with db_owner role.';
+
+IF EXISTS (SELECT name FROM sys.database_principals WHERE name = N'terma_prod_user')
+BEGIN
+    PRINT 'Revoking and dropping terma_prod_user from TermaDb_Staging...';
+    DROP USER [terma_prod_user];
+END
+GO
+
+PRINT 'Database initialization & user security mapping completed successfully!';
+EOSQL
 
 echo "[+] Database and user isolation configured successfully!"

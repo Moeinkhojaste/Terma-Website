@@ -281,12 +281,14 @@ jobs:
       - name: Apply EF Core Migrations on Fresh SQL Server Database
         working-directory: backend
         env:
+          ASPNETCORE_ENVIRONMENT: "Development"
           ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=TermaDb_CI;User Id=sa;Password=YourStrong!Password2026;TrustServerCertificate=True"
         run: dotnet run --project src/Terma.Api -- --migrate
 
       - name: Run Concurrency & Integration Tests against SQL Server 2022
         working-directory: backend
         env:
+          ASPNETCORE_ENVIRONMENT: "Development"
           TEST_SQLSERVER_CONNECTION_STRING: "Server=localhost,1433;Database=TermaDb_CI;User Id=sa;Password=YourStrong!Password2026;TrustServerCertificate=True"
         run: dotnet test tests/Terma.IntegrationTests/Terma.IntegrationTests.csproj --configuration Release --logger "trx;LogFileName=sqlserver-test-results.trx"
 

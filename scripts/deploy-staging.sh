@@ -17,24 +17,19 @@ echo "==========================================================================
 # Ensure all environment variables are exported for docker compose
 set -a
 
-if [[ -f .env.production ]]; then
-    # shellcheck disable=SC1091
-    source .env.production
-elif [[ -f /opt/terma/production/.env.production ]]; then
-    # shellcheck disable=SC1091
-    source /opt/terma/production/.env.production
-fi
-
 if [[ -f .env.staging ]]; then
     # shellcheck disable=SC1091
     source .env.staging
 elif [[ -f /opt/terma/staging/.env.staging ]]; then
     # shellcheck disable=SC1091
     source /opt/terma/staging/.env.staging
+elif [[ -f .env ]]; then
+    # shellcheck disable=SC1091
+    source .env
 fi
 
 DB_SA_PASSWORD="${DB_SA_PASSWORD:-${DB_PASSWORD:-}}"
-STAGING_DB_PASSWORD="${STAGING_DB_PASSWORD:-}"
+STAGING_DB_PASSWORD="${STAGING_DB_PASSWORD:-${DB_PASSWORD:-}}"
 STAGING_DOMAIN="${STAGING_DOMAIN:-staging.termabrand.ir}"
 STAGING_OTP_HASH_KEY="${STAGING_OTP_HASH_KEY:-TermaStaging_OtpSecretKey_9876543210_Secure!#}"
 PROD_DB_PASSWORD="${PROD_DB_PASSWORD:-${STAGING_DB_PASSWORD}}"
@@ -44,13 +39,11 @@ PROD_OTP_HASH_KEY="${PROD_OTP_HASH_KEY:-TermaProduction_OtpSecretKey_9876543210_
 set +a
 
 ENV_ARGS=()
-if [[ -f .env.production ]]; then
-    ENV_ARGS+=(--env-file .env.production)
-fi
 if [[ -f .env.staging ]]; then
     ENV_ARGS+=(--env-file .env.staging)
-fi
-if [[ -f .env ]]; then
+elif [[ -f /opt/terma/staging/.env.staging ]]; then
+    ENV_ARGS+=(--env-file /opt/terma/staging/.env.staging)
+elif [[ -f .env ]]; then
     ENV_ARGS+=(--env-file .env)
 fi
 
