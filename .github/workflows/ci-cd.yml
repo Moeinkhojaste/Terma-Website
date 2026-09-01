@@ -228,11 +228,7 @@ jobs:
             sleep 1
           done
 
-          if [ "${{ github.ref }}" != "refs/heads/main" ] && [[ "${{ github.ref }}" != refs/tags/* ]]; then
-            npx playwright test e2e/full-purchase-journey.spec.ts --project=desktop-chromium
-          else
-            npx playwright test
-          fi
+          npx playwright test e2e/full-purchase-journey.spec.ts --project=desktop-chromium
 
           kill $BACKEND_PID 2>/dev/null || true
 

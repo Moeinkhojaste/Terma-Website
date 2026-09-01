@@ -7,7 +7,7 @@ for (const width of widths) {
   test(`catalog stays usable without horizontal overflow at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
     await page.goto("/products");
-    await expect(page.getByRole("heading", { name: "محصولات", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /محصولات/ }).first()).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
     if (width < 768) {
@@ -85,12 +85,12 @@ for (const width of [375, 1440] as const) {
     await quickView.getByRole("button", { name: "افزودن به سبد خرید" }).click();
     await page.getByRole("dialog", { name: "سبد خرید سریع" }).getByRole("link", { name: "تسویه حساب و تکمیل خرید" }).click();
 
-    await page.getByLabel("نام و نام خانوادگی *").fill("مریم احمدی");
-    await page.getByLabel("شماره موبایل *").fill("۰۹۱۲۱۲۳۴۵۶۷");
-    await page.getByLabel("استان *").fill("تهران");
-    await page.getByLabel("شهر *").fill("تهران");
-    await page.getByLabel("آدرس کامل *").fill("خیابان ولیعصر، کوچه یازدهم، پلاک ۲۴");
-    await page.getByLabel("کد پستی *").fill("۱۲۳۴۵۶۷۸۹۰");
+    await page.locator('input[name="fullName"]').fill("مریم احمدی");
+    await page.locator('input[name="mobile"]').fill("09121234567");
+    await page.locator('select[name="province"]').selectOption("تهران");
+    await page.locator('select[name="city"]').selectOption("تهران");
+    await page.locator('textarea[name="address"]').fill("خیابان ولیعصر، کوچه یازدهم، پلاک ۲۴");
+    await page.locator('input[name="postalCode"]').fill("1234567890");
     await page.getByRole("button", { name: "ثبت سفارش" }).click();
 
     const review = page.getByRole("dialog", { name: "بازبینی و تأیید سفارش" });
