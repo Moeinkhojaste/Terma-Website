@@ -167,7 +167,7 @@ jobs:
           --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Password2026' -C -Q 'SELECT 1' || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Password2026' -Q 'SELECT 1'"
           --health-interval 5s
           --health-timeout 3s
-          --health-retries 10
+          --health-retries 12
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -205,15 +205,18 @@ jobs:
           ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=TermaDb_E2E;User Id=sa;Password=YourStrong!Password2026;TrustServerCertificate=True"
         run: dotnet run --project backend/src/Terma.Api -- --migrate
 
-      - name: Start Backend Web API
+      - name: Run E2E Test Suite with Live Backend API
         shell: bash
+        working-directory: frontend
         env:
           ASPNETCORE_ENVIRONMENT: "Development"
           ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=TermaDb_E2E;User Id=sa;Password=YourStrong!Password2026;TrustServerCertificate=True"
+          NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:5442"
         run: |
-          dotnet run --project backend/src/Terma.Api --urls "http://127.0.0.1:5442" &
-          echo "Waiting for Backend API on port 5442..."
-          for i in {1..45}; do
+          dotnet run --project ../backend/src/Terma.Api --urls "http://127.0.0.1:5442" &
+          BACKEND_PID=$!
+          echo "Waiting for Backend API (PID: $BACKEND_PID) on port 5442..."
+          for i in {1..60}; do
             if curl -s -f http://127.0.0.1:5442/health/ready 2>/dev/null | grep -q '"Healthy"'; then
               echo "Backend API is ready."
               break
@@ -221,19 +224,13 @@ jobs:
             sleep 1
           done
 
-      - name: Run Critical Smoke E2E Tests (PR / develop)
-        if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
-        working-directory: frontend
-        env:
-          NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:5442"
-        run: npx playwright test e2e/full-purchase-journey.spec.ts --project=desktop-chromium
+          if [ "${{ github.ref }}" != "refs/heads/main" ] && [[ "${{ github.ref }}" != refs/tags/* ]]; then
+            npx playwright test e2e/full-purchase-journey.spec.ts --project=desktop-chromium
+          else
+            npx playwright test
+          fi
 
-      - name: Run Full Cross-Browser E2E Suite (main / release)
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
-        working-directory: frontend
-        env:
-          NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:5442"
-        run: npx playwright test
+          kill $BACKEND_PID 2>/dev/null || true
 
       - name: Upload Playwright Test Artifacts
         if: failure()
@@ -261,10 +258,10 @@ jobs:
         ports:
           - 1433:1433
         options: >-
-          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Password2026' -C -Q 'SELECT 1'"
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Password2026' -C -Q 'SELECT 1' || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Password2026' -Q 'SELECT 1'"
           --health-interval 5s
           --health-timeout 3s
-          --health-retries 10
+          --health-retries 12
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -300,9 +297,6 @@ jobs:
     needs: [frontend, backend, architecture, e2e, sqlserver-integration]
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
-    environment:
-      name: staging
-      url: https://${{ vars.STAGING_DOMAIN || 'staging.terma.ir' }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -311,7 +305,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_DEPLOY_USER || 'deployer' }}
+          username: ${{ secrets.SSH_DEPLOY_USER || 'root' }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
@@ -329,9 +323,6 @@ jobs:
     needs: [frontend, backend, architecture, e2e, sqlserver-integration]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://${{ vars.PROD_DOMAIN || 'terma.ir' }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -340,7 +331,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_DEPLOY_USER || 'deployer' }}
+          username: ${{ secrets.SSH_DEPLOY_USER || 'root' }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |

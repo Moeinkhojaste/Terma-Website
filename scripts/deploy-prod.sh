@@ -48,9 +48,9 @@ elif [[ -f .env ]]; then
     ENV_ARGS+=(--env-file .env)
 fi
 
-# Step 0: Ensure Shared Database Engine (terma-db) is Running
-echo "[+] Step 0: Ensuring database container (terma-db) is running..."
-docker compose "${ENV_ARGS[@]}" up -d db
+# Step 0: Ensure Shared Database Engine (terma-db) and User Logins are Configured
+echo "[+] Step 0: Ensuring database container and user logins are configured..."
+bash scripts/init-databases.sh
 
 # Step 1: Pre-Deploy Verified Database Backup
 echo "[+] Step 1: Executing pre-deployment verified backup of TermaDb_Production..."
