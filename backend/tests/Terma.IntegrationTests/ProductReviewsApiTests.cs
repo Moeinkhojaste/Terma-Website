@@ -141,4 +141,58 @@ public sealed class ProductReviewsApiTests(TermaApiFactory factory) : IClassFixt
         Assert.Equal("فوق‌العاده زیبا", publicReview.Title);
         Assert.Equal("با سپاس از حسن انتخاب شما، رضایت شما هدف ماست.", publicReview.AdminResponse);
     }
+
+    [Fact]
+    public async Task CustomerReviews_IdorIsolation_CustomerCannotSeeOrModifyOtherCustomersPrivateReviewState()
+    {
+        using var admin = await factory.CreateAdminClientAsync();
+        var catRes = await admin.PostAsJsonAsync("/api/admin/categories", new CreateCategoryRequest { Name = $"RevIsoCat {Guid.NewGuid():N}" });
+        var cat = (await catRes.Content.ReadFromJsonAsync<CategoryDto>())!;
+        var prodRes = await admin.PostAsJsonAsync("/api/admin/products", new CreateProductRequest
+        {
+            Name = "Review Isolation Product",
+            Sku = $"REV-ISO-{Guid.NewGuid():N}",
+            Description = "desc",
+            Price = 3000,
+            StockQuantity = 10,
+            TableCapacity = 6,
+            Length = 100,
+            Width = 100,
+            FabricType = "ترمه",
+            LiningType = "ساتن",
+            Color = "آبی",
+            Pattern = "افشان",
+            CategoryId = cat.Id
+        });
+        var prod = (await prodRes.Content.ReadFromJsonAsync<ProductDto>())!;
+
+        // Customer A logs in and submits a review
+        var (clientA, sessionA, _) = await CreateAuthenticatedCustomerAsync();
+        var reviewReqA = new CreateReviewRequest
+        {
+            ProductId = prod.Id,
+            Rating = 4,
+            Title = "نظر مشتری اول",
+            Comment = "توضیحات نظر مشتری اول در مورد این محصول."
+        };
+        var submitResA = await clientA.PostAsJsonAsync("/api/customer/reviews", reviewReqA);
+        submitResA.EnsureSuccessStatusCode();
+
+        // Customer B logs in
+        var (clientB, sessionB, _) = await CreateAuthenticatedCustomerAsync();
+
+        // 1. Customer B checks their reviews list -> must NOT contain Customer A's review
+        var listB = await clientB.GetFromJsonAsync<IReadOnlyList<CustomerReviewDto>>("/api/customer/reviews");
+        Assert.NotNull(listB);
+        Assert.DoesNotContain(listB, r => r.ProductId == prod.Id);
+
+        // 2. Customer B checks their review for this product -> must return 204 NoContent
+        var myReviewB = await clientB.GetAsync($"/api/customer/reviews/products/{prod.Id}/my-review");
+        Assert.Equal(HttpStatusCode.NoContent, myReviewB.StatusCode);
+
+        // 3. Customer B attempts to call Admin review moderation endpoints -> must return 401 Unauthorized or 403 Forbidden
+        var deleteRes = await clientB.DeleteAsync($"/api/admin/reviews/{Guid.NewGuid()}");
+        Assert.True(deleteRes.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden);
+    }
 }
+

@@ -104,7 +104,19 @@ if [[ "$HEALTHY" != "true" ]]; then
     exit 1
 fi
 
-# Step 5: Save State
+# Step 5: Post-deployment read-only API smoke checks
+echo "[+] Step 5: Running post-deployment smoke tests (categories, catalog, CMS content)..."
+if ! docker exec terma-prod-backend curl -s -f http://localhost:8080/api/categories >/dev/null \
+   || ! docker exec terma-prod-backend curl -s -f "http://localhost:8080/api/products?pageSize=1" >/dev/null \
+   || ! docker exec terma-prod-backend curl -s -f "http://localhost:8080/api/store/content?page=home" >/dev/null; then
+    echo "[-] CRITICAL: Post-deployment smoke tests failed on production API!" >&2
+    echo "[!] Triggering automatic application rollback to ${PREVIOUS_SHA}..." >&2
+    bash scripts/rollback-app.sh prod "$PREVIOUS_SHA"
+    exit 1
+fi
+echo "[+] All production smoke checks passed successfully."
+
+# Step 6: Save State
 echo "$COMMIT_SHA" > "/opt/terma/prod_current_sha.txt" 2>/dev/null || true
 echo "=============================================================================="
 echo " [SUCCESS] Production deployment verified and live for SHA: ${COMMIT_SHA}"

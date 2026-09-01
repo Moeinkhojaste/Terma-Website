@@ -86,11 +86,29 @@ public sealed class Order : BaseEntity
         MarkUpdated();
     }
 
-    public bool CanTransitionTo(OrderStatus next) => true;
+    public bool CanTransitionTo(OrderStatus next)
+    {
+        if (Status == next) return true;
+
+        return Status switch
+        {
+            OrderStatus.PendingConfirmation => next is OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.Shipped or OrderStatus.Cancelled or OrderStatus.Expired,
+            OrderStatus.Confirmed => next is OrderStatus.Preparing or OrderStatus.Shipped or OrderStatus.Cancelled,
+            OrderStatus.Preparing => next is OrderStatus.Shipped or OrderStatus.Cancelled,
+            OrderStatus.Shipped => next is OrderStatus.Delivered or OrderStatus.Cancelled,
+            OrderStatus.Expired => next is OrderStatus.Confirmed or OrderStatus.Cancelled,
+            OrderStatus.Cancelled => next is OrderStatus.Confirmed or OrderStatus.PendingConfirmation,
+            OrderStatus.Delivered => false,
+            _ => false
+        };
+    }
 
     public void ChangeStatus(OrderStatus next)
     {
         if (Status == next) return;
+        if (!CanTransitionTo(next))
+            throw new DomainException($"Cannot transition order from status '{Status}' to '{next}'.");
+
         Status = next;
         MarkUpdated();
     }

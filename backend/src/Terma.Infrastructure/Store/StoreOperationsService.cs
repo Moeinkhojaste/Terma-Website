@@ -2,7 +2,9 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using Terma.Application.Common.Exceptions;
 using Terma.Application.Common.Interfaces;
@@ -919,20 +921,23 @@ public sealed class StoreOperationsService(
         var cleanIdempotencyKey = idempotencyKey.Trim().ToLowerInvariant();
         var requestFingerprint = CalculateRequestFingerprint(request);
 
-        // Check if an order with this idempotency key already exists
-        var existingOrder = await db.Orders.AsNoTracking().SingleOrDefaultAsync(x => x.IdempotencyKey == cleanIdempotencyKey, cancellationToken);
-        if (existingOrder is not null)
+        IDbContextTransaction? transaction = null;
+        try
         {
-            if (existingOrder.RequestFingerprint == requestFingerprint)
+            // Check if an order with this idempotency key already exists
+            var existingOrder = await db.Orders.AsNoTracking().SingleOrDefaultAsync(x => x.IdempotencyKey == cleanIdempotencyKey, cancellationToken);
+            if (existingOrder is not null)
             {
-                return new CreatedOrderDto(existingOrder.Id, existingOrder.Number, existingOrder.Total, existingOrder.ReservationExpiresAtUtc);
+                if (existingOrder.RequestFingerprint == requestFingerprint)
+                {
+                    return new CreatedOrderDto(existingOrder.Id, existingOrder.Number, existingOrder.Total, existingOrder.ReservationExpiresAtUtc);
+                }
+                throw new ConflictException("The provided Idempotency-Key was already used with different order details.");
             }
-            throw new ConflictException("The provided Idempotency-Key was already used with different order details.");
-        }
 
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
-        var lines = await ResolveLines(request.Items, cancellationToken);
+            var lines = await ResolveLines(request.Items, cancellationToken);
         var subtotal = lines.Sum(x => x.UnitPrice * x.Quantity);
 
         // Resolve promotion inside transaction with lock/tracking
@@ -1040,10 +1045,11 @@ public sealed class StoreOperationsService(
             .ToListAsync(cancellationToken);
         foreach (var s in matchingCartSessions) s.MarkRecovered();
 
-        try
+        await db.SaveChangesAsync(cancellationToken);
+        if (transaction is not null)
         {
-            await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+        }
 
             if (telegramBotService is not null)
             {
@@ -1093,15 +1099,12 @@ public sealed class StoreOperationsService(
                     }
                 });
             }
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw new ConflictException("A concurrency conflict occurred while placing the order. Please retry.");
+
+            return new CreatedOrderDto(order.Id, order.Number, order.Total, order.ReservationExpiresAtUtc);
         }
         catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("IX_Orders_IdempotencyKey", StringComparison.OrdinalIgnoreCase) == true)
         {
-            await transaction.RollbackAsync(cancellationToken);
+            if (transaction is not null) await transaction.RollbackAsync(cancellationToken);
             var concurrentOrder = await db.Orders.AsNoTracking().SingleOrDefaultAsync(x => x.IdempotencyKey == cleanIdempotencyKey, cancellationToken);
             if (concurrentOrder is not null && concurrentOrder.RequestFingerprint == requestFingerprint)
             {
@@ -1109,8 +1112,25 @@ public sealed class StoreOperationsService(
             }
             throw new ConflictException("A conflict occurred with this idempotency key.");
         }
-
-        return new CreatedOrderDto(order.Id, order.Number, order.Total, order.ReservationExpiresAtUtc);
+        catch (Exception ex)
+        {
+            if (transaction is not null)
+            {
+                try { await transaction.RollbackAsync(cancellationToken); } catch { /* Ignore rollback exception */ }
+            }
+            if (ex is DomainException or ValidationException or ConflictException)
+            {
+                throw;
+            }
+            throw new ConflictException($"A concurrency conflict occurred while placing the order: {ex.Message}");
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
+        }
     }
 
     public async Task<AdminOrderDto> TrackOrderAsync(string token, CancellationToken cancellationToken)

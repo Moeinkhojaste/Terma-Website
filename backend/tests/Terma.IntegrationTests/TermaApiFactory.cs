@@ -15,15 +15,26 @@ namespace Terma.IntegrationTests;
 
 public sealed class TermaApiFactory : WebApplicationFactory<Program>
 {
-    private readonly SqliteConnection _connection = new("Data Source=:memory:");
+    private readonly string? _sqlServerConnectionString = Environment.GetEnvironmentVariable("TEST_SQLSERVER_CONNECTION_STRING");
+    private readonly SqliteConnection? _connection;
     private static int _clientCounter;
     public AdjustableTimeProvider Clock { get; } = new();
+    public bool IsSqlServer => !string.IsNullOrWhiteSpace(_sqlServerConnectionString);
 
     public const string AdminEmail = "admin@example.test";
     public const string AdminPassword = "AdminPass!123";
     public const string UserEmail = "user@example.test";
     public const string UserPassword = "UserPass!1234";
     public const string LockoutEmail = "lockout@example.test";
+
+    public TermaApiFactory()
+    {
+        if (string.IsNullOrWhiteSpace(_sqlServerConnectionString))
+        {
+            _connection = new SqliteConnection("Data Source=:memory:");
+            _connection.Open();
+        }
+    }
 
     static TermaApiFactory()
     {
@@ -34,19 +45,37 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
-        _connection.Open();
 
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<TermaDbContext>>();
             services.RemoveAll<TermaDbContext>();
             services.RemoveAll<TimeProvider>();
-            services.AddDbContext<TermaDbContext>(options => options.UseSqlite(_connection));
+
+            if (IsSqlServer)
+            {
+                services.AddDbContext<TermaDbContext>(options => options.UseSqlServer(_sqlServerConnectionString));
+            }
+            else
+            {
+                services.AddDbContext<TermaDbContext>(options => options.UseSqlite(_connection!));
+            }
+
             services.AddSingleton<TimeProvider>(Clock);
 
             using var provider = services.BuildServiceProvider();
             using var scope = provider.CreateScope();
-            scope.ServiceProvider.GetRequiredService<TermaDbContext>().Database.EnsureCreated();
+            var db = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
+
+            if (IsSqlServer)
+            {
+                db.Database.Migrate();
+            }
+            else
+            {
+                db.Database.EnsureCreated();
+            }
+
             SeedIdentityAsync(scope.ServiceProvider).GetAwaiter().GetResult();
         });
     }

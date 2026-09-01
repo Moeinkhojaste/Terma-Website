@@ -245,4 +245,106 @@ public sealed class CustomerFeaturesApiTests(TermaApiFactory factory) : IClassFi
         Assert.Equal("خیابان چهارباغ، کوچه ترنج، پلاک ۱۲", defaultAddr.Address);
         Assert.Equal("8146598765", defaultAddr.PostalCode);
     }
+
+    [Fact]
+    public async Task CustomerAddress_IdorPrevention_CustomerCannotModifyDeleteOrDefaultAnotherCustomersAddress()
+    {
+        var (clientA, sessionA, _) = await CreateAuthenticatedCustomerAsync();
+        var (clientB, sessionB, _) = await CreateAuthenticatedCustomerAsync();
+
+        // Customer A creates an address
+        var createReq = new AddressWriteRequest
+        {
+            Title = "آدرس مشتری اول",
+            ReceiverName = "مشتری اول",
+            Province = "تهران",
+            City = "تهران",
+            Address = "خیابان آزادی، کوچه اول، پلاک ۱",
+            PostalCode = "1111111111",
+            IsDefault = true
+        };
+        var createRes = await clientA.PostAsJsonAsync("/api/customer/addresses", createReq);
+        createRes.EnsureSuccessStatusCode();
+        var addressA = (await createRes.Content.ReadFromJsonAsync<CustomerAddressDto>())!;
+
+        // 1. Customer B attempts to update Customer A's address -> 404 Not Found
+        var maliciousUpdateReq = new AddressWriteRequest
+        {
+            Title = "آدرس دستکاری‌شده",
+            ReceiverName = "مهاجم",
+            Province = "اصفهان",
+            City = "اصفهان",
+            Address = "خیابان مهاجم، پلاک ۹۹",
+            PostalCode = "9999999999",
+            IsDefault = true
+        };
+        var updateRes = await clientB.PutAsJsonAsync($"/api/customer/addresses/{addressA.Id}", maliciousUpdateReq);
+        Assert.Equal(HttpStatusCode.NotFound, updateRes.StatusCode);
+
+        // 2. Customer B attempts to set Customer A's address as default -> 404 Not Found
+        var setDefaultRes = await clientB.PutAsync($"/api/customer/addresses/{addressA.Id}/default", null);
+        Assert.Equal(HttpStatusCode.NotFound, setDefaultRes.StatusCode);
+
+        // 3. Customer B attempts to delete Customer A's address -> 404 Not Found
+        var deleteRes = await clientB.DeleteAsync($"/api/customer/addresses/{addressA.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, deleteRes.StatusCode);
+
+        // Verify Customer A's address remains intact and unmodified
+        var listA = await clientA.GetFromJsonAsync<IReadOnlyList<CustomerAddressDto>>("/api/customer/addresses");
+        Assert.NotNull(listA);
+        var unchangedAddr = Assert.Single(listA);
+        Assert.Equal(addressA.Id, unchangedAddr.Id);
+        Assert.Equal("آدرس مشتری اول", unchangedAddr.Title);
+        Assert.Equal("مشتری اول", unchangedAddr.ReceiverName);
+        Assert.True(unchangedAddr.IsDefault);
+    }
+
+    [Fact]
+    public async Task CustomerWishlist_IdorIsolation_WishlistsAreCompletelyIsolatedBetweenUsers()
+    {
+        using var admin = await factory.CreateAdminClientAsync();
+        var catRes = await admin.PostAsJsonAsync("/api/admin/categories", new CreateCategoryRequest { Name = $"WishIsoCat {Guid.NewGuid():N}" });
+        var cat = (await catRes.Content.ReadFromJsonAsync<CategoryDto>())!;
+        var prodRes = await admin.PostAsJsonAsync("/api/admin/products", new CreateProductRequest
+        {
+            Name = "Wishlist Isolation Product",
+            Sku = $"WISH-ISO-{Guid.NewGuid():N}",
+            Description = "desc",
+            Price = 2000,
+            StockQuantity = 5,
+            TableCapacity = 4,
+            Length = 100,
+            Width = 100,
+            FabricType = "ترمه",
+            LiningType = "ساتن",
+            Color = "قرمز",
+            Pattern = "ترنج",
+            CategoryId = cat.Id
+        });
+        var prod = (await prodRes.Content.ReadFromJsonAsync<ProductDto>())!;
+
+        var (clientA, _, _) = await CreateAuthenticatedCustomerAsync();
+        var (clientB, _, _) = await CreateAuthenticatedCustomerAsync();
+
+        // Customer A adds product to wishlist
+        var addRes = await clientA.PostAsync($"/api/customer/wishlist/{prod.Id}", null);
+        addRes.EnsureSuccessStatusCode();
+
+        // Verify Customer A has it
+        var listA = await clientA.GetFromJsonAsync<IReadOnlyList<WishlistItemDto>>("/api/customer/wishlist");
+        Assert.Contains(listA!, x => x.ProductId == prod.Id);
+
+        // Verify Customer B does NOT have it
+        var listB = await clientB.GetFromJsonAsync<IReadOnlyList<WishlistItemDto>>("/api/customer/wishlist");
+        Assert.DoesNotContain(listB!, x => x.ProductId == prod.Id);
+
+        // Customer B removes product from their own wishlist (which is a no-op for Customer B)
+        var removeRes = await clientB.DeleteAsync($"/api/customer/wishlist/{prod.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, removeRes.StatusCode);
+
+        // Customer A's wishlist must STILL contain the product
+        var listAAfter = await clientA.GetFromJsonAsync<IReadOnlyList<WishlistItemDto>>("/api/customer/wishlist");
+        Assert.Contains(listAAfter!, x => x.ProductId == prod.Id);
+    }
 }
+

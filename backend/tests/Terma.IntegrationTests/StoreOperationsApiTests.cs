@@ -120,19 +120,23 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
         Assert.NotNull(confirmedOrder);
         Assert.Equal(OrderStatus.Confirmed, confirmedOrder.Status);
 
-        // 3. Change status from Confirmed to Delivered
+        // 3. Change status from Confirmed to Shipped
+        var shippedResponse = await admin.PutAsJsonAsync($"/api/admin/orders/{order.Id}/status", new { status = "Shipped" });
+        Assert.True(shippedResponse.IsSuccessStatusCode);
+        var shippedOrder = await shippedResponse.Content.ReadFromJsonAsync<AdminOrderDto>();
+        Assert.NotNull(shippedOrder);
+        Assert.Equal(OrderStatus.Shipped, shippedOrder.Status);
+
+        // 4. Change status from Shipped to Delivered
         var deliveredResponse = await admin.PutAsJsonAsync($"/api/admin/orders/{order.Id}/status", new { status = "Delivered" });
         Assert.True(deliveredResponse.IsSuccessStatusCode);
         var deliveredOrder = await deliveredResponse.Content.ReadFromJsonAsync<AdminOrderDto>();
         Assert.NotNull(deliveredOrder);
         Assert.Equal(OrderStatus.Delivered, deliveredOrder.Status);
 
-        // 4. Change status from Delivered back to Shipped
-        var shippedResponse = await admin.PutAsJsonAsync($"/api/admin/orders/{order.Id}/status", new { status = "Shipped" });
-        Assert.True(shippedResponse.IsSuccessStatusCode);
-        var shippedOrder = await shippedResponse.Content.ReadFromJsonAsync<AdminOrderDto>();
-        Assert.NotNull(shippedOrder);
-        Assert.Equal(OrderStatus.Shipped, shippedOrder.Status);
+        // 5. Attempting to transition from terminal state Delivered back to Shipped must be rejected with 400 BadRequest
+        var invalidResponse = await admin.PutAsJsonAsync($"/api/admin/orders/{order.Id}/status", new { status = "Shipped" });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidResponse.StatusCode);
     }
 
     [Fact]
@@ -166,9 +170,98 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Fact]
+    public async Task ReservationExpiration_WhenReservationExpires_ReleasesInventoryAndTransitionsToExpired()
+    {
+        using var admin = await factory.CreateAdminClientAsync();
+        var category = await CreateCategory(admin);
+        var productResponse = await admin.PostAsJsonAsync("/api/admin/products", new CreateProductRequest
+        {
+            Name = "Expire Test Product",
+            Sku = $"EXP-{Guid.NewGuid():N}",
+            Description = "test",
+            Price = 2000,
+            StockQuantity = 5,
+            TableCapacity = 4,
+            Length = 100,
+            Width = 100,
+            FabricType = "ترمه",
+            LiningType = "ساتن",
+            Color = "قرمز",
+            Pattern = "ترنج",
+            CategoryId = category.Id
+        });
+        var product = (await productResponse.Content.ReadFromJsonAsync<ProductDto>())!;
+
+        // 1. Guest places order for 2 items -> reserved = 2, available = 3
+        using var guest = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(guest);
+        guest.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
+
+        var orderRes = await guest.PostAsJsonAsync("/api/orders", new CheckoutRequest
+        {
+            Items = [new CheckoutItemRequest(product.Id, null, 2)],
+            FullName = "مشتری انقضا",
+            Phone = "09121234567",
+            Province = "تهران",
+            City = "تهران",
+            Address = "خیابان آزادی، کوچه پنجم",
+            PostalCode = "1234567890"
+        });
+        orderRes.EnsureSuccessStatusCode();
+        var createdOrder = (await orderRes.Content.ReadFromJsonAsync<CreatedOrderDto>())!;
+
+        // 2. Set ReservationExpiresAtUtc to 1 hour in the past
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.TermaDbContext>();
+            var orderEntity = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(db.Orders, x => x.Id == createdOrder.Id);
+            db.Entry(orderEntity).Property(x => x.ReservationExpiresAtUtc).CurrentValue = DateTime.UtcNow.AddHours(-1);
+            await db.SaveChangesAsync();
+        }
+
+        // 3. Trigger a sweep of the reservation expiration logic
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.TermaDbContext>();
+            var now = DateTime.UtcNow;
+            var expiredOrders = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.Include(
+                    db.Orders.Where(x => x.Status == OrderStatus.PendingConfirmation && x.ReservationExpiresAtUtc <= now),
+                    x => x.Items));
+
+            foreach (var order in expiredOrders)
+            {
+                foreach (var item in order.Items.Where(x => x.VariantId.HasValue))
+                {
+                    var variant = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleOrDefaultAsync(db.ProductVariants, x => x.Id == item.VariantId);
+                    variant?.ReleaseReservation(item.Quantity);
+                    var prod = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleOrDefaultAsync(db.Products, x => x.Id == item.ProductId);
+                    prod?.AdjustStock(item.Quantity);
+                }
+                order.ChangeStatus(OrderStatus.Expired);
+            }
+            if (expiredOrders.Count > 0) await db.SaveChangesAsync();
+        }
+
+        // 4. Verify order is Expired and reserved stock is fully released (reserved = 0, available = 5)
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.TermaDbContext>();
+            var orderEntity = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(db.Orders, x => x.Id == createdOrder.Id);
+            Assert.Equal(OrderStatus.Expired, orderEntity.Status);
+
+            var variant = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(db.ProductVariants, x => x.ProductId == product.Id);
+            Assert.Equal(5, variant.StockQuantity);
+            Assert.Equal(0, variant.ReservedQuantity);
+            Assert.Equal(5, variant.AvailableQuantity);
+        }
+    }
+
     private static async Task<CategoryDto> CreateCategory(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/admin/categories", new CreateCategoryRequest { Name = $"Checkout {Guid.NewGuid():N}" });
         return (await response.Content.ReadFromJsonAsync<CategoryDto>())!;
     }
 }
+

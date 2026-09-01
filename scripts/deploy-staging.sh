@@ -88,6 +88,22 @@ if [[ "$HEALTHY" != "true" ]]; then
     exit 1
 fi
 
+# 4. Post-deployment read-only API and Storefront smoke checks
+echo "[+] Step 4: Running post-deployment smoke tests (categories, catalog, CMS content)..."
+if ! docker exec terma-staging-backend curl -s -f http://localhost:8080/api/categories >/dev/null; then
+    echo "[-] Smoke check failed: GET /api/categories returned non-200" >&2
+    exit 1
+fi
+if ! docker exec terma-staging-backend curl -s -f "http://localhost:8080/api/products?pageSize=1" >/dev/null; then
+    echo "[-] Smoke check failed: GET /api/products returned non-200" >&2
+    exit 1
+fi
+if ! docker exec terma-staging-backend curl -s -f "http://localhost:8080/api/store/content?page=home" >/dev/null; then
+    echo "[-] Smoke check failed: GET /api/store/content returned non-200" >&2
+    exit 1
+fi
+echo "[+] All post-deployment smoke checks passed successfully."
+
 echo "$COMMIT_SHA" > "/opt/terma/staging_current_sha.txt" 2>/dev/null || true
 echo "=============================================================================="
 echo " [SUCCESS] Staging deployment verified and live for SHA: ${COMMIT_SHA}"

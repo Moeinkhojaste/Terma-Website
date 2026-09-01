@@ -250,6 +250,41 @@ describe("checkout order review", () => {
       expect(mocks.replace).toHaveBeenCalledWith("/order/success?order=TRM-9999-123456");
     });
   });
+
+  it("renders empty cart view when cart has no items", () => {
+    mocks.useCart.mockReturnValue({
+      hydrated: true,
+      clearCart: mocks.clearCart,
+      items: [],
+    });
+
+    render(<CheckoutPageClient />);
+    expect(screen.getByText("محصولی برای تکمیل سفارش وجود ندارد")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "مشاهده محصولات" })).toBeInTheDocument();
+  });
+
+  it("shows inventory limitation popup when product becomes out of stock during checkout", async () => {
+    const { ApiError } = await import("@/lib/api-client");
+    mocks.createOrder.mockRejectedValue(
+      new ApiError("Conflict", {
+        status: 409,
+        problem: { detail: "Product variant 'سرمه‌ای' is no longer available in the requested quantity." },
+      })
+    );
+
+    render(<CheckoutPageClient />);
+    fillValidCheckout();
+    fireEvent.click(screen.getByRole("button", { name: "ثبت سفارش" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "بازبینی و تأیید سفارش" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "تأیید و ثبت سفارش" }));
+
+    const errorDialog = await screen.findByRole("dialog", { name: "محدودیت موجودی کالا" });
+    expect(within(errorDialog).getByText(/موجودی یک یا چند مورد از محصولات انتخابی در سبد خرید کافی نیست/)).toBeInTheDocument();
+    expect(mocks.clearCart).not.toHaveBeenCalled();
+    expect(mocks.replace).not.toHaveBeenCalled();
+  });
 });
+
 
 

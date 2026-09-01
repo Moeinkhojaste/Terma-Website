@@ -125,4 +125,84 @@ public sealed class ConcurrencyAndInventoryEdgeCaseTests(TermaApiFactory factory
             Assert.Equal(3, variant.AvailableQuantity);
         }
     }
+
+    [Fact]
+    public async Task ConcurrentCheckout_ForLastAvailableUnit_AllowsOnlyOneSuccessAndPreventsOverselling()
+    {
+        using var admin = await factory.CreateAdminClientAsync();
+        var catRes = await admin.PostAsJsonAsync("/api/admin/categories", new CreateCategoryRequest { Name = $"RaceCat {Guid.NewGuid():N}" });
+        var cat = (await catRes.Content.ReadFromJsonAsync<CategoryDto>())!;
+
+        // 1. Create a product variant with EXACTLY 1 unit in stock
+        var prodRes = await admin.PostAsJsonAsync("/api/admin/products", new CreateProductRequest
+        {
+            Name = "Single Stock Race Product",
+            Sku = $"RACE-{Guid.NewGuid():N}",
+            Description = "Concurrency test product",
+            Price = 1800,
+            StockQuantity = 1,
+            TableCapacity = 4,
+            Length = 100,
+            Width = 100,
+            FabricType = "ترمه",
+            LiningType = "ساتن",
+            Color = "قرمز",
+            Pattern = "افشان",
+            CategoryId = cat.Id
+        });
+        var prod = (await prodRes.Content.ReadFromJsonAsync<ProductDto>())!;
+
+        // 2. Prepare 5 simultaneous checkout requests competing for the exact same item
+        const int concurrentAttempts = 5;
+        var tasks = new Task<HttpResponseMessage>[concurrentAttempts];
+
+        for (var i = 0; i < concurrentAttempts; i++)
+        {
+            var customerIndex = i + 1;
+            tasks[i] = Task.Run(async () =>
+            {
+                using var client = factory.CreateHttpsClient();
+                await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
+                client.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
+
+                var checkoutReq = new CheckoutRequest
+                {
+                    Items = [new CheckoutItemRequest(prod.Id, null, 1)],
+                    FullName = $"خریدار همزمان {customerIndex}",
+                    Phone = $"091211122{customerIndex:D2}",
+                    Province = "تهران",
+                    City = "تهران",
+                    Address = $"خیابان آزادی، پلاک {customerIndex}",
+                    PostalCode = "1234567890"
+                };
+
+                return await client.PostAsJsonAsync("/api/orders", checkoutReq);
+            });
+        }
+
+        var responses = await Task.WhenAll(tasks);
+        var successCount = responses.Count(r => r.StatusCode == HttpStatusCode.OK);
+        var conflictOrErrorCount = responses.Count(r => r.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.BadRequest);
+
+        Assert.Equal(1, successCount);
+        Assert.Equal(concurrentAttempts - 1, conflictOrErrorCount);
+
+        // 4. Verify database invariants: available quantity must be 0 (never negative), reserved = 1, stock = 1
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
+            var variant = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(db.ProductVariants, x => x.ProductId == prod.Id);
+            Assert.Equal(1, variant.StockQuantity);
+            Assert.Equal(1, variant.ReservedQuantity);
+            Assert.Equal(0, variant.AvailableQuantity);
+            Assert.True(variant.AvailableQuantity >= 0, "AvailableQuantity must never be negative!");
+
+            var totalOrdersCreated = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(
+                db.Orders,
+                o => o.Items.Any(item => item.ProductId == prod.Id));
+            Assert.Equal(1, totalOrdersCreated);
+        }
+    }
 }
+
+
