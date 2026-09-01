@@ -32,8 +32,18 @@ export class ApiError extends Error {
 }
 
 export function getApiBaseUrl() {
+  if (typeof window === "undefined") {
+    const internalUrl = process.env.INTERNAL_API_URL?.trim();
+    if (internalUrl) {
+      return internalUrl.replace(/\/$/, "");
+    }
+  }
+
   const configuredUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
   if (!configuredUrl) {
+    if (typeof window !== "undefined") {
+      return "";
+    }
     throw new ApiError("آدرس سرویس بک‌اند تنظیم نشده است.");
   }
 

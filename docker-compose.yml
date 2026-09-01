@@ -94,6 +94,7 @@ services:
       NEXT_PUBLIC_API_BASE_URL: "https://${PROD_DOMAIN}"
       NEXT_PUBLIC_SITE_URL: "https://${PROD_DOMAIN}"
       NEXT_PUBLIC_SITE_INDEXING_ENABLED: "true"
+      INTERNAL_API_URL: "http://prod-backend:8080"
     deploy:
       resources:
         limits:
@@ -161,6 +162,7 @@ services:
       NEXT_PUBLIC_API_BASE_URL: "https://${STAGING_DOMAIN}"
       NEXT_PUBLIC_SITE_URL: "https://${STAGING_DOMAIN}"
       NEXT_PUBLIC_SITE_INDEXING_ENABLED: "false"
+      INTERNAL_API_URL: "http://staging-backend:8080"
     deploy:
       resources:
         limits:
