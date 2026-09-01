@@ -18,6 +18,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Terma.Application.Telegram;
 using Terma.Infrastructure.Telegram;
+using Terma.Infrastructure.Sms;
 
 namespace Terma.Infrastructure;
 
@@ -60,11 +61,13 @@ public static class DependencyInjection
         services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, ApplicationUserClaimsPrincipalFactory>();
         services.AddScoped<AdminAccountProvisioner>();
         services.Configure<OtpOptions>(configuration.GetSection(OtpOptions.SectionName));
+        services.Configure<SmsIrOptions>(configuration.GetSection(SmsIrOptions.SectionName));
 
-        if (isDevelopment)
+        services.AddHttpClient<IPhoneOtpSender, SmsIrPhoneOtpSender>(client =>
         {
-            services.AddScoped<IPhoneOtpSender, DevelopmentPhoneOtpSender>();
-        }
+            client.BaseAddress = new Uri("https://api.sms.ir/v1/");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
 
         services.AddScoped<ISecurityAuditService, SecurityAuditService>();
         services.AddScoped<ICustomerAccountService, CustomerAccountService>();

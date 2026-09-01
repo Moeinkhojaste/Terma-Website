@@ -42,7 +42,23 @@ function FilterFields({ draft, setDraft, categories, facets }: { draft: FilterDr
 
 function ErrorDetails({ error }: { error: unknown }) {
   const apiError = error instanceof ApiError ? error : undefined;
-  return <><p>{getApiErrorMessage(error)}</p>{apiError?.problem?.errors && <ul>{Object.entries(apiError.problem.errors).flatMap(([field, messages]) => messages.map((message) => <li key={`${field}-${message}`}>{message}</li>))}</ul>}{apiError?.problem?.traceId && <small dir="ltr">Trace ID: {apiError.problem.traceId}</small>}</>;
+  return (
+    <>
+      <p>{getApiErrorMessage(error)}</p>
+      {apiError?.problem?.errors && (
+        <ul>
+          {Object.entries(apiError.problem.errors).flatMap(([field, messages]) =>
+            messages.map((message) => <li key={`${field}-${message}`}>{getApiErrorMessage(message)}</li>)
+          )}
+        </ul>
+      )}
+      {apiError?.problem?.traceId && (
+        <small dir="rtl" className="block mt-2 text-xs text-muted">
+          کد پیگیری خطا برای پشتیبانی: <span dir="ltr">{apiError.problem.traceId}</span>
+        </small>
+      )}
+    </>
+  );
 }
 
 export function ProductCatalog() {

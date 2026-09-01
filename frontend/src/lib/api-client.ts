@@ -100,6 +100,73 @@ export function resetAntiforgeryToken() {
   antiforgeryTokenPromise = undefined;
 }
 
+const TECHNICAL_ERROR_PATTERN = /(?:Microsoft\.Data\.SqlClient|Microsoft\.EntityFrameworkCore|Microsoft\.AspNetCore|System\.[a-zA-Z]|SqlException|Invalid column name|ClientConnectionId|Error Number:\s*\d+|stack trace|at\s+[a-zA-Z0-9_.]+\(|<!DOCTYPE|<html|<\/html>|502 Bad Gateway|ECONNREFUSED|ETIMEDOUT|fetch failed|Failed to fetch)/i;
+
+const PERSIAN_CHAR_PATTERN = /[\u0600-\u06FF]/;
+
+export function sanitizeErrorMessage(rawMessage?: string | null, status?: number): string {
+  if (!rawMessage || typeof rawMessage !== "string") {
+    return getFallbackMessageByStatus(status);
+  }
+
+  const trimmed = rawMessage.trim();
+  if (!trimmed) {
+    return getFallbackMessageByStatus(status);
+  }
+
+  // If technical tokens or stack traces are present, NEVER expose them to the user!
+  if (TECHNICAL_ERROR_PATTERN.test(trimmed)) {
+    return getFallbackMessageByStatus(status);
+  }
+
+  // If the message contains Persian characters and has no technical patterns, preserve it
+  if (PERSIAN_CHAR_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Translate common standard HTTP/API English error phrases
+  const lower = trimmed.toLowerCase();
+  if (lower.includes("not found")) return "اطلاعات یا منبع مورد نظر یافت نشد.";
+  if (lower.includes("unauthorized") || lower.includes("authentication required")) return "نشست کاربری شما به پایان رسیده است. لطفاً مجدداً وارد حساب کاربری شوید.";
+  if (lower.includes("forbidden") || lower.includes("access denied")) return "شما دسترسی لازم برای انجام این عملیات را ندارید.";
+  if (lower.includes("conflict")) return "تداخل در ثبت اطلاعات؛ ممکن است این مورد قبلاً ثبت یا ویرایش شده باشد.";
+  if (lower.includes("too many requests") || lower.includes("rate limit")) return "تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً کمی صبر کرده و دوباره تلاش کنید.";
+  if (lower.includes("validation") || lower.includes("bad request")) return "اطلاعات وارد شده نامعتبر است. لطفاً ورودی‌های خود را بررسی و اصلاح فرمایید.";
+  if (lower.includes("content changed") || lower.includes("precondition failed")) return "اطلاعات هم‌زمان توسط فرآیند دیگری تغییر یافته است. لطفاً صفحه را تازه‌سازی نمایید.";
+  if (lower.includes("server error") || lower.includes("internal server error")) return "خطایی در پردازش اطلاعات در سرور رخ داده است. لطفاً لحظاتی دیگر دوباره تلاش نمایید.";
+
+  return getFallbackMessageByStatus(status);
+}
+
+function getFallbackMessageByStatus(status?: number): string {
+  switch (status) {
+    case 400:
+    case 422:
+      return "اطلاعات ارسالی نامعتبر است. لطفاً مقادیر ورودی را بررسی نمایید.";
+    case 401:
+      return "نشست کاربری شما به پایان رسیده است. لطفاً مجدداً وارد حساب کاربری شوید.";
+    case 403:
+      return "شما دسترسی لازم برای انجام این عملیات را ندارید.";
+    case 404:
+      return "اطلاعات یا منبع مورد نظر یافت نشد.";
+    case 409:
+      return "تداخل در انجام عملیات؛ لطفاً صفحه را تازه‌سازی کرده و مجدداً تلاش کنید.";
+    case 410:
+      return "اعتبار این عملیات یا کد به پایان رسیده است.";
+    case 412:
+      return "اطلاعات توسط فرآیند دیگری تغییر یافته است. لطفاً صفحه را تازه‌سازی فرمایید.";
+    case 429:
+      return "تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً کمی صبر کرده و دوباره تلاش کنید.";
+    case 500:
+    case 502:
+    case 503:
+    case 504:
+      return "خطایی در سرویس‌دهنده یا پایگاه داده رخ داده است. لطفاً لحظاتی دیگر دوباره تلاش فرمایید.";
+    default:
+      return "خطای پیش‌بینی‌نشده‌ای رخ داد.";
+  }
+}
+
 export async function apiRequest<T>(path: string, init: ApiRequestInit = {}, isRetry = false): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
@@ -138,7 +205,9 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}, isR
     const fieldErrors = problem?.errors
       ? Object.values(problem.errors).flat().join(" ")
       : undefined;
-    throw new ApiError(fieldErrors || problem?.detail || problem?.title || "درخواست سرویس بک‌اند ناموفق بود.", {
+    const rawCandidate = fieldErrors || problem?.detail || problem?.title || "درخواست سرویس بک‌اند ناموفق بود.";
+    const safeMessage = sanitizeErrorMessage(rawCandidate, response.status);
+    throw new ApiError(safeMessage, {
       status: response.status,
       problem,
     });
@@ -151,10 +220,48 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}, isR
   return body as T;
 }
 
-export function getApiErrorMessage(error: unknown) {
-  if (error instanceof ApiError) return error.message;
-  if (typeof error === "object" && error !== null && (error as { name?: string }).name === "ApiError" && typeof (error as { message?: string }).message === "string") {
-    return (error as { message: string }).message;
+export function getApiErrorMessage(error: unknown): string {
+  if (!error) return "خطای پیش‌بینی‌نشده‌ای رخ داد.";
+
+  if (error instanceof ApiError) {
+    if (error.isNetworkError) {
+      return "ارتباط با سرویس فروشگاه برقرار نشد. لطفاً وضعیت اتصال اینترنت خود را بررسی نمایید.";
+    }
+    if (error.problem?.errors) {
+      const messages = Object.values(error.problem.errors)
+        .flat()
+        .map((m) => m?.trim())
+        .filter((m): m is string => Boolean(m));
+      if (messages.length > 0) {
+        const cleanMessages = messages.map((m) => sanitizeErrorMessage(m, error.status));
+        return cleanMessages.join(" ");
+      }
+    }
+    const candidate = error.problem?.detail || error.message || error.problem?.title;
+    return sanitizeErrorMessage(candidate, error.status);
   }
+
+  if (error instanceof Error) {
+    if (error.name === "AbortError") {
+      return "درخواست لغو شد.";
+    }
+    if (error.message.includes("fetch") || error.message.includes("network")) {
+      return "ارتباط با سرویس فروشگاه برقرار نشد. لطفاً اتصال اینترنت خود را بررسی نمایید.";
+    }
+    return sanitizeErrorMessage(error.message);
+  }
+
+  if (typeof error === "object" && error !== null) {
+    const obj = error as { message?: unknown; status?: unknown };
+    if (typeof obj.message === "string") {
+      const statusNum = typeof obj.status === "number" ? obj.status : undefined;
+      return sanitizeErrorMessage(obj.message, statusNum);
+    }
+  }
+
+  if (typeof error === "string") {
+    return sanitizeErrorMessage(error);
+  }
+
   return "خطای پیش‌بینی‌نشده‌ای رخ داد.";
 }

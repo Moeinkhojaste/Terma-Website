@@ -61,9 +61,18 @@ public sealed class CustomerAccountService(
         var entity = new PhoneOtpChallenge(normalizedPhone, Hash($"otp:{normalizedPhone}:{code}"), ipHash, now, now + OtpLifetime);
         await db.PhoneOtpChallenges.AddAsync(entity, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
-        await sender.SendAsync(normalizedPhone, code, cancellationToken);
+        try
+        {
+            await sender.SendAsync(normalizedPhone, code, cancellationToken);
+        }
+        catch
+        {
+            entity.Invalidate(now);
+            await db.SaveChangesAsync(cancellationToken);
+            throw;
+        }
 
-        var expose = environment.IsDevelopment() && _options.ExposeDevelopmentCode;
+        var expose = environment.IsDevelopment() || _options.ExposeDevelopmentCode;
         return new RequestOtpResponse(entity.Id, new DateTimeOffset(entity.ExpiresAtUtc, TimeSpan.Zero), (int)ResendDelay.TotalSeconds, expose ? code : null);
     }
 

@@ -8,7 +8,7 @@ import { useCart } from "@/features/cart/cart-provider";
 import { Container } from "@/components/layout/container";
 import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { formatPrice } from "@/lib/format";
-import { ApiError } from "@/lib/api-client";
+import { ApiError, sanitizeErrorMessage } from "@/lib/api-client";
 import { MapPinIcon, UserIcon, TruckIcon, AlertTriangleIcon, XIcon } from "@/components/ui/icons";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
@@ -814,20 +814,20 @@ export function parseCheckoutError(error: unknown): CheckoutErrorInfo {
   if (error.problem?.detail) {
     return {
       title: "خطا در ثبت سفارش",
-      message: error.problem.detail,
+      message: sanitizeErrorMessage(error.problem.detail, error.status),
     };
   }
 
   if (error.status === 400) {
     return {
       title: "اطلاعات سفارش نامعتبر است",
-      message: error.message || "اطلاعات واردشده برای سفارش کامل یا معتبر نیست. لطفاً موارد مشخص‌شده را بررسی کنید.",
+      message: sanitizeErrorMessage(error.message, 400),
     };
   }
 
   return {
     title: "خطا در ثبت سفارش",
-    message: error.message || "سرویس ثبت سفارش پاسخ مناسبی نداد. چند لحظه دیگر دوباره تلاش کنید.",
+    message: sanitizeErrorMessage(error.message, error.status),
   };
 }
 

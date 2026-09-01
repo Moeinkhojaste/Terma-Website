@@ -35,12 +35,12 @@ public sealed class ApiExceptionHandler(
         ProblemDetails problem = exception switch
         {
             ValidationException validationException => CreateValidationProblem(validationException),
-            NotFoundException => Create(StatusCodes.Status404NotFound, "Resource not found", exception.Message),
-            ConflictException => Create(StatusCodes.Status409Conflict, "Conflict", exception.Message),
-            PreconditionFailedException => Create(StatusCodes.Status412PreconditionFailed, "Content changed", exception.Message),
-            TooManyRequestsException => Create(StatusCodes.Status429TooManyRequests, "Too many requests", exception.Message),
-            DomainException => Create(StatusCodes.Status400BadRequest, "Domain rule violation", exception.Message),
-            _ => Create(StatusCodes.Status500InternalServerError, "Server error", exception.ToString())
+            NotFoundException => Create(StatusCodes.Status404NotFound, "یافت نشد", exception.Message),
+            ConflictException => Create(StatusCodes.Status409Conflict, "تداخل در عملیات", exception.Message),
+            PreconditionFailedException => Create(StatusCodes.Status412PreconditionFailed, "اطلاعات به‌روز نیست", string.IsNullOrWhiteSpace(exception.Message) ? "اطلاعات هم‌زمان توسط فرآیند دیگری تغییر یافته است. لطفاً صفحه را تازه‌سازی نمایید." : exception.Message),
+            TooManyRequestsException => Create(StatusCodes.Status429TooManyRequests, "تعداد درخواست بیش از حد مجاز", string.IsNullOrWhiteSpace(exception.Message) ? "تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً چند لحظه بعد مجدداً تلاش کنید." : exception.Message),
+            DomainException => Create(StatusCodes.Status400BadRequest, "خطای اعتبارسنجی عملیات", exception.Message),
+            _ => Create(StatusCodes.Status500InternalServerError, "خطای سرور", "خطایی در پردازش اطلاعات در سرور رخ داده است. لطفاً لحظاتی دیگر دوباره تلاش نمایید.")
         };
 
         problem.Instance = context.Request.Path;
@@ -67,8 +67,8 @@ public sealed class ApiExceptionHandler(
         return new ValidationProblemDetails(errors)
         {
             Status = StatusCodes.Status400BadRequest,
-            Title = "Validation failed",
-            Detail = "One or more validation errors occurred.",
+            Title = "خطای اعتبارسنجی داده‌ها",
+            Detail = "یک یا چند فیلد ورودی به درستی وارد نشده‌اند.",
             Type = "https://httpstatuses.com/400"
         };
     }

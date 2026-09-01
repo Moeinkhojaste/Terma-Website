@@ -1,10 +1,14 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Terma.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace Terma.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(TermaDbContext))]
+    [Migration("20260810140000_AddProductDiscount")]
     public partial class AddProductDiscount : Migration
     {
         /// <inheritdoc />

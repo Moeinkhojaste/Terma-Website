@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
-import { ApiError } from "@/lib/api-client";
+import { ApiError, getApiErrorMessage } from "@/lib/api-client";
 import { requestOtp, verifyOtp, type OtpChallenge } from "./account-api";
 import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
 import {
@@ -30,7 +30,7 @@ export function AccountLoginClient() {
   const [codeError, setCodeError] = useState("");
 
   // OTP Resend Timer
-  const [countdown, setCountdown] = useState(90);
+  const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const codeInputRef = useRef<HTMLInputElement>(null);
 
@@ -84,7 +84,7 @@ export function AccountLoginClient() {
       const normalizedPhone = normalizeIranianMobile(phone)!;
       const res = await requestOtp(normalizedPhone);
       setChallenge(res);
-      setCountdown(90);
+      setCountdown(res.retryAfterSeconds || 60);
       setCanResend(false);
       setCode("");
       setCodeError("");
@@ -106,7 +106,7 @@ export function AccountLoginClient() {
       const normalizedPhone = normalizeIranianMobile(phone)!;
       const res = await requestOtp(normalizedPhone);
       setChallenge(res);
-      setCountdown(90);
+      setCountdown(res.retryAfterSeconds || 60);
       setCanResend(false);
       setCode("");
       setCodeError("");
@@ -401,11 +401,12 @@ export function AccountLoginClient() {
 }
 
 function accountErrorMessage(error: unknown) {
-  if (!(error instanceof ApiError)) return "خطای پیش‌بینی‌نشده‌ای رخ داد. دوباره تلاش کنید.";
-  if (error.isNetworkError) return "ارتباط با سرویس برقرار نشد. لطفاً اتصال اینترنت خود را بررسی کنید.";
-  if (error.status === 410) return "زمان اعتبار کد تأیید به پایان رسیده است. لطفاً کد جدید دریافت کنید.";
-  if (error.status === 429) return "تعداد درخواست‌های شما بیش از حد مجاز بوده است. لطفاً چند دقیقه صبر کرده و مجدداً تلاش کنید.";
-  if (error.status === 409) return "این کد تأیید قبلاً استفاده شده است. لطفاً یک کد جدید درخواست کنید.";
-  if (error.status === 400) return "کد تأیید واردشده صحیح نیست یا شماره موبایل معتبر نمی‌باشد.";
-  return "ورود انجام نشد. لطفاً مجدداً تلاش کنید.";
+  if (error instanceof ApiError) {
+    if (error.isNetworkError) return "ارتباط با سرویس برقرار نشد. لطفاً اتصال اینترنت خود را بررسی کنید.";
+    if (error.status === 410) return "زمان اعتبار کد تأیید به پایان رسیده است. لطفاً کد جدید دریافت کنید.";
+    if (error.status === 429) return "تعداد درخواست‌های شما بیش از حد مجاز بوده است. لطفاً چند دقیقه صبر کرده و مجدداً تلاش کنید.";
+    if (error.status === 409) return "این کد تأیید قبلاً استفاده شده است. لطفاً یک کد جدید درخواست کنید.";
+    return getApiErrorMessage(error);
+  }
+  return getApiErrorMessage(error);
 }

@@ -2,7 +2,15 @@ name: Terma CI/CD
 
 on:
   push:
+    branches:
+      - main
+      - develop
+    tags:
+      - 'v*'
   pull_request:
+    branches:
+      - main
+      - develop
   workflow_dispatch:
 
 permissions:
@@ -13,14 +21,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ============================================================================
+  # 1. Automated Quality & Unit/Integration Checks
+  # ============================================================================
   frontend:
-    name: Frontend checks
+    name: Frontend Quality & Test Suite
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Set up Node.js
@@ -30,39 +41,29 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install locked dependencies
+      - name: Install Locked Dependencies
         run: npm ci
 
-      - name: Lint
+      - name: Lint Codebase
         run: npm run lint
 
-      - name: Type-check
+      - name: TypeScript Type-Check
         run: npm run typecheck
 
-      - name: Production build
+      - name: Unit & Component Tests (Vitest)
+        run: npm test
+
+      - name: Production Build Verification
         run: npm run build
 
-      - name: Upload frontend delivery artifact
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-next-build-${{ github.sha }}
-          path: |
-            frontend/.next
-            frontend/public
-            frontend/package.json
-            frontend/package-lock.json
-          if-no-files-found: error
-          retention-days: 7
-
   backend:
-    name: Backend checks
+    name: Backend Quality & Test Suite
     runs-on: windows-latest
     defaults:
       run:
         working-directory: backend
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Set up .NET 8 SDK
@@ -70,29 +71,16 @@ jobs:
         with:
           dotnet-version: 8.x
 
-      - name: Restore
+      - name: Restore Dependencies
         run: dotnet restore Terma.sln
 
-      - name: Build with warnings treated as errors
+      - name: Build with Warnings as Errors
         run: dotnet build Terma.sln --configuration Release --no-restore --warnaserror
 
-      - name: Run unit and integration tests
+      - name: Run Unit and Integration Tests
         run: dotnet test Terma.sln --configuration Release --no-build --no-restore --logger "trx;LogFileName=test-results.trx"
 
-      - name: Publish API delivery artifact
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
-        run: dotnet publish src/Terma.Api/Terma.Api.csproj --configuration Release --no-restore --output publish
-
-      - name: Upload backend delivery artifact
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-api-publish-${{ github.sha }}
-          path: backend/publish
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Upload test results
+      - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -102,13 +90,13 @@ jobs:
           retention-days: 7
 
   architecture:
-    name: Architecture and repository policy
+    name: Architecture & Boundary Policy Check
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Check repository boundaries and Clean Architecture references
+      - name: Verify Clean Architecture Rules & Project Decoupling
         shell: pwsh
         run: |
           $root = (Get-Location).Path
@@ -158,11 +146,60 @@ jobs:
 
           Write-Host 'Repository boundaries and project dependency direction are valid.'
 
-  delivery-summary:
-    name: Delivery summary
+  # ============================================================================
+  # 2. Automated Staging Deployment (develop branch)
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging Environment
     needs: [frontend, backend, architecture]
-    if: always() && needs.frontend.result == 'success' && needs.backend.result == 'success' && needs.architecture.result == 'success'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://${{ vars.STAGING_DOMAIN || 'staging.terma.ir' }}
     steps:
-      - name: Confirm checks passed
-        run: echo "CI passed for ${{ github.sha }}. Delivery artifacts are created on main and tags."
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy Staging via SSH (deployer user)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_DEPLOY_USER || 'deployer' }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e
+            cd /opt/terma/staging
+            git fetch origin develop
+            git checkout ${{ github.sha }}
+            bash scripts/deploy-staging.sh ${{ github.sha }}
+
+  # ============================================================================
+  # 3. Production Deployment with Environment Approval Gate (main branch)
+  # ============================================================================
+  deploy-production:
+    name: Deploy to Production Environment
+    needs: [frontend, backend, architecture]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ vars.PROD_DOMAIN || 'terma.ir' }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy Production via SSH (deployer user)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_DEPLOY_USER || 'deployer' }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e
+            cd /opt/terma/production
+            git fetch origin main
+            git checkout ${{ github.sha }}
+            bash scripts/deploy-prod.sh ${{ github.sha }}

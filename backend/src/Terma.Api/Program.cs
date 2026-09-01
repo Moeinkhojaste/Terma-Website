@@ -66,8 +66,8 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         var details = new ValidationProblemDetails(context.ModelState)
         {
             Status = StatusCodes.Status400BadRequest,
-            Title = "Validation failed",
-            Detail = "One or more validation errors occurred.",
+            Title = "خطای اعتبارسنجی داده‌ها",
+            Detail = "یک یا چند فیلد ورودی به درستی وارد نشده‌اند.",
             Type = "https://httpstatuses.com/400",
             Instance = context.HttpContext.Request.Path
         };
@@ -98,8 +98,8 @@ builder.Services.AddRateLimiter(options =>
         }
         await Results.Problem(
             statusCode: StatusCodes.Status429TooManyRequests,
-            title: "Too many requests",
-            detail: "Rate limit exceeded. Please try again later.",
+            title: "تعداد درخواست بیش از حد مجاز",
+            detail: "تعداد درخواست‌های ارسالی بیش از حد مجاز است. لطفاً کمی بعد مجدداً تلاش فرمایید.",
             type: "https://httpstatuses.com/429",
             instance: context.HttpContext.Request.Path,
             extensions: new Dictionary<string, object?>
@@ -243,13 +243,13 @@ builder.Services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.Appli
         options.Events.OnRedirectToLogin = context => WriteAuthenticationProblemAsync(
             context,
             StatusCodes.Status401Unauthorized,
-            "Authentication required",
-            "The session is missing or has expired.");
+            "نیاز به ورود",
+            "نشست کاربری شما منقضی شده است یا وارد حساب خود نشده‌اید. لطفاً مجدداً وارد شوید.");
         options.Events.OnRedirectToAccessDenied = context => WriteAuthenticationProblemAsync(
             context,
             StatusCodes.Status403Forbidden,
-            "Access denied",
-            "The signed-in account does not have permission to perform this action.");
+            "عدم دسترسی",
+            "حساب کاربری شما دسترسی لازم برای انجام این عملیات را ندارد.");
     });
 
 builder.Services.AddOptions<CookieAuthenticationOptions>(CustomerAuthorization.AuthenticationScheme)
@@ -267,13 +267,13 @@ builder.Services.AddOptions<CookieAuthenticationOptions>(CustomerAuthorization.A
         options.Events.OnRedirectToLogin = context => WriteAuthenticationProblemAsync(
             context,
             StatusCodes.Status401Unauthorized,
-            "Authentication required",
-            "The customer session is missing or has expired.");
+            "نیاز به ورود",
+            "نشست کاربری مشتری منقضی شده یا فعال نیست. لطفاً مجدداً وارد حساب شوید.");
         options.Events.OnRedirectToAccessDenied = context => WriteAuthenticationProblemAsync(
             context,
             StatusCodes.Status403Forbidden,
-            "Access denied",
-            "The signed-in customer cannot access this resource.");
+            "عدم دسترسی",
+            "شما دسترسی لازم برای مشاهده یا انجام این عملیات را ندارید.");
     });
 
 builder.Services.AddHealthChecks()
@@ -295,7 +295,25 @@ if (args.Contains("--migrate", StringComparer.OrdinalIgnoreCase))
     var dbContext = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
     if (dbContext.Database.IsSqlServer())
     {
+        try
+        {
+            await dbContext.Database.ExecuteSqlRawAsync("IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Orders]') AND name = 'TrackingTokenHash') BEGIN ALTER TABLE [Orders] ALTER COLUMN [TrackingTokenHash] nvarchar(128) NULL; END");
+            await dbContext.Database.ExecuteSqlRawAsync(@"
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Products]') AND name = 'CompareAtPrice')
+BEGIN
+    ALTER TABLE [Products] ADD [CompareAtPrice] decimal(18,2) NULL;
+END
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Products]') AND name = 'DiscountPercent')
+BEGIN
+    ALTER TABLE [Products] ADD [DiscountPercent] int NULL;
+END");
+        }
+        catch
+        {
+            // ignore
+        }
         await dbContext.Database.MigrateAsync();
+        await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();
         app.Logger.LogInformation("Database migration completed successfully.");
     }
     return;
@@ -333,15 +351,25 @@ if (args.Contains("--seed-admin", StringComparer.OrdinalIgnoreCase))
     return;
 }
 
-// Startup seeding in development
+// Database migration & seeding on startup
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
-    if (isDevelopment && dbContext.Database.IsSqlServer())
+    var autoMigrate = builder.Configuration.GetValue<bool?>("Database:AutoMigrate") ?? isDevelopment;
+    if (autoMigrate && dbContext.Database.IsSqlServer())
     {
         try
         {
             await dbContext.Database.ExecuteSqlRawAsync("IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Orders]') AND name = 'TrackingTokenHash') BEGIN ALTER TABLE [Orders] ALTER COLUMN [TrackingTokenHash] nvarchar(128) NULL; END");
+            await dbContext.Database.ExecuteSqlRawAsync(@"
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Products]') AND name = 'CompareAtPrice')
+BEGIN
+    ALTER TABLE [Products] ADD [CompareAtPrice] decimal(18,2) NULL;
+END
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Products]') AND name = 'DiscountPercent')
+BEGIN
+    ALTER TABLE [Products] ADD [DiscountPercent] int NULL;
+END");
         }
         catch
         {

@@ -1,19 +1,29 @@
 services:
+  # ============================================================================
+  # Shared Database Engine (Dual Network Attached - No Public Ports)
+  # ============================================================================
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: terma-db
     restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${DB_PASSWORD}"
+      MSSQL_SA_PASSWORD: "${DB_SA_PASSWORD}"
       MSSQL_PID: "Developer"
       MSSQL_MEMORY_LIMIT_MB: 2048
     deploy:
       resources:
         limits:
+          cpus: "1.5"
           memory: 2048M
+        reservations:
+          cpus: "1.0"
+          memory: 1280M
     volumes:
-      - mssql_data:/var/opt/mssql
+      - mssql_shared_data:/var/opt/mssql
+    networks:
+      - terma-prod-net
+      - terma-staging-net
     healthcheck:
       test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"SELECT 1\" || exit 1"]
       interval: 10s
@@ -21,59 +31,195 @@ services:
       retries: 10
       start_period: 15s
 
-  backend:
+  # ============================================================================
+  # Production Environment (High Resource Priority)
+  # ============================================================================
+  prod-backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: terma-backend
+    image: terma-backend:${PROD_IMAGE_TAG:-latest}
+    container_name: terma-prod-backend
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: "Production"
-      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=TermaDb;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=True"
-      Otp__HashKey: "${OTP_HASH_KEY}"
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=TermaDb_Production;User Id=terma_prod_user;Password=${PROD_DB_PASSWORD};TrustServerCertificate=True"
+      Otp__HashKey: "${PROD_OTP_HASH_KEY}"
+      Otp__ExposeDevelopmentCode: "false"
+      SmsIr__ApiKey: "${PROD_SMSIR_API_KEY:-}"
+      SmsIr__TemplateId: "${PROD_SMSIR_TEMPLATE_ID:-0}"
+      SmsIr__Enabled: "${PROD_SMSIR_ENABLED:-true}"
+      Telegram__BotToken: "${PROD_TELEGRAM_BOT_TOKEN:-}"
+      Telegram__AdminChatId: "${PROD_TELEGRAM_ADMIN_CHAT_ID:-}"
+      Telegram__Enabled: "${PROD_TELEGRAM_ENABLED:-false}"
       DataProtection__KeyPath: "/app/dataprotection-keys"
-      Cors__AllowedOrigins__0: "http://${SERVER_HOST}"
-      Cors__AllowedOrigins__1: "https://${SERVER_HOST}"
-      Cors__AllowedOrigins__2: "http://localhost:3000"
-      Security__RequireSecureCookies: "${REQUIRE_SECURE_COOKIES:-false}"
-      Security__EnforceHttps: "${ENFORCE_HTTPS:-false}"
-      EnableSwagger: "${ENABLE_SWAGGER:-true}"
-      AdminSeed__Email: "${ADMIN_EMAIL:-admin@terma.local}"
-      AdminSeed__Password: "${ADMIN_PASSWORD:-AdminPass12345!}"
+      Cors__AllowedOrigins__0: "https://${PROD_DOMAIN}"
+      Security__RequireSecureCookies: "true"
+      Security__EnforceHttps: "true"
+      EnableSwagger: "false"
+      Database__AutoMigrate: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          cpus: "0.5"
+          memory: 256M
     volumes:
-      - terma_media:/app/media
-      - terma_dp_keys:/app/dataprotection-keys
+      - terma_prod_media:/app/media
+      - terma_prod_dp_keys:/app/dataprotection-keys
+    networks:
+      - terma-prod-net
 
-  frontend:
+  prod-frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE_URL: "http://${SERVER_HOST}"
-    container_name: terma-frontend
+        NEXT_PUBLIC_API_BASE_URL: "https://${PROD_DOMAIN}"
+    image: terma-frontend:${PROD_IMAGE_TAG:-latest}
+    container_name: terma-prod-frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      - prod-backend
     environment:
       NODE_ENV: "production"
-      NEXT_PUBLIC_API_BASE_URL: "http://${SERVER_HOST}"
+      NEXT_PUBLIC_API_BASE_URL: "https://${PROD_DOMAIN}"
+      NEXT_PUBLIC_SITE_URL: "https://${PROD_DOMAIN}"
+      NEXT_PUBLIC_SITE_INDEXING_ENABLED: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 384M
+        reservations:
+          cpus: "0.25"
+          memory: 192M
+    networks:
+      - terma-prod-net
 
+  # ============================================================================
+  # Staging Environment (Strictly Limited Resource Cap / Sacrificial Tier)
+  # ============================================================================
+  staging-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: terma-backend:${STAGING_IMAGE_TAG:-staging}
+    container_name: terma-staging-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Staging"
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=TermaDb_Staging;User Id=terma_staging_user;Password=${STAGING_DB_PASSWORD};TrustServerCertificate=True"
+      Otp__HashKey: "${STAGING_OTP_HASH_KEY}"
+      Otp__ExposeDevelopmentCode: "false"
+      SmsIr__Enabled: "false"
+      Telegram__Enabled: "false"
+      DataProtection__KeyPath: "/app/dataprotection-keys"
+      Cors__AllowedOrigins__0: "https://${STAGING_DOMAIN}"
+      Security__RequireSecureCookies: "true"
+      Security__EnforceHttps: "true"
+      EnableSwagger: "true"
+      Database__AutoMigrate: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+        reservations:
+          cpus: "0.05"
+          memory: 64M
+    volumes:
+      - terma_staging_media:/app/media
+      - terma_staging_dp_keys:/app/dataprotection-keys
+    networks:
+      - terma-staging-net
+
+  staging-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: "https://${STAGING_DOMAIN}"
+    image: terma-frontend:${STAGING_IMAGE_TAG:-staging}
+    container_name: terma-staging-frontend
+    restart: unless-stopped
+    depends_on:
+      - staging-backend
+    environment:
+      NODE_ENV: "production"
+      NEXT_PUBLIC_API_BASE_URL: "https://${STAGING_DOMAIN}"
+      NEXT_PUBLIC_SITE_URL: "https://${STAGING_DOMAIN}"
+      NEXT_PUBLIC_SITE_INDEXING_ENABLED: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.15"
+          memory: 192M
+        reservations:
+          cpus: "0.05"
+          memory: 64M
+    networks:
+      - terma-staging-net
+
+  # ============================================================================
+  # Reverse Proxy & SSL Gateway (Dual Network Bridge)
+  # ============================================================================
   nginx:
     image: nginx:alpine
     container_name: terma-nginx
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/auth:/etc/nginx/auth:ro
+      - certbot_www:/var/www/certbot:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 128M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+    networks:
+      - terma-prod-net
+      - terma-staging-net
     depends_on:
-      - frontend
-      - backend
+      - prod-frontend
+      - prod-backend
+      - staging-frontend
+      - staging-backend
+
+networks:
+  terma-prod-net:
+    name: terma-prod-net
+    driver: bridge
+  terma-staging-net:
+    name: terma-staging-net
+    driver: bridge
 
 volumes:
-  mssql_data:
-  terma_media:
-  terma_dp_keys:
+  mssql_shared_data:
+    name: terma_mssql_shared_data
+  terma_prod_media:
+    name: terma_prod_media
+  terma_prod_dp_keys:
+    name: terma_prod_dp_keys
+  terma_staging_media:
+    name: terma_staging_media
+  terma_staging_dp_keys:
+    name: terma_staging_dp_keys
+  certbot_www:
+    name: terma_certbot_www
