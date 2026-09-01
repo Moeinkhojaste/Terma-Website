@@ -166,9 +166,48 @@ echo "[+] All production smoke checks passed successfully."
 
 # Step 6: Ensure Nginx Gateway is Active and Reloaded
 echo "[+] Step 6: Ensuring Nginx reverse proxy gateway is active..."
-docker compose -p terma "${ENV_ARGS[@]}" up -d nginx
+mkdir -p nginx/{ssl/live/termabrand.ir,ssl/live/staging.termabrand.ir,auth}
+
+if [[ ! -f nginx/auth/.htpasswd ]]; then
+    if [[ -f /opt/terma/nginx/auth/.htpasswd ]]; then
+        cp /opt/terma/nginx/auth/.htpasswd nginx/auth/.htpasswd
+    else
+        echo "terma_tester:\$apr1\$q7s1\$8vV2eJ.0ZJk3tK8w0x7a8/" > nginx/auth/.htpasswd
+    fi
+fi
+
+if [[ ! -f nginx/ssl/live/termabrand.ir/fullchain.pem ]]; then
+    if [[ -f /etc/letsencrypt/live/termabrand.ir/fullchain.pem ]]; then
+        cp -L /etc/letsencrypt/live/termabrand.ir/fullchain.pem nginx/ssl/live/termabrand.ir/fullchain.pem
+        cp -L /etc/letsencrypt/live/termabrand.ir/privkey.pem nginx/ssl/live/termabrand.ir/privkey.pem
+    else
+        echo "[*] Generating fallback SSL certificate for termabrand.ir..."
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+          -keyout nginx/ssl/live/termabrand.ir/privkey.pem \
+          -out nginx/ssl/live/termabrand.ir/fullchain.pem \
+          -subj "/CN=termabrand.ir" 2>/dev/null || true
+    fi
+fi
+
+if [[ ! -f nginx/ssl/live/staging.termabrand.ir/fullchain.pem ]]; then
+    if [[ -f /etc/letsencrypt/live/staging.termabrand.ir/fullchain.pem ]]; then
+        cp -L /etc/letsencrypt/live/staging.termabrand.ir/fullchain.pem nginx/ssl/live/staging.termabrand.ir/fullchain.pem
+        cp -L /etc/letsencrypt/live/staging.termabrand.ir/privkey.pem nginx/ssl/live/staging.termabrand.ir/privkey.pem
+    else
+        echo "[*] Generating fallback SSL certificate for staging.termabrand.ir..."
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+          -keyout nginx/ssl/live/staging.termabrand.ir/privkey.pem \
+          -out nginx/ssl/live/staging.termabrand.ir/fullchain.pem \
+          -subj "/CN=staging.termabrand.ir" 2>/dev/null || true
+    fi
+fi
+
+docker compose -p terma "${ENV_ARGS[@]}" up -d --force-recreate nginx
+sleep 2
+
 if docker ps | grep -q "terma-nginx"; then
     docker exec terma-nginx nginx -s reload 2>/dev/null || true
+    echo "[+] Nginx reverse proxy gateway is active."
 fi
 
 # Step 7: Save State
