@@ -54,6 +54,8 @@ jobs:
         run: npm test
 
       - name: Production Build Verification
+        env:
+          NEXT_PUBLIC_API_BASE_URL: "https://api.terma.ir"
         run: npm run build
 
   backend:
@@ -192,11 +194,21 @@ jobs:
 
       - name: Build Frontend Application
         working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:5442"
         run: npm run build
 
-      - name: Migrate Database and Start Backend Web API
+      - name: Migrate Database Schema
         shell: bash
         env:
+          ASPNETCORE_ENVIRONMENT: "Development"
+          ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=TermaDb_E2E;User Id=sa;Password=YourStrong!Password2026;TrustServerCertificate=True"
+        run: dotnet run --project backend/src/Terma.Api -- --migrate
+
+      - name: Start Backend Web API
+        shell: bash
+        env:
+          ASPNETCORE_ENVIRONMENT: "Development"
           ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=TermaDb_E2E;User Id=sa;Password=YourStrong!Password2026;TrustServerCertificate=True"
         run: |
           dotnet run --project backend/src/Terma.Api --urls "http://127.0.0.1:5442" &
@@ -212,11 +224,15 @@ jobs:
       - name: Run Critical Smoke E2E Tests (PR / develop)
         if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
         working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:5442"
         run: npx playwright test e2e/full-purchase-journey.spec.ts --project=desktop-chromium
 
       - name: Run Full Cross-Browser E2E Suite (main / release)
         if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
         working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:5442"
         run: npx playwright test
 
       - name: Upload Playwright Test Artifacts
