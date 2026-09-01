@@ -59,21 +59,28 @@ if ! bash scripts/backup-db.sh prod --pre-deploy; then
     exit 1
 fi
 
-# Build verified explicit connection string
+# Build verified explicit connection string & image tag
+export PROD_IMAGE_TAG="$COMMIT_SHA"
 export PROD_CONNECTION_STRING="Server=db,1433;Database=TermaDb_Production;User Id=terma_prod_user;Password=${PROD_DB_PASSWORD};TrustServerCertificate=True"
 export ConnectionStrings__DefaultConnection="$PROD_CONNECTION_STRING"
 
-# Step 2: Database Schema Migration
-echo "[+] Step 2: Executing database migrations on TermaDb_Production..."
+# Step 2: Build Updated Application Images
+echo "[+] Step 2: Building updated application containers with tag ${COMMIT_SHA}..."
+if ! docker compose "${ENV_ARGS[@]}" build prod-backend prod-frontend; then
+    echo "[-] CRITICAL: Docker build failed. Aborting deployment." >&2
+    exit 1
+fi
+
+# Step 3: Database Schema Migration
+echo "[+] Step 3: Executing database migrations on TermaDb_Production..."
 if ! docker compose "${ENV_ARGS[@]}" run --rm -e ConnectionStrings__DefaultConnection="$PROD_CONNECTION_STRING" prod-backend dotnet Terma.Api.dll --migrate; then
     echo "[-] CRITICAL: Database migration failed. Active production containers have NOT been touched." >&2
     exit 1
 fi
 
-# Step 3: Rolling Deploy Updated Application Containers
-echo "[+] Step 3: Deploying updated application containers with tag ${COMMIT_SHA}..."
-export PROD_IMAGE_TAG="$COMMIT_SHA"
-if ! docker compose "${ENV_ARGS[@]}" up -d --build prod-backend prod-frontend; then
+# Step 4: Launch Updated Application Containers
+echo "[+] Step 4: Starting updated production containers..."
+if ! docker compose "${ENV_ARGS[@]}" up -d prod-backend prod-frontend; then
     echo "[-] Error launching updated containers. Initiating rollback to ${PREVIOUS_SHA}..." >&2
     bash scripts/rollback-app.sh prod "$PREVIOUS_SHA"
     exit 1

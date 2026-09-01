@@ -51,17 +51,22 @@ fi
 echo "[+] Step 0: Ensuring database container and user logins are configured..."
 bash scripts/init-databases.sh
 
-# Build verified explicit connection string
+# Build verified explicit connection string & image tag
+export STAGING_IMAGE_TAG="$COMMIT_SHA"
 export STAGING_CONNECTION_STRING="Server=db,1433;Database=TermaDb_Staging;User Id=terma_staging_user;Password=${STAGING_DB_PASSWORD};TrustServerCertificate=True"
 export ConnectionStrings__DefaultConnection="$STAGING_CONNECTION_STRING"
 
-# 1. Run database migrations for TermaDb_Staging
-echo "[+] Step 1: Running database migrations on TermaDb_Staging..."
+# 1. Build updated staging images
+echo "[+] Step 1: Building staging services with tag ${COMMIT_SHA}..."
+docker compose "${ENV_ARGS[@]}" build staging-backend staging-frontend
+
+# 2. Run database migrations for TermaDb_Staging
+echo "[+] Step 2: Running database migrations on TermaDb_Staging..."
 docker compose "${ENV_ARGS[@]}" run --rm -e ConnectionStrings__DefaultConnection="$STAGING_CONNECTION_STRING" staging-backend dotnet Terma.Api.dll --migrate
 
-# 2. Deploy updated staging containers
-echo "[+] Step 2: Starting staging services with tag ${COMMIT_SHA}..."
-docker compose "${ENV_ARGS[@]}" up -d --build staging-backend staging-frontend
+# 3. Deploy updated staging containers
+echo "[+] Step 3: Starting staging services with tag ${COMMIT_SHA}..."
+docker compose "${ENV_ARGS[@]}" up -d staging-backend staging-frontend
 
 # 3. Health check verification
 echo "[+] Step 3: Verifying staging readiness health check..."
