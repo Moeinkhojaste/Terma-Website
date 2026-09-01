@@ -12,16 +12,22 @@ cd "$(dirname "$0")/.."
 if [[ -f .env.production ]]; then
     # shellcheck disable=SC1091
     source .env.production
+elif [[ -f /opt/terma/production/.env.production ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/production/.env.production
 fi
 
 if [[ -f .env.staging ]]; then
     # shellcheck disable=SC1091
     source .env.staging
+elif [[ -f /opt/terma/staging/.env.staging ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/staging/.env.staging
 fi
 
 DB_SA_PASSWORD="${DB_SA_PASSWORD:-${DB_PASSWORD:-}}"
-PROD_DB_PASSWORD="${PROD_DB_PASSWORD:-}"
-STAGING_DB_PASSWORD="${STAGING_DB_PASSWORD:-}"
+PROD_DB_PASSWORD="${PROD_DB_PASSWORD:-${STAGING_DB_PASSWORD:-}}"
+STAGING_DB_PASSWORD="${STAGING_DB_PASSWORD:-${PROD_DB_PASSWORD:-}}"
 
 if [[ -z "$DB_SA_PASSWORD" ]]; then
     echo "[-] Error: DB_SA_PASSWORD environment variable is required." >&2
