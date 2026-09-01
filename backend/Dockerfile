@@ -2,6 +2,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy project files and restore dependencies for efficient layer caching
+COPY Directory.Build.targets* ./
 COPY src/Terma.Domain/Terma.Domain.csproj src/Terma.Domain/
 COPY src/Terma.Application/Terma.Application.csproj src/Terma.Application/
 COPY src/Terma.Infrastructure/Terma.Infrastructure.csproj src/Terma.Infrastructure/
