@@ -14,19 +14,53 @@ echo "==========================================================================
 echo " [DEPLOY STAGING] Deploying version: ${COMMIT_SHA}"
 echo "=============================================================================="
 
-# Ensure environment file is available
+# Ensure all environment variables are exported for docker compose
+set -a
+
+if [[ -f .env.production ]]; then
+    # shellcheck disable=SC1091
+    source .env.production
+elif [[ -f /opt/terma/production/.env.production ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/production/.env.production
+fi
+
 if [[ -f .env.staging ]]; then
     # shellcheck disable=SC1091
     source .env.staging
+elif [[ -f /opt/terma/staging/.env.staging ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/staging/.env.staging
+fi
+
+DB_SA_PASSWORD="${DB_SA_PASSWORD:-${DB_PASSWORD:-}}"
+STAGING_DB_PASSWORD="${STAGING_DB_PASSWORD:-}"
+STAGING_DOMAIN="${STAGING_DOMAIN:-staging.termabrand.ir}"
+STAGING_OTP_HASH_KEY="${STAGING_OTP_HASH_KEY:-TermaStaging_OtpSecretKey_9876543210_Secure!#}"
+PROD_DB_PASSWORD="${PROD_DB_PASSWORD:-${STAGING_DB_PASSWORD}}"
+PROD_DOMAIN="${PROD_DOMAIN:-termabrand.ir}"
+PROD_OTP_HASH_KEY="${PROD_OTP_HASH_KEY:-TermaProduction_OtpSecretKey_9876543210_Secure!#}"
+
+set +a
+
+ENV_ARGS=()
+if [[ -f .env.production ]]; then
+    ENV_ARGS+=(--env-file .env.production)
+fi
+if [[ -f .env.staging ]]; then
+    ENV_ARGS+=(--env-file .env.staging)
+fi
+if [[ -f .env ]]; then
+    ENV_ARGS+=(--env-file .env)
 fi
 
 # 1. Run database migrations for TermaDb_Staging
 echo "[+] Step 1: Running database migrations on TermaDb_Staging..."
-docker compose run --rm staging-backend dotnet Terma.Api.dll --migrate
+docker compose "${ENV_ARGS[@]}" run --rm staging-backend dotnet Terma.Api.dll --migrate
 
 # 2. Deploy updated staging containers
 echo "[+] Step 2: Starting staging services with tag ${COMMIT_SHA}..."
-docker compose up -d staging-backend staging-frontend
+docker compose "${ENV_ARGS[@]}" up -d staging-backend staging-frontend
 
 # 3. Health check verification
 echo "[+] Step 3: Verifying staging readiness health check..."

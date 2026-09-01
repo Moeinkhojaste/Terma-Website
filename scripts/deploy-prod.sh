@@ -15,10 +15,44 @@ echo "==========================================================================
 echo " [DEPLOY PRODUCTION] Target Version: ${COMMIT_SHA} (Previous: ${PREVIOUS_SHA})"
 echo "=============================================================================="
 
-# Ensure environment file is available
+# Ensure all environment variables are exported for docker compose
+set -a
+
 if [[ -f .env.production ]]; then
     # shellcheck disable=SC1091
     source .env.production
+elif [[ -f /opt/terma/production/.env.production ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/production/.env.production
+fi
+
+if [[ -f .env.staging ]]; then
+    # shellcheck disable=SC1091
+    source .env.staging
+elif [[ -f /opt/terma/staging/.env.staging ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/staging/.env.staging
+fi
+
+DB_SA_PASSWORD="${DB_SA_PASSWORD:-${DB_PASSWORD:-}}"
+PROD_DB_PASSWORD="${PROD_DB_PASSWORD:-}"
+PROD_DOMAIN="${PROD_DOMAIN:-termabrand.ir}"
+PROD_OTP_HASH_KEY="${PROD_OTP_HASH_KEY:-TermaProduction_OtpSecretKey_9876543210_Secure!#}"
+STAGING_DB_PASSWORD="${STAGING_DB_PASSWORD:-${PROD_DB_PASSWORD}}"
+STAGING_DOMAIN="${STAGING_DOMAIN:-staging.termabrand.ir}"
+STAGING_OTP_HASH_KEY="${STAGING_OTP_HASH_KEY:-TermaStaging_OtpSecretKey_9876543210_Secure!#}"
+
+set +a
+
+ENV_ARGS=()
+if [[ -f .env.production ]]; then
+    ENV_ARGS+=(--env-file .env.production)
+fi
+if [[ -f .env.staging ]]; then
+    ENV_ARGS+=(--env-file .env.staging)
+fi
+if [[ -f .env ]]; then
+    ENV_ARGS+=(--env-file .env)
 fi
 
 # Step 1: Pre-Deploy Verified Database Backup
@@ -30,7 +64,7 @@ fi
 
 # Step 2: Database Schema Migration
 echo "[+] Step 2: Executing database migrations on TermaDb_Production..."
-if ! docker compose run --rm prod-backend dotnet Terma.Api.dll --migrate; then
+if ! docker compose "${ENV_ARGS[@]}" run --rm prod-backend dotnet Terma.Api.dll --migrate; then
     echo "[-] CRITICAL: Database migration failed. Active production containers have NOT been touched." >&2
     exit 1
 fi
@@ -38,7 +72,7 @@ fi
 # Step 3: Rolling Deploy Updated Application Containers
 echo "[+] Step 3: Deploying updated application containers with tag ${COMMIT_SHA}..."
 export PROD_IMAGE_TAG="$COMMIT_SHA"
-if ! docker compose up -d prod-backend prod-frontend; then
+if ! docker compose "${ENV_ARGS[@]}" up -d prod-backend prod-frontend; then
     echo "[-] Error launching updated containers. Initiating rollback to ${PREVIOUS_SHA}..." >&2
     bash scripts/rollback-app.sh prod "$PREVIOUS_SHA"
     exit 1

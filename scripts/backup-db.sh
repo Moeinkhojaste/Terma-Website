@@ -45,12 +45,23 @@ CONTAINER_BAK_PATH="/var/opt/mssql/backup/${BAK_FILENAME}"
 HOST_BAK_PATH="${TARGET_DIR}/${BAK_FILENAME}"
 
 # Load SA credentials
+set -a
 if [[ -f .env.production ]]; then
     # shellcheck disable=SC1091
     source .env.production
+elif [[ -f /opt/terma/production/.env.production ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/production/.env.production
+elif [[ -f .env.staging ]]; then
+    # shellcheck disable=SC1091
+    source .env.staging
+elif [[ -f /opt/terma/staging/.env.staging ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/staging/.env.staging
 fi
 
 DB_SA_PASSWORD="${DB_SA_PASSWORD:-${DB_PASSWORD:-}}"
+set +a
 if [[ -z "$DB_SA_PASSWORD" ]]; then
     echo "[-] Error: DB_SA_PASSWORD is required for native database backups." >&2
     exit 1

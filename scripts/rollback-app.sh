@@ -17,9 +17,26 @@ if [[ -z "$PREVIOUS_TAG" ]]; then
     exit 1
 fi
 
-echo "=============================================================================="
-echo " [ROLLBACK] Initiating Application Rollback for [${ENV_TARGET}] -> Tag: ${PREVIOUS_TAG}"
-echo "=============================================================================="
+# Load environment variables
+set -a
+if [[ -f .env.production ]]; then
+    # shellcheck disable=SC1091
+    source .env.production
+elif [[ -f /opt/terma/production/.env.production ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/production/.env.production
+fi
+
+if [[ -f .env.staging ]]; then
+    # shellcheck disable=SC1091
+    source .env.staging
+elif [[ -f /opt/terma/staging/.env.staging ]]; then
+    # shellcheck disable=SC1091
+    source /opt/terma/staging/.env.staging
+fi
+
+DB_SA_PASSWORD="${DB_SA_PASSWORD:-${DB_PASSWORD:-}}"
+set +a
 
 if [[ "$ENV_TARGET" == "prod" ]]; then
     export PROD_IMAGE_TAG="$PREVIOUS_TAG"
