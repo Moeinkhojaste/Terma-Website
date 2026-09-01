@@ -77,6 +77,7 @@ public static class DependencyInjection
         services.AddScoped<ICmsService, CmsService>();
         services.AddScoped<IProductReviewService, ProductReviewService>();
         services.AddScoped<CmsContentSeeder>();
+        services.AddScoped<CatalogDataSeeder>();
         services.AddScoped<AnalyticsDemoSeeder>();
         services.AddSingleton<IMediaStorage, LocalMediaStorage>();
         services.AddSingleton<IImageOptimizer, ImageOptimizer>();

@@ -22,6 +22,7 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.LiningType).IsRequired().HasMaxLength(150);
         builder.Property(p => p.Color).IsRequired().HasMaxLength(300);
         builder.Property(p => p.Pattern).IsRequired().HasMaxLength(500);
+        builder.Property(p => p.StockQuantity).IsConcurrencyToken();
 
         builder.HasIndex(p => p.Slug).IsUnique();
         builder.HasIndex(p => p.Sku).IsUnique();

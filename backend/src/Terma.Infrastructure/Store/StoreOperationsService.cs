@@ -935,7 +935,7 @@ public sealed class StoreOperationsService(
                 throw new ConflictException("The provided Idempotency-Key was already used with different order details.");
             }
 
-            transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
 
             var lines = await ResolveLines(request.Items, cancellationToken);
         var subtotal = lines.Sum(x => x.UnitPrice * x.Quantity);
@@ -1101,6 +1101,11 @@ public sealed class StoreOperationsService(
             }
 
             return new CreatedOrderDto(order.Id, order.Number, order.Total, order.ReservationExpiresAtUtc);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (transaction is not null) await transaction.RollbackAsync(cancellationToken);
+            throw new ConflictException("Product variant is no longer available in the requested quantity.");
         }
         catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("IX_Orders_IdempotencyKey", StringComparison.OrdinalIgnoreCase) == true)
         {

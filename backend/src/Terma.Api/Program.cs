@@ -314,6 +314,7 @@ END");
         }
         await dbContext.Database.MigrateAsync();
         await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();
+        await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.CatalogDataSeeder>().SeedAsync();
         app.Logger.LogInformation("Database migration completed successfully.");
     }
     return;
@@ -378,6 +379,7 @@ END");
         await dbContext.Database.MigrateAsync();
     }
     await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();
+    await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.CatalogDataSeeder>().SeedAsync();
     if (isDevelopment && !builder.Configuration.GetValue<bool>("Testing:DisableDemoSeed"))
     {
         await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.AnalyticsDemoSeeder>().SeedAsync();

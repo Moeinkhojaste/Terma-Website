@@ -16,6 +16,8 @@ public sealed class ProductVariantConfiguration : IEntityTypeConfiguration<Produ
         builder.Property(x => x.CompareAtPrice).HasPrecision(18, 2);
         builder.Property(x => x.Length).HasPrecision(10, 2);
         builder.Property(x => x.Width).HasPrecision(10, 2);
+        builder.Property(x => x.StockQuantity).IsConcurrencyToken();
+        builder.Property(x => x.ReservedQuantity).IsConcurrencyToken();
         builder.HasIndex(x => new { x.ProductId, x.Sku }).IsUnique();
         builder.HasOne(x => x.Product).WithMany(x => x.Variants).HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Cascade);
     }
