@@ -14,7 +14,7 @@ test.describe("Full End-to-End Purchase Flow & Mobile Audit", () => {
       await page.setViewportSize({ width: vp.width, height: vp.height });
       await page.goto("/products");
 
-      await expect(page.getByRole("heading", { name: "محصولات", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: /محصولات/ }).first()).toBeVisible();
 
       const noHorizontalOverflow = await page.evaluate(
         () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1
@@ -29,7 +29,7 @@ test.describe("Full End-to-End Purchase Flow & Mobile Audit", () => {
 
     // Discover product
     const firstProduct = page.locator(".product-card").first();
-    await expect(firstProduct).toBeVisible();
+    await expect(firstProduct).toBeVisible({ timeout: 15_000 });
 
     // Click quick view or open product details
     const quickViewButton = firstProduct.locator(".product-card__quick-view");

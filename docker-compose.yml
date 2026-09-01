@@ -198,11 +198,6 @@ services:
     networks:
       - terma-prod-net
       - terma-staging-net
-    depends_on:
-      - prod-frontend
-      - prod-backend
-      - staging-frontend
-      - staging-backend
 
 networks:
   terma-prod-net:

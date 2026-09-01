@@ -101,6 +101,13 @@ if ! docker exec terma-staging-backend curl -s -f "http://localhost:8080/api/sto
 fi
 echo "[+] All post-deployment smoke checks passed successfully."
 
+# 5. Ensure Nginx Gateway is Active and Reloaded
+echo "[+] Step 5: Ensuring Nginx reverse proxy gateway is active..."
+docker compose "${ENV_ARGS[@]}" up -d nginx
+if docker ps | grep -q "terma-nginx"; then
+    docker exec terma-nginx nginx -s reload 2>/dev/null || true
+fi
+
 echo "$COMMIT_SHA" > "/opt/terma/staging_current_sha.txt" 2>/dev/null || true
 echo "=============================================================================="
 echo " [SUCCESS] Staging deployment verified and live for SHA: ${COMMIT_SHA}"

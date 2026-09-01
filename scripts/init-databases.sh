@@ -56,8 +56,21 @@ if [[ -z "$PROD_DB_PASSWORD" ]] || [[ -z "$STAGING_DB_PASSWORD" ]]; then
     exit 1
 fi
 
+ENV_ARGS=()
+if [[ -f .env.production ]]; then
+    ENV_ARGS+=(--env-file .env.production)
+elif [[ -f /opt/terma/production/.env.production ]]; then
+    ENV_ARGS+=(--env-file /opt/terma/production/.env.production)
+elif [[ -f .env.staging ]]; then
+    ENV_ARGS+=(--env-file .env.staging)
+elif [[ -f /opt/terma/staging/.env.staging ]]; then
+    ENV_ARGS+=(--env-file /opt/terma/staging/.env.staging)
+elif [[ -f .env ]]; then
+    ENV_ARGS+=(--env-file .env)
+fi
+
 echo "[+] Ensuring SQL Server container (terma-db) is running and healthy..."
-docker compose up -d db
+docker compose "${ENV_ARGS[@]}" up -d db
 
 # Wait for healthy database
 MAX_RETRIES=30

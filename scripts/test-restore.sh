@@ -46,9 +46,9 @@ USE [${TEST_DB_NAME}];
 DECLARE @ProductCount INT = (SELECT COUNT(*) FROM sys.tables WHERE name = 'Products');
 DECLARE @CategoryCount INT = (SELECT COUNT(*) FROM sys.tables WHERE name = 'Categories');
 DECLARE @OrderCount INT = (SELECT COUNT(*) FROM sys.tables WHERE name = 'Orders');
-DECLARE @UserCount INT = (SELECT COUNT(*) FROM sys.tables WHERE name = 'Users');
+DECLARE @UserCount INT = (SELECT COUNT(*) FROM sys.tables WHERE name IN ('AspNetUsers', 'Users'));
 
-IF (@ProductCount = 1 AND @CategoryCount = 1 AND @OrderCount = 1 AND @UserCount = 1)
+IF (@ProductCount = 1 AND @CategoryCount = 1 AND @OrderCount = 1 AND @UserCount >= 1)
 BEGIN
     PRINT 'VERIFICATION_SUCCESS: Core tables exist and are verified.';
 END

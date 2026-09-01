@@ -378,7 +378,7 @@ END");
         await dbContext.Database.MigrateAsync();
     }
     await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();
-    if (isDevelopment)
+    if (isDevelopment && !builder.Configuration.GetValue<bool>("Testing:DisableDemoSeed"))
     {
         await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.AnalyticsDemoSeeder>().SeedAsync();
     }

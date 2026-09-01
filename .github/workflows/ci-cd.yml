@@ -219,6 +219,10 @@ jobs:
           for i in {1..60}; do
             if curl -s -f http://127.0.0.1:5442/health/ready 2>/dev/null | grep -q '"Healthy"'; then
               echo "Backend API is ready."
+              # Warm-up EF Core queries and JIT compilation
+              curl -s -f "http://127.0.0.1:5442/api/products?pageSize=1" >/dev/null 2>&1 || true
+              curl -s -f "http://127.0.0.1:5442/api/categories" >/dev/null 2>&1 || true
+              curl -s -f "http://127.0.0.1:5442/api/products/facets" >/dev/null 2>&1 || true
               break
             fi
             sleep 1

@@ -100,7 +100,7 @@ export function resetAntiforgeryToken() {
   antiforgeryTokenPromise = undefined;
 }
 
-const TECHNICAL_ERROR_PATTERN = /(?:Microsoft\.Data\.SqlClient|Microsoft\.EntityFrameworkCore|Microsoft\.AspNetCore|System\.[a-zA-Z]|SqlException|Invalid column name|ClientConnectionId|Error Number:\s*\d+|stack trace|at\s+[a-zA-Z0-9_.]+\(|<!DOCTYPE|<html|<\/html>|502 Bad Gateway|ECONNREFUSED|ETIMEDOUT|fetch failed|Failed to fetch)/i;
+const TECHNICAL_ERROR_PATTERN = /(?:Microsoft\.Data\.SqlClient|Microsoft\.EntityFrameworkCore|Microsoft\.AspNetCore|System\.[a-zA-Z]|SqlException|SocketException|GetHostAddresses|TCP Provider|Name or service not known|SQL Server|SqlClient|Network-related|instance-specific|Invalid column name|ClientConnectionId|Error Number:\s*\d+|stack trace|at\s+[a-zA-Z0-9_.]+\(|<!DOCTYPE|<html|<\/html>|502 Bad Gateway|503 Service Unavailable|504 Gateway Timeout|ECONNREFUSED|ETIMEDOUT|fetch failed|Failed to fetch)/i;
 
 const PERSIAN_CHAR_PATTERN = /[\u0600-\u06FF]/;
 

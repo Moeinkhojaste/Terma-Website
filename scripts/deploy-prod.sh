@@ -113,7 +113,14 @@ if ! docker exec terma-prod-backend curl -s -f http://localhost:8080/api/categor
 fi
 echo "[+] All production smoke checks passed successfully."
 
-# Step 6: Save State
+# Step 6: Ensure Nginx Gateway is Active and Reloaded
+echo "[+] Step 6: Ensuring Nginx reverse proxy gateway is active..."
+docker compose "${ENV_ARGS[@]}" up -d nginx
+if docker ps | grep -q "terma-nginx"; then
+    docker exec terma-nginx nginx -s reload 2>/dev/null || true
+fi
+
+# Step 7: Save State
 echo "$COMMIT_SHA" > "/opt/terma/prod_current_sha.txt" 2>/dev/null || true
 echo "=============================================================================="
 echo " [SUCCESS] Production deployment verified and live for SHA: ${COMMIT_SHA}"
