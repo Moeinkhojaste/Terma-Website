@@ -106,7 +106,7 @@ docker compose -p terma "${ENV_ARGS[@]}" run --rm -e ConnectionStrings__DefaultC
 
 # 3. Deploy updated staging containers
 echo "[+] Step 3: Starting staging services with tag ${COMMIT_SHA}..."
-docker compose -p terma "${ENV_ARGS[@]}" up -d staging-backend staging-frontend
+docker compose -p terma "${ENV_ARGS[@]}" up -d --force-recreate staging-backend staging-frontend
 
 # 3. Health check verification
 echo "[+] Step 3: Verifying staging readiness health check..."

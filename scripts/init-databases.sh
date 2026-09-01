@@ -13,44 +13,27 @@ set -a
 
 # Load production environment variables
 PROD_DB_PASSWORD=""
-if [[ -f .env.production ]]; then
-    # shellcheck disable=SC1091
-    source .env.production
-elif [[ -f /opt/terma/production/.env.production ]]; then
-    # shellcheck disable=SC1091
-    source /opt/terma/production/.env.production
-elif [[ -f /opt/terma/production/.env ]]; then
-    # shellcheck disable=SC1091
-    source /opt/terma/production/.env
-elif [[ -f /opt/terma/.env.production ]]; then
-    # shellcheck disable=SC1091
-    source /opt/terma/.env.production
-elif [[ -f /opt/terma/.env ]]; then
-    # shellcheck disable=SC1091
-    source /opt/terma/.env
-elif [[ -f .env ]]; then
-    # shellcheck disable=SC1091
-    source .env
+if [[ -f /opt/terma/production/.env.production ]]; then
+    PROD_DB_PASSWORD=$(grep -E "^(PROD_DB_PASSWORD|DB_PASSWORD)=" /opt/terma/production/.env.production | head -n1 | cut -d= -f2- | tr -d '\r"' || true)
+elif [[ -f .env.production ]]; then
+    PROD_DB_PASSWORD=$(grep -E "^(PROD_DB_PASSWORD|DB_PASSWORD)=" .env.production | head -n1 | cut -d= -f2- | tr -d '\r"' || true)
 fi
-PROD_SAVED_PASS="${PROD_DB_PASSWORD:-${DB_PASSWORD:-}}"
 
 # Load staging environment variables
 STAGING_DB_PASSWORD=""
-if [[ -f .env.staging ]]; then
-    # shellcheck disable=SC1091
-    source .env.staging
-elif [[ -f /opt/terma/staging/.env.staging ]]; then
-    # shellcheck disable=SC1091
-    source /opt/terma/staging/.env.staging
-elif [[ -f /opt/terma/staging/.env ]]; then
-    # shellcheck disable=SC1091
-    source /opt/terma/staging/.env
+if [[ -f /opt/terma/staging/.env.staging ]]; then
+    STAGING_DB_PASSWORD=$(grep -E "^(STAGING_DB_PASSWORD|DB_PASSWORD)=" /opt/terma/staging/.env.staging | head -n1 | cut -d= -f2- | tr -d '\r"' || true)
+elif [[ -f .env.staging ]]; then
+    STAGING_DB_PASSWORD=$(grep -E "^(STAGING_DB_PASSWORD|DB_PASSWORD)=" .env.staging | head -n1 | cut -d= -f2- | tr -d '\r"' || true)
 fi
-STAGING_SAVED_PASS="${STAGING_DB_PASSWORD:-${DB_PASSWORD:-${PROD_SAVED_PASS}}}"
 
-export DB_SA_PASSWORD="${DB_SA_PASSWORD:-${DB_PASSWORD:-${PROD_SAVED_PASS}}}"
-export PROD_DB_PASSWORD="${PROD_SAVED_PASS:-${STAGING_SAVED_PASS}}"
-export STAGING_DB_PASSWORD="${STAGING_SAVED_PASS:-${PROD_SAVED_PASS}}"
+# Sourced / fallback
+PROD_SAVED_PASS="${PROD_DB_PASSWORD:-${DB_PASSWORD:-${DB_SA_PASSWORD:-}}}"
+STAGING_SAVED_PASS="${STAGING_DB_PASSWORD:-${PROD_SAVED_PASS}}"
+
+export DB_SA_PASSWORD="${DB_SA_PASSWORD:-${PROD_SAVED_PASS}}"
+export PROD_DB_PASSWORD="${PROD_SAVED_PASS}"
+export STAGING_DB_PASSWORD="${STAGING_SAVED_PASS}"
 export PROD_DOMAIN="${PROD_DOMAIN:-termabrand.ir}"
 export STAGING_DOMAIN="${STAGING_DOMAIN:-staging.termabrand.ir}"
 export PROD_OTP_HASH_KEY="${PROD_OTP_HASH_KEY:-TermaProduction_OtpSecretKey_9876543210_Secure!#}"

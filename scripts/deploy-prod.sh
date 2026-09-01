@@ -120,7 +120,7 @@ fi
 
 # Step 4: Launch Updated Application Containers
 echo "[+] Step 4: Starting updated production containers..."
-if ! docker compose -p terma "${ENV_ARGS[@]}" up -d prod-backend prod-frontend; then
+if ! docker compose -p terma "${ENV_ARGS[@]}" up -d --force-recreate prod-backend prod-frontend; then
     echo "[-] Error launching updated containers. Initiating rollback to ${PREVIOUS_SHA}..." >&2
     bash scripts/rollback-app.sh prod "$PREVIOUS_SHA"
     exit 1
