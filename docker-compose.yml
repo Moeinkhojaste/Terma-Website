@@ -11,6 +11,7 @@ services:
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "${DB_SA_PASSWORD}"
+      SQLCMDPASSWORD: "${DB_SA_PASSWORD}"
       MSSQL_PID: "Developer"
       MSSQL_MEMORY_LIMIT_MB: 2048
     deploy:
@@ -27,11 +28,11 @@ services:
       - terma-prod-net
       - terma-staging-net
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"SELECT 1\" || exit 1"]
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -Q \"SELECT 1\" 2>/dev/null || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -Q \"SELECT 1\" 2>/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 15s
+      start_period: 20s
 
   # ============================================================================
   # Production Environment (High Resource Priority)
@@ -44,8 +45,7 @@ services:
     container_name: terma-prod-backend
     restart: unless-stopped
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     environment:
       ASPNETCORE_ENVIRONMENT: "Production"
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=TermaDb_Production;User Id=terma_prod_user;Password=${PROD_DB_PASSWORD};TrustServerCertificate=True"
@@ -115,8 +115,7 @@ services:
     container_name: terma-staging-backend
     restart: unless-stopped
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     environment:
       ASPNETCORE_ENVIRONMENT: "Staging"
       ConnectionStrings__DefaultConnection: "Server=db,1433;Database=TermaDb_Staging;User Id=terma_staging_user;Password=${STAGING_DB_PASSWORD};TrustServerCertificate=True"
