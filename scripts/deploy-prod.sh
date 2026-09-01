@@ -55,6 +55,10 @@ if [[ -f .env ]]; then
     ENV_ARGS+=(--env-file .env)
 fi
 
+# Step 0: Ensure Shared Database Engine (terma-db) is Running
+echo "[+] Step 0: Ensuring database container (terma-db) is running..."
+docker compose "${ENV_ARGS[@]}" up -d db
+
 # Step 1: Pre-Deploy Verified Database Backup
 echo "[+] Step 1: Executing pre-deployment verified backup of TermaDb_Production..."
 if ! bash scripts/backup-db.sh prod --pre-deploy; then
@@ -72,7 +76,7 @@ fi
 # Step 3: Rolling Deploy Updated Application Containers
 echo "[+] Step 3: Deploying updated application containers with tag ${COMMIT_SHA}..."
 export PROD_IMAGE_TAG="$COMMIT_SHA"
-if ! docker compose "${ENV_ARGS[@]}" up -d prod-backend prod-frontend; then
+if ! docker compose "${ENV_ARGS[@]}" up -d --build prod-backend prod-frontend; then
     echo "[-] Error launching updated containers. Initiating rollback to ${PREVIOUS_SHA}..." >&2
     bash scripts/rollback-app.sh prod "$PREVIOUS_SHA"
     exit 1

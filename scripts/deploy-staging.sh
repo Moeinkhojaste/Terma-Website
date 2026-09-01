@@ -54,6 +54,10 @@ if [[ -f .env ]]; then
     ENV_ARGS+=(--env-file .env)
 fi
 
+# 0. Ensure Shared Database Engine (terma-db) is Running
+echo "[+] Step 0: Ensuring database container (terma-db) is running..."
+docker compose "${ENV_ARGS[@]}" up -d db
+
 # 1. Run database migrations for TermaDb_Staging
 echo "[+] Step 1: Running database migrations on TermaDb_Staging..."
 docker compose "${ENV_ARGS[@]}" run --rm staging-backend dotnet Terma.Api.dll --migrate
