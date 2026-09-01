@@ -77,7 +77,7 @@ test.describe("Full End-to-End Purchase Flow & Mobile Audit", () => {
 
     // Verify Order Success Page
     await expect(page).toHaveURL(/\/order\/success/);
-    await expect(page.getByText(/سفارش شما با موفقیت ثبت شد/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /سفارش شما با موفقیت ثبت شد/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /کپی شماره سفارش/ })).toBeVisible();
   });
 });
