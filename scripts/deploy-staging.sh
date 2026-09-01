@@ -51,9 +51,13 @@ fi
 echo "[+] Step 0: Ensuring database container and user logins are configured..."
 bash scripts/init-databases.sh
 
+# Build verified explicit connection string
+export STAGING_CONNECTION_STRING="Server=db,1433;Database=TermaDb_Staging;User Id=terma_staging_user;Password=${STAGING_DB_PASSWORD};TrustServerCertificate=True"
+export ConnectionStrings__DefaultConnection="$STAGING_CONNECTION_STRING"
+
 # 1. Run database migrations for TermaDb_Staging
 echo "[+] Step 1: Running database migrations on TermaDb_Staging..."
-docker compose "${ENV_ARGS[@]}" run --rm staging-backend dotnet Terma.Api.dll --migrate
+docker compose "${ENV_ARGS[@]}" run --rm -e ConnectionStrings__DefaultConnection="$STAGING_CONNECTION_STRING" staging-backend dotnet Terma.Api.dll --migrate
 
 # 2. Deploy updated staging containers
 echo "[+] Step 2: Starting staging services with tag ${COMMIT_SHA}..."

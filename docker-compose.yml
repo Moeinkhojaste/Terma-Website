@@ -48,7 +48,7 @@ services:
       - db
     environment:
       ASPNETCORE_ENVIRONMENT: "Production"
-      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=TermaDb_Production;User Id=terma_prod_user;Password=${PROD_DB_PASSWORD:-${DB_PASSWORD:-${DB_SA_PASSWORD}}};TrustServerCertificate=True"
+      ConnectionStrings__DefaultConnection: "${ConnectionStrings__DefaultConnection:-Server=db,1433;Database=TermaDb_Production;User Id=terma_prod_user;Password=${PROD_DB_PASSWORD:-${DB_PASSWORD:-${DB_SA_PASSWORD}}};TrustServerCertificate=True}"
       Otp__HashKey: "${PROD_OTP_HASH_KEY}"
       Otp__ExposeDevelopmentCode: "false"
       SmsIr__ApiKey: "${PROD_SMSIR_API_KEY:-}"
@@ -118,7 +118,7 @@ services:
       - db
     environment:
       ASPNETCORE_ENVIRONMENT: "Staging"
-      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=TermaDb_Staging;User Id=terma_staging_user;Password=${STAGING_DB_PASSWORD:-${DB_PASSWORD:-${DB_SA_PASSWORD}}};TrustServerCertificate=True"
+      ConnectionStrings__DefaultConnection: "${ConnectionStrings__DefaultConnection:-Server=db,1433;Database=TermaDb_Staging;User Id=terma_staging_user;Password=${STAGING_DB_PASSWORD:-${DB_PASSWORD:-${DB_SA_PASSWORD}}};TrustServerCertificate=True}"
       Otp__HashKey: "${STAGING_OTP_HASH_KEY}"
       Otp__ExposeDevelopmentCode: "false"
       SmsIr__Enabled: "false"

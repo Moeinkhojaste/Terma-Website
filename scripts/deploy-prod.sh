@@ -59,9 +59,13 @@ if ! bash scripts/backup-db.sh prod --pre-deploy; then
     exit 1
 fi
 
+# Build verified explicit connection string
+export PROD_CONNECTION_STRING="Server=db,1433;Database=TermaDb_Production;User Id=terma_prod_user;Password=${PROD_DB_PASSWORD};TrustServerCertificate=True"
+export ConnectionStrings__DefaultConnection="$PROD_CONNECTION_STRING"
+
 # Step 2: Database Schema Migration
 echo "[+] Step 2: Executing database migrations on TermaDb_Production..."
-if ! docker compose "${ENV_ARGS[@]}" run --rm prod-backend dotnet Terma.Api.dll --migrate; then
+if ! docker compose "${ENV_ARGS[@]}" run --rm -e ConnectionStrings__DefaultConnection="$PROD_CONNECTION_STRING" prod-backend dotnet Terma.Api.dll --migrate; then
     echo "[-] CRITICAL: Database migration failed. Active production containers have NOT been touched." >&2
     exit 1
 fi
