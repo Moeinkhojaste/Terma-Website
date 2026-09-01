@@ -312,10 +312,21 @@ END");
         {
             // ignore
         }
-        await dbContext.Database.MigrateAsync();
-        await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();
-        await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.CatalogDataSeeder>().SeedAsync();
-        app.Logger.LogInformation("Database migration completed successfully.");
+        try
+        {
+            await dbContext.Database.MigrateAsync();
+            await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();
+            await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.CatalogDataSeeder>().SeedAsync();
+            app.Logger.LogInformation("Database migration completed successfully.");
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            var rawCs = dbContext.Database.GetConnectionString();
+            var csb = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(rawCs);
+            Console.Error.WriteLine($"[CRITICAL] Migration SQL Exception: DataSource='{csb.DataSource}', InitialCatalog='{csb.InitialCatalog}', UserID='{csb.UserID}', PasswordLength={csb.Password?.Length ?? 0}");
+            Console.Error.WriteLine($"[CRITICAL] SqlException Number={sqlEx.Number}, State={sqlEx.State}, Class={sqlEx.Class}: {sqlEx.Message}");
+            throw;
+        }
     }
     return;
 }
