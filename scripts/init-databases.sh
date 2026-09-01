@@ -143,7 +143,10 @@ END
 ELSE
 BEGIN
     PRINT 'Updating SQL Login password for terma_prod_user...';
-    ALTER LOGIN [terma_prod_user] WITH PASSWORD = '$(PROD_PASS)', UNLOCK, CHECK_POLICY = OFF;
+    ALTER LOGIN [terma_prod_user] WITH PASSWORD = '$(PROD_PASS)';
+    ALTER LOGIN [terma_prod_user] WITH CHECK_POLICY = OFF;
+    ALTER LOGIN [terma_prod_user] WITH CHECK_EXPIRATION = OFF;
+    ALTER LOGIN [terma_prod_user] ENABLE;
 END
 GO
 
@@ -155,7 +158,10 @@ END
 ELSE
 BEGIN
     PRINT 'Updating SQL Login password for terma_staging_user...';
-    ALTER LOGIN [terma_staging_user] WITH PASSWORD = '$(STAGING_PASS)', UNLOCK, CHECK_POLICY = OFF;
+    ALTER LOGIN [terma_staging_user] WITH PASSWORD = '$(STAGING_PASS)';
+    ALTER LOGIN [terma_staging_user] WITH CHECK_POLICY = OFF;
+    ALTER LOGIN [terma_staging_user] WITH CHECK_EXPIRATION = OFF;
+    ALTER LOGIN [terma_staging_user] ENABLE;
 END
 GO
 
