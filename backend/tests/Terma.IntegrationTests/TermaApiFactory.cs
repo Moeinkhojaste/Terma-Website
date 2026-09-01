@@ -38,8 +38,7 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
 
     static TermaApiFactory()
     {
-        SQLitePCL.raw.SetProvider(new SQLitePCL.SQLite3Provider_winsqlite3());
-        SQLitePCL.raw.FreezeProvider();
+        SQLitePCL.Batteries_V2.Init();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -156,7 +155,7 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
     {
         base.Dispose(disposing);
         if (disposing)
-            _connection.Dispose();
+            _connection?.Dispose();
     }
 }
 

@@ -153,6 +153,19 @@ jobs:
     name: End-to-End Storefront Tests (Playwright)
     runs-on: ubuntu-latest
     needs: [frontend, backend, architecture]
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "YourStrong!Password2026"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Password2026' -C -Q 'SELECT 1' || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong!Password2026' -Q 'SELECT 1'"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -181,12 +194,14 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Start Backend Web API
+      - name: Migrate Database and Start Backend Web API
         shell: bash
+        env:
+          ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=TermaDb_E2E;User Id=sa;Password=YourStrong!Password2026;TrustServerCertificate=True"
         run: |
           dotnet run --project backend/src/Terma.Api --urls "http://127.0.0.1:5442" &
           echo "Waiting for Backend API on port 5442..."
-          for i in {1..30}; do
+          for i in {1..45}; do
             if curl -s -f http://127.0.0.1:5442/health/ready 2>/dev/null | grep -q '"Healthy"'; then
               echo "Backend API is ready."
               break
