@@ -9,7 +9,7 @@ import { Container } from "@/components/layout/container";
 import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { formatPrice } from "@/lib/format";
 import { ApiError, sanitizeErrorMessage } from "@/lib/api-client";
-import { MapPinIcon, UserIcon, TruckIcon, AlertTriangleIcon, XIcon } from "@/components/ui/icons";
+import { MapPinIcon, UserIcon, TruckIcon, AlertTriangleIcon, XIcon, CreditCardIcon, OnlinePaymentIcon, SnappPayLogo } from "@/components/ui/icons";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 import { createOrder, getQuote, type CheckoutRequest } from "@/features/checkout/checkout-api";
@@ -26,6 +26,7 @@ export type CheckoutReviewSnapshot = {
   subtotal: number;
   discountTotal: number;
   total: number;
+  paymentMethod?: "online" | "snapppay";
 };
 
 export type CheckoutErrorInfo = {
@@ -158,6 +159,7 @@ export function CheckoutPageClient() {
   const [discountTotal, setDiscountTotal] = useState<number>(0);
   const [couponMessage, setCouponMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"online" | "snapppay">("online");
 
   const subtotal = items.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
 
@@ -263,6 +265,7 @@ export function CheckoutPageClient() {
       subtotal,
       discountTotal,
       total: Math.max(0, subtotal - discountTotal),
+      paymentMethod,
     });
     setRequestState("idle");
     setServerError("");
@@ -554,6 +557,61 @@ export function CheckoutPageClient() {
                   )}
                 </div>
 
+                <div className="checkout-payment-section" aria-labelledby="checkout-payment-title">
+                  <div className="checkout-payment-section__header">
+                    <CreditCardIcon className="size-4" />
+                    <h3 id="checkout-payment-title">روش پرداخت</h3>
+                  </div>
+                  <div className="checkout-payment-options" role="radiogroup" aria-label="انتخاب روش پرداخت">
+                    <label
+                      className={`checkout-payment-option ${paymentMethod === "online" ? "checkout-payment-option--selected" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="checkoutPaymentMethod"
+                        value="online"
+                        checked={paymentMethod === "online"}
+                        onChange={() => setPaymentMethod("online")}
+                      />
+                      <div className="checkout-payment-option__content">
+                        <div className="checkout-payment-option__main">
+                          <span className="checkout-payment-option__title">پرداخت آنلاین از درگاه پرداخت</span>
+                          <span className="checkout-payment-option__desc">کلیه کارت‌های عضو شتاب بانکی</span>
+                        </div>
+                        <div className="checkout-payment-option__logos">
+                          <OnlinePaymentIcon />
+                        </div>
+                      </div>
+                    </label>
+
+                    <label
+                      className="checkout-payment-option checkout-payment-option--disabled"
+                      title="پرداخت اقساطی اسنپ‌پی به‌زودی فعال خواهد شد"
+                    >
+                      <input
+                        type="radio"
+                        name="checkoutPaymentMethod"
+                        value="snapppay"
+                        disabled
+                        checked={paymentMethod === "snapppay"}
+                        onChange={() => {}}
+                      />
+                      <div className="checkout-payment-option__content">
+                        <div className="checkout-payment-option__main">
+                          <div className="checkout-payment-option__title-row">
+                            <span className="checkout-payment-option__title">اسنپ‌پی</span>
+                            <span className="checkout-payment-option__badge">به‌زودی</span>
+                          </div>
+                          <span className="checkout-payment-option__desc">پرداخت اقساطی ۴ ماهه بدون کارمزد</span>
+                        </div>
+                        <div className="checkout-payment-option__logos">
+                          <SnappPayLogo />
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
                 <dl>
                   <div><dt>جمع محصولات</dt><dd>{formatPrice(subtotal)}</dd></div>
                   {discountTotal > 0 && (
@@ -624,6 +682,7 @@ export function CheckoutReviewDialog({
                 <div><dt>کد پستی</dt><dd dir="ltr">{review.request.postalCode}</dd></div>
                 <div className="checkout-review__details-full"><dt>توضیحات سفارش</dt><dd>{review.request.customerNotes || "ثبت نشده"}</dd></div>
                 <div className="checkout-review__details-full"><dt>روش ارسال</dt><dd>ارسال پس از هماهنگی</dd></div>
+                <div className="checkout-review__details-full"><dt>روش پرداخت</dt><dd>{review.paymentMethod === "snapppay" ? "اسنپ‌پی (پرداخت اقساطی)" : "پرداخت آنلاین از درگاه پرداخت"}</dd></div>
               </dl>
             </section>
 
