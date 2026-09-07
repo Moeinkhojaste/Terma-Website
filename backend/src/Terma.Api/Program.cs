@@ -231,7 +231,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddAntiforgery(options =>
 {
     options.HeaderName = "X-CSRF-TOKEN";
-    options.Cookie.Name = useSecureCookies ? "__Host-Terma.Antiforgery" : "Terma.Antiforgery.Dev";
+    options.Cookie.Name = "Terma.Antiforgery";
     options.Cookie.HttpOnly = true;
     options.Cookie.Path = "/";
     options.Cookie.SameSite = SameSiteMode.Lax;
@@ -396,7 +396,8 @@ await using (var scope = app.Services.CreateAsyncScope())
 
 var forwardedHeadersOptions = new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.All
+    ForwardedHeaders = ForwardedHeaders.All,
+    ForwardLimit = null
 };
 forwardedHeadersOptions.KnownNetworks.Clear();
 forwardedHeadersOptions.KnownProxies.Clear();

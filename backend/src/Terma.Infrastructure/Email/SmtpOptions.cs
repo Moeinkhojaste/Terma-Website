@@ -1,4 +1,4 @@
-﻿namespace Terma.Infrastructure.Email;
+namespace Terma.Infrastructure.Email;
 
 public sealed class SmtpOptions
 {
@@ -10,8 +10,8 @@ public sealed class SmtpOptions
     public string Password { get; set; } = string.Empty;
     public bool EnableSsl { get; set; } = true;
     public string FromEmail { get; set; } = "admin@termabrand.ir";
-    public string FromName { get; set; } = "ظپط±ظˆط´ع¯ط§ظ‡ طھط±ظ…ط§";
+    public string FromName { get; set; } = "فروشگاه ترما";
     public bool Enabled { get; set; } = true;
 
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(Host) && Enabled;
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(Host) && !string.IsNullOrWhiteSpace(Password) && Enabled;
 }
