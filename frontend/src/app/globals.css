@@ -5600,6 +5600,13 @@ body.dialog-open { overflow: hidden; }
   flex-shrink: 0;
 }
 
+.checkout-payment-option__logos svg {
+  height: 1.5rem;
+  width: auto;
+  display: block;
+}
+
+
 .checkout-payment-option__badge {
   display: inline-flex;
   align-items: center;
