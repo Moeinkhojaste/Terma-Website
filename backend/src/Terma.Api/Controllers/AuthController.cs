@@ -7,7 +7,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Terma.Api.ErrorHandling;
+using Terma.Application.Admin;
 using Terma.Application.Common.Authorization;
+using Terma.Application.Common.Exceptions;
 using Terma.Application.Common.Interfaces;
 using Terma.Infrastructure.Identity;
 
@@ -20,6 +22,7 @@ public sealed class AuthController(
     UserManager<ApplicationUser> userManager,
     SignInManager<ApplicationUser> signInManager,
     ISecurityAuditService auditService,
+    IAdminPasswordResetService passwordResetService,
     TimeProvider timeProvider) : ControllerBase
 {
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromMinutes(30);
@@ -123,6 +126,71 @@ public sealed class AuthController(
         return NoContent();
     }
 
+    [AllowAnonymous]
+    [HttpPost("password-reset/request")]
+    [EnableRateLimiting("auth-password-reset")]
+    [ValidateApiAntiforgeryToken]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    [ProducesResponseType<AdminPasswordResetResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult<AdminPasswordResetResponse>> RequestPasswordReset(
+        AdminPasswordResetRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await passwordResetService.RequestPasswordResetAsync(
+                request.Email,
+                GetClientIp() ?? "unknown",
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (TooManyRequestsException ex)
+        {
+            Response.Headers.RetryAfter = ex.RetryAfterSeconds.ToString();
+            return Problem(
+                statusCode: StatusCodes.Status429TooManyRequests,
+                title: "تعداد درخواست بیش از حد مجاز",
+                detail: ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "درخواست نامعتبر",
+                detail: ex.Message);
+        }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("password-reset/confirm")]
+    [EnableRateLimiting("auth-password-reset")]
+    [ValidateApiAntiforgeryToken]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    [ProducesResponseType<AdminPasswordResetSuccessResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<AdminPasswordResetSuccessResponse>> ConfirmPasswordReset(
+        AdminPasswordResetConfirmRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await passwordResetService.ConfirmPasswordResetAsync(
+            request,
+            GetClientIp() ?? "unknown",
+            cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "خطا در تغییر رمز عبور",
+                detail: result.ErrorMessage ?? "کد تأیید یا رمز عبور نامعتبر است.");
+        }
+
+        return Ok(new AdminPasswordResetSuccessResponse("رمز عبور مدیر با موفقیت تغییر یافت."));
+    }
+
     private async Task<AdminSessionResponse> CreateSessionResponseAsync(ApplicationUser user, DateTimeOffset expiresAt)
     {
         var roles = await userManager.GetRolesAsync(user);
@@ -155,3 +223,5 @@ public sealed record LoginRequest(
 public sealed record AdminSessionResponse(string Email, string? Role, DateTimeOffset ExpiresAtUtc);
 
 public sealed record AntiforgeryTokenResponse(string Token);
+
+public sealed record AdminPasswordResetSuccessResponse(string Message);

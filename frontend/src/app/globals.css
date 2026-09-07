@@ -1430,6 +1430,10 @@ img { max-width: 100%; }
 .admin-auth-message { margin: 1.25rem 0 0; padding: 0.8rem 1rem; border-radius: var(--radius-sm); font-size: 0.82rem; line-height: 1.8; }
 .admin-auth-message--notice { border: 1px solid #dbc49f; background: #fff8ea; color: #704719; }
 .admin-auth-message--error { border: 1px solid #e4b3ad; background: #fff2f0; color: var(--danger); }
+.admin-auth-message--success { border: 1px solid #9ed4b7; background: #eef8f2; color: #1b5e3b; }
+.admin-auth-link-btn { background: none; border: none; padding: 0; color: var(--teal-deep); font-size: 0.82rem; font-weight: 650; text-decoration: underline; text-underline-offset: 0.25rem; cursor: pointer; text-align: right; font-family: inherit; }
+.admin-auth-link-btn:hover { color: var(--gold-deep); }
+.admin-auth-helper { display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; }
 .admin-auth-back { min-height: 44px; display: inline-flex; align-items: center; margin-top: 1.25rem; color: var(--teal-deep); font-size: 0.82rem; font-weight: 650; text-decoration: underline; text-underline-offset: 0.25rem; }
 .admin-auth-loading { margin: 2rem 0; color: var(--muted); }
 .admin-session-details { display: grid; margin: 2rem 0 0; border-top: 1px solid var(--line); }
