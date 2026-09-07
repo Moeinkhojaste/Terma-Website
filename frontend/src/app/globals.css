@@ -5492,6 +5492,144 @@ body.dialog-open { overflow: hidden; }
   padding: 0.65rem 0;
 }
 
+/* Checkout Payment Methods in Summary Card */
+.checkout-payment-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.checkout-payment-section__header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+}
+
+.checkout-payment-section__header h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--charcoal);
+}
+
+.checkout-payment-section__header svg {
+  color: var(--teal-deep);
+}
+
+.checkout-payment-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.checkout-payment-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 0.8rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  user-select: none;
+}
+
+.checkout-payment-option:hover:not(.checkout-payment-option--disabled) {
+  border-color: var(--teal);
+  background: rgba(20, 90, 85, 0.03);
+}
+
+.checkout-payment-option input[type="radio"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--teal);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.checkout-payment-option--selected {
+  border-color: var(--teal);
+  background: var(--teal-soft);
+  box-shadow: 0 0 0 1px var(--teal);
+}
+
+.checkout-payment-option__content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.checkout-payment-option__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.checkout-payment-option__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.checkout-payment-option__title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--charcoal);
+  white-space: nowrap;
+}
+
+.checkout-payment-option__desc {
+  font-size: 0.7rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.checkout-payment-option__logos {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.checkout-payment-option__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+  background: #fbf0dc;
+  color: #926628;
+  border: 1px solid #ebd4ab;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+/* Disabled state for SnappPay (Coming Soon) */
+.checkout-payment-option--disabled {
+  opacity: 0.55;
+  background: #faf8f5;
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.checkout-payment-option--disabled input[type="radio"] {
+  cursor: not-allowed;
+}
+
+.checkout-payment-option--disabled .checkout-payment-option__title {
+  color: var(--muted);
+}
+
+
 /* Compact Cart Page Layout & Optimization */
 .cart-page {
   padding-bottom: 3rem;

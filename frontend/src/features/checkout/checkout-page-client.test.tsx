@@ -284,7 +284,27 @@ describe("checkout order review", () => {
     expect(mocks.clearCart).not.toHaveBeenCalled();
     expect(mocks.replace).not.toHaveBeenCalled();
   });
+
+  it("renders payment method options with online gateway selected and snapp-pay disabled with coming-soon badge", async () => {
+    render(<CheckoutPageClient />);
+
+    expect(screen.getByText("روش پرداخت")).toBeInTheDocument();
+    const onlineRadio = screen.getByRole("radio", { name: /پرداخت آنلاین از درگاه پرداخت/ });
+    const snappPayRadio = screen.getByRole("radio", { name: /اسنپ‌پی/ });
+
+    expect(onlineRadio).toBeChecked();
+    expect(snappPayRadio).toBeDisabled();
+    expect(screen.getByText("به‌زودی")).toBeInTheDocument();
+
+    fillValidCheckout();
+    fireEvent.click(screen.getByRole("button", { name: "ثبت سفارش" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "بازبینی و تأیید سفارش" });
+    expect(within(dialog).getByText("روش پرداخت")).toBeInTheDocument();
+    expect(within(dialog).getByText("پرداخت آنلاین از درگاه پرداخت")).toBeInTheDocument();
+  });
 });
+
 
 
 

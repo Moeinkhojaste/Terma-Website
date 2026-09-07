@@ -480,5 +480,47 @@ export function WhatsAppIcon({ className = "size-5" }: IconProps) {
   );
 }
 
+export function CreditCardIcon({ className = "size-5" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="2" y="5" width="20" height="14" rx="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="2" y1="10" x2="22" y2="10" />
+      <line x1="6" y1="15" x2="10" y2="15" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function OnlinePaymentIcon({ className = "h-6 w-auto" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="36" height="24" rx="4" fill="#0E4743" />
+      <rect y="5" width="36" height="4.5" fill="#145A55" />
+      <rect x="4" y="12.5" width="6.5" height="5.5" rx="1.5" fill="#D8AA68" />
+      <path d="M4 14.5H10.5M7 12.5V18" stroke="#B58A4A" strokeWidth="0.75" />
+      <circle cx="28.5" cy="15.5" r="3.5" fill="#D8AA68" fillOpacity="0.9" />
+      <circle cx="24" cy="15.5" r="3.5" fill="#FFFFFF" fillOpacity="0.7" />
+    </svg>
+  );
+}
+
+export function SnappPayLogo({ className = "h-6 w-auto" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 92 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="92" height="26" rx="6" fill="#FFF0F7" stroke="#FFD1E6" strokeWidth="1" />
+      <circle cx="14" cy="13" r="8" fill="#FF007A" />
+      <path d="M12.2 9.5C12.2 8.67 12.87 8 13.7 8H14.3C15.13 8 15.8 8.67 15.8 9.5V12.8C15.8 13.63 15.13 14.3 14.3 14.3H13.7C12.87 14.3 12.2 13.63 12.2 12.8V9.5Z" fill="white" />
+      <circle cx="14" cy="17" r="1.2" fill="white" />
+      <text x="26" y="17" fill="#1A1A1A" fontFamily="var(--font-cairo), system-ui, sans-serif" fontSize="11" fontWeight="800" letterSpacing="-0.3">
+        اسنپ‌پی
+      </text>
+      <rect x="66" y="5.5" width="20" height="15" rx="3.5" fill="#FF007A" />
+      <text x="76" y="16.5" fill="white" fontFamily="system-ui, -apple-system, sans-serif" fontSize="8.5" fontWeight="900" textAnchor="middle">
+        PAY
+      </text>
+    </svg>
+  );
+}
+
+
 
 
