@@ -24,6 +24,24 @@ public sealed class AuthenticationApiTests(TermaApiFactory factory) : IClassFixt
     }
 
     [Fact]
+    public async Task ForwardedHttps_AntiforgeryEndpointReturnsTokenAndCookie()
+    {
+        using var client = factory.CreateHttpClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/auth/antiforgery");
+        request.Headers.Add("X-Forwarded-Proto", "https");
+        request.Headers.Add("X-Forwarded-For", "185.143.234.1");
+        request.Headers.Add("X-Forwarded-Host", "termabrand.ir");
+
+        using var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<AntiforgeryTokenResponse>();
+        Assert.NotNull(body);
+        Assert.False(string.IsNullOrWhiteSpace(body.Token));
+        Assert.True(response.Headers.Contains("Set-Cookie"));
+    }
+
+    [Fact]
     public async Task AdminProvisioner_CreatesRoleAndRejectsSilentOverwrite()
     {
         var email = $"provisioned-{Guid.NewGuid():N}@example.test";

@@ -156,8 +156,9 @@ if [[ "$HEALTHY" != "true" ]]; then
 fi
 
 # Step 5: Post-deployment read-only API smoke checks
-echo "[+] Step 5: Running post-deployment smoke tests (categories, catalog, CMS content)..."
-if ! docker exec terma-prod-backend curl -s -f http://localhost:8080/api/categories >/dev/null \
+echo "[+] Step 5: Running post-deployment smoke tests (antiforgery, categories, catalog, CMS content)..."
+if ! docker exec terma-prod-backend curl -s -f -H "X-Forwarded-Proto: https" http://localhost:8080/api/auth/antiforgery >/dev/null \
+   || ! docker exec terma-prod-backend curl -s -f http://localhost:8080/api/categories >/dev/null \
    || ! docker exec terma-prod-backend curl -s -f "http://localhost:8080/api/products?pageSize=1" >/dev/null \
    || ! docker exec terma-prod-backend curl -s -f "http://localhost:8080/api/store/content?page=home" >/dev/null; then
     echo "[-] CRITICAL: Post-deployment smoke tests failed on production API!" >&2

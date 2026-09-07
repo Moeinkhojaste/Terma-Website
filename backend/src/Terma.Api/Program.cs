@@ -235,7 +235,7 @@ builder.Services.AddAntiforgery(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.Path = "/";
     options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = useSecureCookies ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
 builder.Services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme)
@@ -394,10 +394,13 @@ await using (var scope = app.Services.CreateAsyncScope())
     }
 }
 
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+var forwardedHeadersOptions = new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
+    ForwardedHeaders = ForwardedHeaders.All
+};
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 app.UseExceptionHandler();
 
