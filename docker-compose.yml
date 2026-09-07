@@ -68,7 +68,7 @@ services:
       Smtp__Enabled: "${SMTP_ENABLED:-${PROD_SMTP_ENABLED:-true}}"
       DataProtection__KeyPath: "/app/dataprotection-keys"
       Cors__AllowedOrigins__0: "https://${PROD_DOMAIN}"
-      Security__RequireSecureCookies: "true"
+      Security__RequireSecureCookies: "${SECURITY_REQUIRE_SECURE_COOKIES:-false}"
       Security__EnforceHttps: "true"
       EnableSwagger: "false"
       Database__AutoMigrate: "false"
