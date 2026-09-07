@@ -106,4 +106,80 @@ public sealed class CustomerAccountsApiTests(TermaApiFactory factory) : IClassFi
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync("/api/customer-auth/logout", null)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/customer-auth/me")).StatusCode);
     }
+
+    [Fact]
+    public async Task Otp_ResendCooldownTwoMinutes_AndChangingPhoneSucceedsImmediately()
+    {
+        var testIp = $"198.51.102.{Random.Shared.Next(10, 99)}";
+        var phone1 = $"0912{Random.Shared.Next(1_000_000, 9_999_999)}";
+        var phone2 = $"0935{Random.Shared.Next(1_000_000, 9_999_999)}";
+
+        using var client = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
+        client.DefaultRequestHeaders.Remove("X-Forwarded-For");
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", testIp);
+
+        // 1. First request for phone1 succeeds, returning 120 seconds retry delay
+        var firstResponse = await client.PostAsJsonAsync("/api/customer-auth/otp/request", new RequestOtpRequest(phone1));
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+        var firstChallenge = (await firstResponse.Content.ReadFromJsonAsync<RequestOtpResponse>())!;
+        Assert.Equal(120, firstChallenge.RetryAfterSeconds);
+
+        // 2. Immediate second request for SAME phone1 must be rejected with 429 and Retry-After
+        var immediateResend = await client.PostAsJsonAsync("/api/customer-auth/otp/request", new RequestOtpRequest(phone1));
+        Assert.Equal(HttpStatusCode.TooManyRequests, immediateResend.StatusCode);
+        Assert.True(immediateResend.Headers.Contains("Retry-After") || immediateResend.Headers.RetryAfter != null);
+
+        // 3. Request for DIFFERENT phone2 must succeed immediately (no waiting required for changed number)
+        var changePhoneResponse = await client.PostAsJsonAsync("/api/customer-auth/otp/request", new RequestOtpRequest(phone2));
+        Assert.Equal(HttpStatusCode.OK, changePhoneResponse.StatusCode);
+        var secondChallenge = (await changePhoneResponse.Content.ReadFromJsonAsync<RequestOtpResponse>())!;
+        Assert.Equal(120, secondChallenge.RetryAfterSeconds);
+
+        // 4. After advancing clock past 2 minutes (121 seconds), requesting phone1 again succeeds
+        factory.Clock.Advance(TimeSpan.FromSeconds(121));
+        var afterCooldownResponse = await client.PostAsJsonAsync("/api/customer-auth/otp/request", new RequestOtpRequest(phone1));
+        Assert.Equal(HttpStatusCode.OK, afterCooldownResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Otp_RateLimit_FiveRequestsInTenMinutes_SixthBlockedUntilTenMinutesExpire()
+    {
+        var phone = $"0911{Random.Shared.Next(1_000_000, 9_999_999)}";
+        using var client = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
+
+        // 5 requests spaced across the 10-minute window (e.g. every 2 minutes) must succeed
+        for (var i = 1; i <= 5; i++)
+        {
+            client.DefaultRequestHeaders.Remove("X-Forwarded-For");
+            client.DefaultRequestHeaders.Add("X-Forwarded-For", $"198.51.103.{i}");
+
+            var response = await client.PostAsJsonAsync("/api/customer-auth/otp/request", new RequestOtpRequest(phone));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            if (i < 5)
+            {
+                factory.Clock.Advance(TimeSpan.FromSeconds(121)); // Wait past 2-min resend cooldown
+            }
+        }
+
+        // 6th request within the 10-minute window must be rejected (limit is 5 in 10 minutes)
+        client.DefaultRequestHeaders.Remove("X-Forwarded-For");
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", "198.51.103.6");
+
+        var sixthResponse = await client.PostAsJsonAsync("/api/customer-auth/otp/request", new RequestOtpRequest(phone));
+        Assert.Equal(HttpStatusCode.TooManyRequests, sixthResponse.StatusCode);
+        Assert.True(sixthResponse.Headers.Contains("Retry-After") || sixthResponse.Headers.RetryAfter != null);
+
+        // Advance clock past the remaining window (total > 10 minutes from 1st request)
+        factory.Clock.Advance(TimeSpan.FromMinutes(3));
+
+        // Request should now succeed as the oldest request in the window rolled off
+        client.DefaultRequestHeaders.Remove("X-Forwarded-For");
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", "198.51.103.7");
+
+        var afterWindowResponse = await client.PostAsJsonAsync("/api/customer-auth/otp/request", new RequestOtpRequest(phone));
+        Assert.Equal(HttpStatusCode.OK, afterWindowResponse.StatusCode);
+    }
 }

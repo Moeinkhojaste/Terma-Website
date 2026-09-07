@@ -24,13 +24,15 @@ export function AccountLoginClient() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [challenge, setChallenge] = useState<OtpChallenge>();
+  const [cachedChallenge, setCachedChallenge] = useState<OtpChallenge>();
+  const [lastSentPhone, setLastSentPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [codeError, setCodeError] = useState("");
 
-  // OTP Resend Timer
-  const [countdown, setCountdown] = useState(60);
+  // OTP Resend Timer (120 seconds / 2 minutes)
+  const [countdown, setCountdown] = useState(120);
   const [canResend, setCanResend] = useState(false);
   const codeInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,13 +80,23 @@ export function AccountLoginClient() {
     setPhoneError(validationError);
     if (validationError) return;
 
+    const normalizedPhone = normalizeIranianMobile(phone)!;
+
+    // If phone number hasn't changed and an active challenge with remaining countdown exists, return to code entry
+    if (normalizedPhone === lastSentPhone && countdown > 0 && cachedChallenge) {
+      setChallenge(cachedChallenge);
+      setError("");
+      return;
+    }
+
     setBusy(true);
     setError("");
     try {
-      const normalizedPhone = normalizeIranianMobile(phone)!;
       const res = await requestOtp(normalizedPhone);
       setChallenge(res);
-      setCountdown(res.retryAfterSeconds || 60);
+      setCachedChallenge(res);
+      setLastSentPhone(normalizedPhone);
+      setCountdown(res.retryAfterSeconds || 120);
       setCanResend(false);
       setCode("");
       setCodeError("");
@@ -106,7 +118,9 @@ export function AccountLoginClient() {
       const normalizedPhone = normalizeIranianMobile(phone)!;
       const res = await requestOtp(normalizedPhone);
       setChallenge(res);
-      setCountdown(res.retryAfterSeconds || 60);
+      setCachedChallenge(res);
+      setLastSentPhone(normalizedPhone);
+      setCountdown(res.retryAfterSeconds || 120);
       setCanResend(false);
       setCode("");
       setCodeError("");
@@ -228,6 +242,22 @@ export function AccountLoginClient() {
                       </small>
                     )}
                   </div>
+
+                  {countdown > 0 && lastSentPhone && normalizeIranianMobile(phone) === lastSentPhone && cachedChallenge && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-800">
+                      <span>کد تأیید قبلاً به این شماره ارسال شده است.</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChallenge(cachedChallenge);
+                          setError("");
+                        }}
+                        className="font-semibold text-teal-900 underline hover:text-teal-700"
+                      >
+                        وارد کردن کد تأیید
+                      </button>
+                    </div>
+                  )}
 
                   <button
                     type="submit"
@@ -381,7 +411,15 @@ function accountErrorMessage(error: unknown) {
   if (error instanceof ApiError) {
     if (error.isNetworkError) return "ارتباط با سرویس برقرار نشد. لطفاً اتصال اینترنت خود را بررسی کنید.";
     if (error.status === 410) return "زمان اعتبار کد تأیید به پایان رسیده است. لطفاً کد جدید دریافت کنید.";
-    if (error.status === 429) return "تعداد درخواست‌های شما بیش از حد مجاز بوده است. لطفاً چند دقیقه صبر کرده و مجدداً تلاش کنید.";
+    if (error.status === 429) {
+      if (error.problem?.detail && /[\u0600-\u06FF]/.test(error.problem.detail)) {
+        return error.problem.detail;
+      }
+      if (error.message && /[\u0600-\u06FF]/.test(error.message)) {
+        return error.message;
+      }
+      return "تعداد درخواست‌های شما بیش از حد مجاز بوده است. لطفاً چند دقیقه صبر کرده و مجدداً تلاش کنید.";
+    }
     if (error.status === 409) return "این کد تأیید قبلاً استفاده شده است. لطفاً یک کد جدید درخواست کنید.";
     return getApiErrorMessage(error);
   }
