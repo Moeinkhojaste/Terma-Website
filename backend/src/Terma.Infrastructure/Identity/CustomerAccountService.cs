@@ -26,7 +26,7 @@ public sealed class CustomerAccountService(
 {
     private static readonly TimeSpan OtpLifetime = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan RequestWindow = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan ResendDelay = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan ResendDelay = TimeSpan.FromMinutes(2);
     private readonly OtpOptions _options = options.Value;
 
     public async Task<RequestOtpResponse> RequestOtpAsync(string phone, string remoteIp, CancellationToken cancellationToken)
@@ -44,13 +44,30 @@ public sealed class CustomerAccountService(
         if (latest is not null && latest.RequestedAtUtc + ResendDelay > now)
         {
             var retry = Math.Max(1, (int)Math.Ceiling((latest.RequestedAtUtc + ResendDelay - now).TotalSeconds));
-            throw new TooManyRequestsException("Wait before requesting another verification code.", retry);
+            throw new TooManyRequestsException("لطفاً پیش از درخواست مجدد کد تأیید، ۲ دقیقه صبر نمایید.", retry);
         }
 
-        if (await db.PhoneOtpChallenges.CountAsync(x => x.NormalizedPhone == normalizedPhone && x.RequestedAtUtc >= since, cancellationToken) >= 3)
-            throw new TooManyRequestsException("Too many verification codes were requested for this mobile number.", 600);
+        if (await db.PhoneOtpChallenges.CountAsync(x => x.NormalizedPhone == normalizedPhone && x.RequestedAtUtc >= since, cancellationToken) >= 5)
+        {
+            var oldest = await db.PhoneOtpChallenges
+                .Where(x => x.NormalizedPhone == normalizedPhone && x.RequestedAtUtc >= since)
+                .OrderBy(x => x.RequestedAtUtc)
+                .Select(x => x.RequestedAtUtc)
+                .FirstOrDefaultAsync(cancellationToken);
+            var retry = Math.Max(1, (int)Math.Ceiling((oldest + RequestWindow - now).TotalSeconds));
+            throw new TooManyRequestsException("سقف درخواست کد ورود برای این شماره (۵ بار در ۱۰ دقیقه) تکمیل شده است. لطفاً تا پایان ۱۰ دقیقه صبر کنید.", retry);
+        }
+
         if (await db.PhoneOtpChallenges.CountAsync(x => x.RequestIpHash == ipHash && x.RequestedAtUtc >= since, cancellationToken) >= 5)
-            throw new TooManyRequestsException("Too many verification codes were requested from this address.", 600);
+        {
+            var oldest = await db.PhoneOtpChallenges
+                .Where(x => x.RequestIpHash == ipHash && x.RequestedAtUtc >= since)
+                .OrderBy(x => x.RequestedAtUtc)
+                .Select(x => x.RequestedAtUtc)
+                .FirstOrDefaultAsync(cancellationToken);
+            var retry = Math.Max(1, (int)Math.Ceiling((oldest + RequestWindow - now).TotalSeconds));
+            throw new TooManyRequestsException("تعداد درخواست‌های کد ورود بیش از حد مجاز است. لطفاً تا پایان ۱۰ دقیقه صبر کنید.", retry);
+        }
 
         var active = await db.PhoneOtpChallenges
             .Where(x => x.NormalizedPhone == normalizedPhone && x.ConsumedAtUtc == null && x.InvalidatedAtUtc == null && x.ExpiresAtUtc > now)
