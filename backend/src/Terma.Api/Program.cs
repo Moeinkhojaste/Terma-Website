@@ -370,23 +370,6 @@ await using (var scope = app.Services.CreateAsyncScope())
     var autoMigrate = builder.Configuration.GetValue<bool?>("Database:AutoMigrate") ?? isDevelopment;
     if (autoMigrate && dbContext.Database.IsSqlServer())
     {
-        try
-        {
-            await dbContext.Database.ExecuteSqlRawAsync("IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Orders]') AND name = 'TrackingTokenHash') BEGIN ALTER TABLE [Orders] ALTER COLUMN [TrackingTokenHash] nvarchar(128) NULL; END");
-            await dbContext.Database.ExecuteSqlRawAsync(@"
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Products]') AND name = 'CompareAtPrice')
-BEGIN
-    ALTER TABLE [Products] ADD [CompareAtPrice] decimal(18,2) NULL;
-END
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Products]') AND name = 'DiscountPercent')
-BEGIN
-    ALTER TABLE [Products] ADD [DiscountPercent] int NULL;
-END");
-        }
-        catch
-        {
-            // ignore
-        }
         await dbContext.Database.MigrateAsync();
     }
     await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();

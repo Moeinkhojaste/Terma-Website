@@ -149,12 +149,6 @@ export function AccountLoginClient() {
     setError("");
   }
 
-  function handleUseDevCode(devCode: string) {
-    setCode(devCode);
-    setCodeError("");
-    setError("");
-  }
-
   const formatCountdown = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -291,23 +285,6 @@ export function AccountLoginClient() {
                       <span>ویرایش شماره</span>
                     </button>
                   </div>
-
-                  {/* Dev OTP Helper */}
-                  {challenge.developmentCode && (
-                    <div className="development-otp" role="status">
-                      <div className="development-otp__header">
-                        <span>کد موقت نسخه توسعه:</span>
-                        <strong dir="ltr">{challenge.developmentCode}</strong>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleUseDevCode(challenge.developmentCode!)}
-                        className="development-otp__use-btn"
-                      >
-                        درج خودکار کد
-                      </button>
-                    </div>
-                  )}
 
                   <div className="form-field">
                     <label htmlFor="auth-code-input" className="form-field__label">

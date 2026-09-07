@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Terma.Api.Controllers;
 using Terma.Application.Common.Authorization;
+using Terma.Application.Customers;
 using Terma.Infrastructure.Identity;
 using Terma.Infrastructure.Persistence;
 
@@ -45,12 +46,16 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment("Development");
         builder.UseSetting("Testing:DisableDemoSeed", "true");
+        builder.UseSetting("Otp:ExposeDevelopmentCode", "true");
+        builder.UseSetting("SmsIr:Enabled", "false");
 
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<TermaDbContext>>();
             services.RemoveAll<TermaDbContext>();
             services.RemoveAll<TimeProvider>();
+            services.RemoveAll<IPhoneOtpSender>();
+            services.AddScoped<IPhoneOtpSender, DevelopmentPhoneOtpSender>();
 
             if (IsSqlServer)
             {

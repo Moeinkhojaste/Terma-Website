@@ -14,31 +14,29 @@ namespace Terma.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<decimal>(
-                name: "CompareAtPrice",
-                table: "Products",
-                type: "decimal(18,2)",
-                precision: 18,
-                scale: 2,
-                nullable: true);
-
-            migrationBuilder.AddColumn<int>(
-                name: "DiscountPercent",
-                table: "Products",
-                type: "int",
-                nullable: true);
+            migrationBuilder.Sql(@"
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Products]') AND name = 'CompareAtPrice')
+BEGIN
+    ALTER TABLE [Products] ADD [CompareAtPrice] decimal(18,2) NULL;
+END
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Products]') AND name = 'DiscountPercent')
+BEGIN
+    ALTER TABLE [Products] ADD [DiscountPercent] int NULL;
+END");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "CompareAtPrice",
-                table: "Products");
-
-            migrationBuilder.DropColumn(
-                name: "DiscountPercent",
-                table: "Products");
+            migrationBuilder.Sql(@"
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Products]') AND name = 'CompareAtPrice')
+BEGIN
+    ALTER TABLE [Products] DROP COLUMN [CompareAtPrice];
+END
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Products]') AND name = 'DiscountPercent')
+BEGIN
+    ALTER TABLE [Products] DROP COLUMN [DiscountPercent];
+END");
         }
     }
 }

@@ -72,7 +72,7 @@ public sealed class CustomerAccountService(
             throw;
         }
 
-        var expose = environment.IsDevelopment() || _options.ExposeDevelopmentCode;
+        var expose = _options.ExposeDevelopmentCode;
         return new RequestOtpResponse(entity.Id, new DateTimeOffset(entity.ExpiresAtUtc, TimeSpan.Zero), (int)ResendDelay.TotalSeconds, expose ? code : null);
     }
 
