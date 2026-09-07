@@ -19,6 +19,7 @@ using Microsoft.Extensions.Options;
 using Terma.Application.Telegram;
 using Terma.Infrastructure.Telegram;
 using Terma.Infrastructure.Sms;
+using Terma.Infrastructure.Email;
 
 namespace Terma.Infrastructure;
 
@@ -71,6 +72,9 @@ public static class DependencyInjection
 
         services.AddScoped<ISecurityAuditService, SecurityAuditService>();
         services.AddScoped<ICustomerAccountService, CustomerAccountService>();
+        services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
+        services.AddScoped<IAdminPasswordResetService, AdminPasswordResetService>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IStoreOperationsService, StoreOperationsService>();

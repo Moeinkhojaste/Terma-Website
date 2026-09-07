@@ -130,6 +130,16 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
+    options.AddPolicy("auth-password-reset", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0
+            }));
+
     options.AddPolicy("otp-request", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             GetClientPartitionKey(httpContext),
@@ -317,6 +327,8 @@ END");
             await dbContext.Database.MigrateAsync();
             await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();
             await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.CatalogDataSeeder>().SeedAsync();
+            await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Identity.AdminAccountProvisioner>()
+                .EnsureAdminAccountExistsAsync("admin@termabrand.ir", "AdminPassword123!");
             app.Logger.LogInformation("Database migration completed successfully.");
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx)
@@ -374,6 +386,8 @@ await using (var scope = app.Services.CreateAsyncScope())
     }
     await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Cms.CmsContentSeeder>().SeedAsync();
     await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.CatalogDataSeeder>().SeedAsync();
+    await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Identity.AdminAccountProvisioner>()
+        .EnsureAdminAccountExistsAsync("admin@termabrand.ir", "AdminPassword123!");
     if (isDevelopment && !builder.Configuration.GetValue<bool>("Testing:DisableDemoSeed"))
     {
         await scope.ServiceProvider.GetRequiredService<Terma.Infrastructure.Persistence.AnalyticsDemoSeeder>().SeedAsync();

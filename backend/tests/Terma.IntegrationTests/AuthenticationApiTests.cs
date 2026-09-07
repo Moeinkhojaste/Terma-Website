@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Terma.Api.Controllers;
+using Terma.Application.Admin;
 using Terma.Application.Categories;
 using Terma.Application.Common.Authorization;
 using Terma.Infrastructure.Identity;
@@ -156,6 +157,92 @@ public sealed class AuthenticationApiTests(TermaApiFactory factory) : IClassFixt
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal("Invalid antiforgery token", json.RootElement.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task AdminPasswordReset_RequestCode_SucceedsForAdmin()
+    {
+        using var client = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/password-reset/request",
+            new AdminPasswordResetRequest(TermaApiFactory.AdminEmail));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<AdminPasswordResetResponse>();
+        Assert.NotNull(result);
+        Assert.NotEqual(Guid.Empty, result.ChallengeId);
+        Assert.False(string.IsNullOrWhiteSpace(result.DevelopmentCode));
+    }
+
+    [Fact]
+    public async Task AdminPasswordReset_RequestCode_FailsForNonAdmin()
+    {
+        using var client = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/password-reset/request",
+            new AdminPasswordResetRequest("nonexistent@example.test"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminPasswordReset_InvalidCode_Fails()
+    {
+        using var client = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
+
+        var requestRes = await client.PostAsJsonAsync(
+            "/api/auth/password-reset/request",
+            new AdminPasswordResetRequest(TermaApiFactory.AdminEmail));
+        var challenge = await requestRes.Content.ReadFromJsonAsync<AdminPasswordResetResponse>();
+
+        var confirmRes = await client.PostAsJsonAsync(
+            "/api/auth/password-reset/confirm",
+            new AdminPasswordResetConfirmRequest(challenge!.ChallengeId, "000000", "NewSecurePassword123!", "NewSecurePassword123!"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, confirmRes.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminPasswordReset_SuccessfulFlow_ChangesPasswordAndAllowsLogin()
+    {
+        var adminEmail = $"reset-admin-{Guid.NewGuid():N}@example.test";
+        const string oldPassword = "InitialPassword123!";
+        const string newPassword = "BrandNewPassword2026!";
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var provisioner = scope.ServiceProvider.GetRequiredService<AdminAccountProvisioner>();
+            await provisioner.ProvisionAsync(adminEmail, oldPassword);
+        }
+
+        using var client = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
+
+        var requestRes = await client.PostAsJsonAsync(
+            "/api/auth/password-reset/request",
+            new AdminPasswordResetRequest(adminEmail));
+        Assert.Equal(HttpStatusCode.OK, requestRes.StatusCode);
+        var challenge = await requestRes.Content.ReadFromJsonAsync<AdminPasswordResetResponse>();
+        Assert.NotNull(challenge?.DevelopmentCode);
+
+        var confirmRes = await client.PostAsJsonAsync(
+            "/api/auth/password-reset/confirm",
+            new AdminPasswordResetConfirmRequest(challenge.ChallengeId, challenge.DevelopmentCode, newPassword, newPassword));
+        Assert.Equal(HttpStatusCode.OK, confirmRes.StatusCode);
+
+        var oldLogin = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(adminEmail, oldPassword));
+        Assert.Equal(HttpStatusCode.Unauthorized, oldLogin.StatusCode);
+
+        var newLogin = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(adminEmail, newPassword));
+        Assert.Equal(HttpStatusCode.OK, newLogin.StatusCode);
+
+        var meRes = await client.GetAsync("/api/auth/me");
+        Assert.Equal(HttpStatusCode.OK, meRes.StatusCode);
     }
 
     private static CreateCategoryRequest ValidCategory() => new()
