@@ -50,8 +50,32 @@ export function Header({
     string | null | undefined
   >(siteAnnouncement !== undefined ? (siteAnnouncement?.trim() || null) : undefined);
 
+  const [fetchedBrandInfo, setFetchedBrandInfo] = useState<{
+    name?: string;
+    tagline?: string;
+    logoUrl?: string;
+  } | null>(null);
+
+  const brandInfo = {
+    name:
+      (siteContactBlock?.data?.brandName as string) ||
+      fetchedBrandInfo?.name ||
+      brandName,
+    tagline:
+      (siteContactBlock?.data?.tagline as string) ||
+      fetchedBrandInfo?.tagline ||
+      brandTagline,
+    logoUrl:
+      (typeof siteContactBlock?.data?.logoUrl === "string" &&
+      siteContactBlock.data.logoUrl.startsWith("/")
+        ? siteContactBlock.data.logoUrl
+        : undefined) ||
+      fetchedBrandInfo?.logoUrl ||
+      logoUrl,
+  };
+
   useEffect(() => {
-    if (preview || siteAnnouncement !== undefined) return;
+    if (preview) return;
 
     getPublishedSite()
       .then((s) => {
@@ -64,12 +88,24 @@ export function Header({
         ) {
           const text = announcementBlock.data.text.trim();
           setFetchedAnnouncement(text.length > 0 ? text : null);
-        } else {
+        } else if (siteAnnouncement === undefined) {
           setFetchedAnnouncement(null);
+        }
+
+        const contactBlock = s.document.blocks.find(
+          (b) => b.type === "contactInfo",
+        );
+        if (contactBlock?.data) {
+          const d = contactBlock.data;
+          setFetchedBrandInfo({
+            name: typeof d.brandName === "string" && d.brandName ? d.brandName : "ترما",
+            tagline: typeof d.tagline === "string" && d.tagline ? d.tagline : "ترمه فاخر ایرانی",
+            logoUrl: typeof d.logoUrl === "string" && d.logoUrl.startsWith("/") ? d.logoUrl : "/images/terma-logo.webp",
+          });
         }
       })
       .catch(() => {
-        setFetchedAnnouncement(null);
+        if (siteAnnouncement === undefined) setFetchedAnnouncement(null);
       });
   }, [preview, siteAnnouncement]);
 
@@ -98,20 +134,19 @@ export function Header({
       )}
       <header className="site-header">
         <Container className="header-main">
-          <Link className="brand" href="/" aria-label={`${brandName}، صفحه اصلی`}>
+          <Link className="brand" href="/" aria-label={`${brandInfo.name}، صفحه اصلی`}>
             <span className="brand-mark">
               <Image
-                src={logoUrl}
-                alt={`لوگوی ${brandName}`}
+                src={brandInfo.logoUrl}
+                alt={`لوگوی ${brandInfo.name}`}
                 fill
                 sizes="(max-width: 768px) 160px, 300px"
                 priority
-                quality={90}
               />
             </span>
             <span className="brand-text">
-              <span className="brand-name">{brandName}</span>
-              <span className="brand-tagline">{brandTagline}</span>
+              <span className="brand-name">{brandInfo.name}</span>
+              <span className="brand-tagline">{brandInfo.tagline}</span>
             </span>
           </Link>
           <nav className="desktop-nav" aria-label="ناوبری اصلی">

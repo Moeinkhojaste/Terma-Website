@@ -184,7 +184,6 @@ export function AboutPage({ document }: AboutPageProps) {
                 fill
                 priority
                 sizes="(max-width: 900px) 92vw, 48vw"
-                quality={90}
               />
             </div>
             <div className="about-hero__frame about-hero__frame--accent">
@@ -193,7 +192,6 @@ export function AboutPage({ document }: AboutPageProps) {
                 alt="نمای بافت و آستر سفره ترمه نیلا"
                 fill
                 sizes="(max-width: 900px) 45vw, 22vw"
-                quality={90}
               />
             </div>
             <div className="about-hero__floating-card">
@@ -267,7 +265,6 @@ export function AboutPage({ document }: AboutPageProps) {
                 alt="نمای لبه‌دوزی و مغزی‌دوزی طلایی سفره ترمه فیروزه"
                 fill
                 sizes="(max-width: 900px) 92vw, 45vw"
-                quality={90}
               />
             </div>
             <div className="about-craft-badge">

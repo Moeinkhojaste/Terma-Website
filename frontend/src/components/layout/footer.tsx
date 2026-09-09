@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
@@ -44,32 +44,57 @@ export function Footer({
     ? rawLogoUrl
     : "/images/terma-logo.webp";
 
-  const siteSocialLinks: FooterSocialLinks | undefined = siteContactBlock?.data
-    ? {
-        instagramUrl:
-          typeof siteContactBlock.data.instagramUrl === "string" &&
-          siteContactBlock.data.instagramUrl
-            ? siteContactBlock.data.instagramUrl
-            : defaultSocialLinks.instagramUrl,
-        telegramUrl:
-          typeof siteContactBlock.data.telegramUrl === "string" &&
-          siteContactBlock.data.telegramUrl
-            ? siteContactBlock.data.telegramUrl
-            : defaultSocialLinks.telegramUrl,
-        whatsappUrl:
-          typeof siteContactBlock.data.whatsappUrl === "string" &&
-          siteContactBlock.data.whatsappUrl
-            ? siteContactBlock.data.whatsappUrl
-            : defaultSocialLinks.whatsappUrl,
-      }
-    : undefined;
+  const siteSocialLinks: FooterSocialLinks | undefined = useMemo(() => {
+    if (!siteContactBlock?.data) return undefined;
+    return {
+      instagramUrl:
+        typeof siteContactBlock.data.instagramUrl === "string" &&
+        siteContactBlock.data.instagramUrl
+          ? siteContactBlock.data.instagramUrl
+          : defaultSocialLinks.instagramUrl,
+      telegramUrl:
+        typeof siteContactBlock.data.telegramUrl === "string" &&
+        siteContactBlock.data.telegramUrl
+          ? siteContactBlock.data.telegramUrl
+          : defaultSocialLinks.telegramUrl,
+      whatsappUrl:
+        typeof siteContactBlock.data.whatsappUrl === "string" &&
+        siteContactBlock.data.whatsappUrl
+          ? siteContactBlock.data.whatsappUrl
+          : defaultSocialLinks.whatsappUrl,
+    };
+  }, [siteContactBlock]);
 
   const [socialLinks, setSocialLinks] = useState<FooterSocialLinks>(
     initialSocialLinks ?? siteSocialLinks ?? defaultSocialLinks,
   );
 
+  const [fetchedBrandInfo, setFetchedBrandInfo] = useState<{
+    name?: string;
+    tagline?: string;
+    logoUrl?: string;
+  } | null>(null);
+
+  const brandInfo = {
+    name:
+      (siteContactBlock?.data?.brandName as string) ||
+      fetchedBrandInfo?.name ||
+      brandName,
+    tagline:
+      (siteContactBlock?.data?.tagline as string) ||
+      fetchedBrandInfo?.tagline ||
+      brandTagline,
+    logoUrl:
+      (typeof siteContactBlock?.data?.logoUrl === "string" &&
+      siteContactBlock.data.logoUrl.startsWith("/")
+        ? siteContactBlock.data.logoUrl
+        : undefined) ||
+      fetchedBrandInfo?.logoUrl ||
+      logoUrl,
+  };
+
   useEffect(() => {
-    if (initialSocialLinks || siteSocialLinks) return;
+    if (initialSocialLinks && siteContactBlock) return;
     getPublishedSite()
       .then((s) => {
         const contactBlock = s.document.blocks.find(
@@ -77,26 +102,33 @@ export function Footer({
         );
         if (contactBlock?.data) {
           const d = contactBlock.data;
-          setSocialLinks({
-            instagramUrl:
-              typeof d.instagramUrl === "string" && d.instagramUrl
-                ? d.instagramUrl
-                : defaultSocialLinks.instagramUrl,
-            telegramUrl:
-              typeof d.telegramUrl === "string" && d.telegramUrl
-                ? d.telegramUrl
-                : defaultSocialLinks.telegramUrl,
-            whatsappUrl:
-              typeof d.whatsappUrl === "string" && d.whatsappUrl
-                ? d.whatsappUrl
-                : defaultSocialLinks.whatsappUrl,
+          setFetchedBrandInfo({
+            name: typeof d.brandName === "string" && d.brandName ? d.brandName : "ترما",
+            tagline: typeof d.tagline === "string" && d.tagline ? d.tagline : "سفره‌های ترمه برای خانه‌های ایرانی امروز",
+            logoUrl: typeof d.logoUrl === "string" && d.logoUrl.startsWith("/") ? d.logoUrl : "/images/terma-logo.webp",
           });
+          if (!initialSocialLinks && !siteSocialLinks) {
+            setSocialLinks({
+              instagramUrl:
+                typeof d.instagramUrl === "string" && d.instagramUrl
+                  ? d.instagramUrl
+                  : defaultSocialLinks.instagramUrl,
+              telegramUrl:
+                typeof d.telegramUrl === "string" && d.telegramUrl
+                  ? d.telegramUrl
+                  : defaultSocialLinks.telegramUrl,
+              whatsappUrl:
+                typeof d.whatsappUrl === "string" && d.whatsappUrl
+                  ? d.whatsappUrl
+                  : defaultSocialLinks.whatsappUrl,
+            });
+          }
         }
       })
       .catch(() => {
         // Fallback to default social links
       });
-  }, [initialSocialLinks, siteSocialLinks]);
+  }, [initialSocialLinks, siteSocialLinks, siteContactBlock]);
 
   const instagramUrl =
     socialLinks.instagramUrl || defaultSocialLinks.instagramUrl;
@@ -118,16 +150,15 @@ export function Footer({
         <div className="footer-brand">
           <span className="brand-mark brand-mark--footer">
             <Image
-              src={logoUrl}
-              alt={`لوگوی ${brandName}`}
+              src={brandInfo.logoUrl}
+              alt={`لوگوی ${brandInfo.name}`}
               fill
               sizes="(max-width: 768px) 120px, 160px"
-              quality={90}
             />
           </span>
           <div className="footer-brand-text">
-            <strong>{brandName}</strong>
-            <p>{brandTagline}</p>
+            <strong>{brandInfo.name}</strong>
+            <p>{brandInfo.tagline}</p>
           </div>
         </div>
         {dynamicFooterLinks && dynamicFooterLinks.length > 0 ? (
