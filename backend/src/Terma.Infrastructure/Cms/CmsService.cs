@@ -239,6 +239,9 @@ public sealed class CmsService(TermaDbContext db, IMediaStorage mediaStorage, Ti
             }
         }
 
+        OverrideIfSiteHas("brandName");
+        OverrideIfSiteHas("tagline");
+        OverrideIfSiteHas("logoUrl");
         OverrideIfSiteHas("email");
         OverrideIfSiteHas("phone");
         OverrideIfSiteHas("instagramUrl");
@@ -303,6 +306,9 @@ public sealed class CmsService(TermaDbContext db, IMediaStorage mediaStorage, Ti
             }
         }
 
+        CopyProp("brandName");
+        CopyProp("tagline");
+        CopyProp("logoUrl");
         CopyProp("email");
         CopyProp("phone");
         CopyProp("instagramUrl");

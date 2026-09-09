@@ -68,8 +68,30 @@ export function Footer({
     initialSocialLinks ?? siteSocialLinks ?? defaultSocialLinks,
   );
 
+  const [brandInfo, setBrandInfo] = useState({
+    name: brandName,
+    tagline: brandTagline,
+    logoUrl,
+  });
+
   useEffect(() => {
-    if (initialSocialLinks || siteSocialLinks) return;
+    if (siteContactBlock?.data) {
+      setBrandInfo({
+        name: (siteContactBlock.data.brandName as string) || "ترما",
+        tagline:
+          (siteContactBlock.data.tagline as string) ||
+          "سفره‌های ترمه برای خانه‌های ایرانی امروز",
+        logoUrl:
+          typeof siteContactBlock.data.logoUrl === "string" &&
+          siteContactBlock.data.logoUrl.startsWith("/")
+            ? siteContactBlock.data.logoUrl
+            : "/images/terma-logo.webp",
+      });
+    }
+  }, [siteContactBlock]);
+
+  useEffect(() => {
+    if (initialSocialLinks && siteContactBlock) return;
     getPublishedSite()
       .then((s) => {
         const contactBlock = s.document.blocks.find(
@@ -77,26 +99,33 @@ export function Footer({
         );
         if (contactBlock?.data) {
           const d = contactBlock.data;
-          setSocialLinks({
-            instagramUrl:
-              typeof d.instagramUrl === "string" && d.instagramUrl
-                ? d.instagramUrl
-                : defaultSocialLinks.instagramUrl,
-            telegramUrl:
-              typeof d.telegramUrl === "string" && d.telegramUrl
-                ? d.telegramUrl
-                : defaultSocialLinks.telegramUrl,
-            whatsappUrl:
-              typeof d.whatsappUrl === "string" && d.whatsappUrl
-                ? d.whatsappUrl
-                : defaultSocialLinks.whatsappUrl,
+          setBrandInfo({
+            name: typeof d.brandName === "string" && d.brandName ? d.brandName : "ترما",
+            tagline: typeof d.tagline === "string" && d.tagline ? d.tagline : "سفره‌های ترمه برای خانه‌های ایرانی امروز",
+            logoUrl: typeof d.logoUrl === "string" && d.logoUrl.startsWith("/") ? d.logoUrl : "/images/terma-logo.webp",
           });
+          if (!initialSocialLinks && !siteSocialLinks) {
+            setSocialLinks({
+              instagramUrl:
+                typeof d.instagramUrl === "string" && d.instagramUrl
+                  ? d.instagramUrl
+                  : defaultSocialLinks.instagramUrl,
+              telegramUrl:
+                typeof d.telegramUrl === "string" && d.telegramUrl
+                  ? d.telegramUrl
+                  : defaultSocialLinks.telegramUrl,
+              whatsappUrl:
+                typeof d.whatsappUrl === "string" && d.whatsappUrl
+                  ? d.whatsappUrl
+                  : defaultSocialLinks.whatsappUrl,
+            });
+          }
         }
       })
       .catch(() => {
         // Fallback to default social links
       });
-  }, [initialSocialLinks, siteSocialLinks]);
+  }, [initialSocialLinks, siteSocialLinks, siteContactBlock]);
 
   const instagramUrl =
     socialLinks.instagramUrl || defaultSocialLinks.instagramUrl;
@@ -118,16 +147,16 @@ export function Footer({
         <div className="footer-brand">
           <span className="brand-mark brand-mark--footer">
             <Image
-              src={logoUrl}
-              alt={`لوگوی ${brandName}`}
+              src={brandInfo.logoUrl}
+              alt={`لوگوی ${brandInfo.name}`}
               fill
               sizes="(max-width: 768px) 120px, 160px"
               quality={90}
             />
           </span>
           <div className="footer-brand-text">
-            <strong>{brandName}</strong>
-            <p>{brandTagline}</p>
+            <strong>{brandInfo.name}</strong>
+            <p>{brandInfo.tagline}</p>
           </div>
         </div>
         {dynamicFooterLinks && dynamicFooterLinks.length > 0 ? (
