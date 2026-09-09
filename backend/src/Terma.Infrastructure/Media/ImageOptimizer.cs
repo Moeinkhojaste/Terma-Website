@@ -1,11 +1,14 @@
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.Processing;
 using Terma.Application.Common.Interfaces;
 
 namespace Terma.Infrastructure.Media;
 
 public sealed class ImageOptimizer : IImageOptimizer
 {
+    private const int MaxDimension = 2048;
+
     public async Task<OptimizedImageResult> OptimizeToWebpAsync(Stream inputStream, int quality = 85, CancellationToken cancellationToken = default)
     {
         if (inputStream.CanSeek && inputStream.Position != 0)
@@ -14,10 +17,20 @@ public sealed class ImageOptimizer : IImageOptimizer
         }
 
         using var image = await Image.LoadAsync(inputStream, cancellationToken);
+
+        if (image.Width > MaxDimension || image.Height > MaxDimension)
+        {
+            image.Mutate(x => x.Resize(new ResizeOptions
+            {
+                Size = new Size(MaxDimension, MaxDimension),
+                Mode = ResizeMode.Max
+            }));
+        }
+
         var encoder = new WebpEncoder
         {
             Quality = Math.Clamp(quality, 1, 100),
-            Method = WebpEncodingMethod.Level6,
+            Method = WebpEncodingMethod.Level5,
             FileFormat = WebpFileFormatType.Lossy
         };
 

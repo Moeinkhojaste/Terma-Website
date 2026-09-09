@@ -50,25 +50,29 @@ export function Header({
     string | null | undefined
   >(siteAnnouncement !== undefined ? (siteAnnouncement?.trim() || null) : undefined);
 
-  const [brandInfo, setBrandInfo] = useState({
-    name: brandName,
-    tagline: brandTagline,
-    logoUrl,
-  });
+  const [fetchedBrandInfo, setFetchedBrandInfo] = useState<{
+    name?: string;
+    tagline?: string;
+    logoUrl?: string;
+  } | null>(null);
 
-  useEffect(() => {
-    if (siteContactBlock?.data) {
-      setBrandInfo({
-        name: (siteContactBlock.data.brandName as string) || "ترما",
-        tagline: (siteContactBlock.data.tagline as string) || "ترمه فاخر ایرانی",
-        logoUrl:
-          typeof siteContactBlock.data.logoUrl === "string" &&
-          siteContactBlock.data.logoUrl.startsWith("/")
-            ? siteContactBlock.data.logoUrl
-            : "/images/terma-logo.webp",
-      });
-    }
-  }, [siteContactBlock]);
+  const brandInfo = {
+    name:
+      (siteContactBlock?.data?.brandName as string) ||
+      fetchedBrandInfo?.name ||
+      brandName,
+    tagline:
+      (siteContactBlock?.data?.tagline as string) ||
+      fetchedBrandInfo?.tagline ||
+      brandTagline,
+    logoUrl:
+      (typeof siteContactBlock?.data?.logoUrl === "string" &&
+      siteContactBlock.data.logoUrl.startsWith("/")
+        ? siteContactBlock.data.logoUrl
+        : undefined) ||
+      fetchedBrandInfo?.logoUrl ||
+      logoUrl,
+  };
 
   useEffect(() => {
     if (preview) return;
@@ -93,7 +97,7 @@ export function Header({
         );
         if (contactBlock?.data) {
           const d = contactBlock.data;
-          setBrandInfo({
+          setFetchedBrandInfo({
             name: typeof d.brandName === "string" && d.brandName ? d.brandName : "ترما",
             tagline: typeof d.tagline === "string" && d.tagline ? d.tagline : "ترمه فاخر ایرانی",
             logoUrl: typeof d.logoUrl === "string" && d.logoUrl.startsWith("/") ? d.logoUrl : "/images/terma-logo.webp",
@@ -138,7 +142,6 @@ export function Header({
                 fill
                 sizes="(max-width: 768px) 160px, 300px"
                 priority
-                quality={90}
               />
             </span>
             <span className="brand-text">

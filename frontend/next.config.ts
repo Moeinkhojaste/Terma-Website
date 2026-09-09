@@ -18,8 +18,8 @@ const cspHeader = `
 const nextConfig: NextConfig = {
   output: "standalone",
   images: {
-    formats: ["image/avif", "image/webp"],
-    qualities: [75, 90, 95],
+    formats: ["image/webp"],
+    minimumCacheTTL: 2592000,
     remotePatterns: [
       { protocol: "http", hostname: "localhost", pathname: "/**" },
       { protocol: "https", hostname: "localhost", pathname: "/**" },

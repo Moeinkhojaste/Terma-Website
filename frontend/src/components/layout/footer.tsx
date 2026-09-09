@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
@@ -44,51 +44,54 @@ export function Footer({
     ? rawLogoUrl
     : "/images/terma-logo.webp";
 
-  const siteSocialLinks: FooterSocialLinks | undefined = siteContactBlock?.data
-    ? {
-        instagramUrl:
-          typeof siteContactBlock.data.instagramUrl === "string" &&
-          siteContactBlock.data.instagramUrl
-            ? siteContactBlock.data.instagramUrl
-            : defaultSocialLinks.instagramUrl,
-        telegramUrl:
-          typeof siteContactBlock.data.telegramUrl === "string" &&
-          siteContactBlock.data.telegramUrl
-            ? siteContactBlock.data.telegramUrl
-            : defaultSocialLinks.telegramUrl,
-        whatsappUrl:
-          typeof siteContactBlock.data.whatsappUrl === "string" &&
-          siteContactBlock.data.whatsappUrl
-            ? siteContactBlock.data.whatsappUrl
-            : defaultSocialLinks.whatsappUrl,
-      }
-    : undefined;
+  const siteSocialLinks: FooterSocialLinks | undefined = useMemo(() => {
+    if (!siteContactBlock?.data) return undefined;
+    return {
+      instagramUrl:
+        typeof siteContactBlock.data.instagramUrl === "string" &&
+        siteContactBlock.data.instagramUrl
+          ? siteContactBlock.data.instagramUrl
+          : defaultSocialLinks.instagramUrl,
+      telegramUrl:
+        typeof siteContactBlock.data.telegramUrl === "string" &&
+        siteContactBlock.data.telegramUrl
+          ? siteContactBlock.data.telegramUrl
+          : defaultSocialLinks.telegramUrl,
+      whatsappUrl:
+        typeof siteContactBlock.data.whatsappUrl === "string" &&
+        siteContactBlock.data.whatsappUrl
+          ? siteContactBlock.data.whatsappUrl
+          : defaultSocialLinks.whatsappUrl,
+    };
+  }, [siteContactBlock]);
 
   const [socialLinks, setSocialLinks] = useState<FooterSocialLinks>(
     initialSocialLinks ?? siteSocialLinks ?? defaultSocialLinks,
   );
 
-  const [brandInfo, setBrandInfo] = useState({
-    name: brandName,
-    tagline: brandTagline,
-    logoUrl,
-  });
+  const [fetchedBrandInfo, setFetchedBrandInfo] = useState<{
+    name?: string;
+    tagline?: string;
+    logoUrl?: string;
+  } | null>(null);
 
-  useEffect(() => {
-    if (siteContactBlock?.data) {
-      setBrandInfo({
-        name: (siteContactBlock.data.brandName as string) || "ترما",
-        tagline:
-          (siteContactBlock.data.tagline as string) ||
-          "سفره‌های ترمه برای خانه‌های ایرانی امروز",
-        logoUrl:
-          typeof siteContactBlock.data.logoUrl === "string" &&
-          siteContactBlock.data.logoUrl.startsWith("/")
-            ? siteContactBlock.data.logoUrl
-            : "/images/terma-logo.webp",
-      });
-    }
-  }, [siteContactBlock]);
+  const brandInfo = {
+    name:
+      (siteContactBlock?.data?.brandName as string) ||
+      fetchedBrandInfo?.name ||
+      brandName,
+    tagline:
+      (siteContactBlock?.data?.tagline as string) ||
+      fetchedBrandInfo?.tagline ||
+      brandTagline,
+    logoUrl:
+      (typeof siteContactBlock?.data?.logoUrl === "string" &&
+      siteContactBlock.data.logoUrl.startsWith("/")
+        ? siteContactBlock.data.logoUrl
+        : undefined) ||
+      fetchedBrandInfo?.logoUrl ||
+      logoUrl,
+  };
 
   useEffect(() => {
     if (initialSocialLinks && siteContactBlock) return;
@@ -99,7 +102,7 @@ export function Footer({
         );
         if (contactBlock?.data) {
           const d = contactBlock.data;
-          setBrandInfo({
+          setFetchedBrandInfo({
             name: typeof d.brandName === "string" && d.brandName ? d.brandName : "ترما",
             tagline: typeof d.tagline === "string" && d.tagline ? d.tagline : "سفره‌های ترمه برای خانه‌های ایرانی امروز",
             logoUrl: typeof d.logoUrl === "string" && d.logoUrl.startsWith("/") ? d.logoUrl : "/images/terma-logo.webp",
@@ -151,7 +154,6 @@ export function Footer({
               alt={`لوگوی ${brandInfo.name}`}
               fill
               sizes="(max-width: 768px) 120px, 160px"
-              quality={90}
             />
           </span>
           <div className="footer-brand-text">

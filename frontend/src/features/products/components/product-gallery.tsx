@@ -45,7 +45,7 @@ export function ProductGallery({ media, productName }: { media: ProductMedia[]; 
     <div className="product-gallery" aria-label={`تصاویر ${productName}`}>
       <div className="product-gallery__stage" onTouchStart={(event) => { touchStart.current = event.touches[0].clientX; }} onTouchEnd={(event) => handleTouchEnd(event.changedTouches[0].clientX)}>
         <button type="button" className="product-gallery__open" onClick={() => setViewerOpen(true)} aria-label={`نمایش تمام‌صفحه ${current.alt}`}>
-          <Image src={current.src} alt={current.alt} fill priority={index === 0} quality={90} sizes="(max-width: 900px) 94vw, 54vw" />
+          <Image src={current.src} alt={current.alt} fill priority={index === 0} sizes="(max-width: 900px) 94vw, 54vw" />
           <span className="product-gallery__zoom-hint"><ZoomInIcon /> برای بزرگ‌نمایی لمس کنید</span>
         </button>
         {media.length > 1 && <>
@@ -73,7 +73,11 @@ export function ProductGallery({ media, productName }: { media: ProductMedia[]; 
           </div>
         </div>
         <div className={`gallery-viewer__image${zoom > 1 ? " is-zoomed" : ""}`} onClick={() => setZoom((value) => value === 1 ? 2 : 1)} onTouchStart={(event) => { touchStart.current = event.touches[0].clientX; }} onTouchEnd={(event) => handleTouchEnd(event.changedTouches[0].clientX)}>
-          <div style={{ transform: `scale(${zoom})` }}><Image src={current.src} alt={current.alt} fill quality={95} sizes="100vw" /></div>
+          {viewerOpen && (
+            <div style={{ transform: `scale(${zoom})` }}>
+              <Image src={current.src} alt={current.alt} fill sizes="100vw" />
+            </div>
+          )}
         </div>
         {media.length > 1 && <div className="gallery-viewer__navigation"><button type="button" onClick={() => move(-1)}><ArrowLeftIcon /> تصویر قبلی</button><span>{index + 1} از {media.length}</span><button type="button" onClick={() => move(1)}>تصویر بعدی <ArrowLeftIcon /></button></div>}
       </AccessibleDialog>
