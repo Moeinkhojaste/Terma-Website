@@ -206,6 +206,85 @@ public sealed class CmsApiTests(TermaApiFactory factory) : IClassFixture<TermaAp
         Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/admin/cms/media/{asset.Id}")).StatusCode);
     }
 
+    [Fact]
+    public async Task ContactInfo_WhenUpdatedInSiteSettings_SyncsToContactPage_And_IsAvailablePublicly()
+    {
+        using var anonymous = factory.CreateHttpsClient();
+        using var admin = await factory.CreateAdminClientAsync();
+
+        // 1. Get site-settings page ID
+        var pages = await admin.GetFromJsonAsync<List<CmsPageSummaryDto>>("/api/admin/cms/pages", JsonOptions);
+        var siteSettingsSummary = Assert.Single(pages!, p => p.Slug == "site-settings");
+
+        var siteSettingsDetail = (await admin.GetFromJsonAsync<CmsPageDetailDto>($"/api/admin/cms/pages/{siteSettingsSummary.Id}", JsonOptions))!;
+
+        // 2. Modify contactInfo block with new contact details
+        var updatedBlocks = siteSettingsDetail.Document.Blocks.Select(b =>
+        {
+            if (b.Type == "contactInfo")
+            {
+                var newContactData = new
+                {
+                    brandName = "ترما",
+                    tagline = "سفره‌های ترمه اصیل ایرانی با آستر ساتن و دوخت سفارشی",
+                    logoUrl = "/images/terma-logo.webp",
+                    email = "info@termabrand.ir",
+                    phone = "09127593778",
+                    instagramUrl = "https://instagram.com/terma.brand",
+                    telegramUrl = "https://t.me/terma_ir",
+                    whatsappUrl = "https://wa.me/989121234567",
+                    responseHours = "شنبه تا پنجشنبه ۹ تا ۱۸"
+                };
+                return new CmsBlockDto { Id = b.Id, Type = b.Type, Data = JsonSerializer.SerializeToElement(newContactData) };
+            }
+            return b;
+        }).ToList();
+
+        var updatedDoc = new CmsDocumentDto
+        {
+            SchemaVersion = siteSettingsDetail.Document.SchemaVersion,
+            Seo = siteSettingsDetail.Document.Seo,
+            Blocks = updatedBlocks
+        };
+
+        // 3. Save draft and publish site-settings
+        var saveResponse = await SendAsync(admin, HttpMethod.Put, $"/api/admin/cms/pages/{siteSettingsDetail.Id}/draft", new SaveCmsDraftRequest
+        {
+            Name = siteSettingsDetail.Name,
+            Slug = siteSettingsDetail.Slug,
+            Document = updatedDoc
+        }, siteSettingsDetail.RowVersion);
+        Assert.Equal(HttpStatusCode.OK, saveResponse.StatusCode);
+        var savedPage = (await saveResponse.Content.ReadFromJsonAsync<CmsPageDetailDto>(JsonOptions))!;
+
+        var publishResponse = await SendAsync(admin, HttpMethod.Post, $"/api/admin/cms/pages/{savedPage.Id}/publish", null, savedPage.RowVersion);
+        Assert.Equal(HttpStatusCode.OK, publishResponse.StatusCode);
+
+        // 4. Verify public /api/store/cms/pages/contact has the new email, phone, and responseHours
+        var contactResponse = await anonymous.GetAsync("/api/store/cms/pages/contact");
+        Assert.Equal(HttpStatusCode.OK, contactResponse.StatusCode);
+        var contactPage = (await contactResponse.Content.ReadFromJsonAsync<CmsPublishedPageDto>(JsonOptions))!;
+
+        var contactBlock = contactPage.Document.Blocks.FirstOrDefault(b => b.Type == "contactInfo");
+        Assert.NotNull(contactBlock);
+        var contactJson = contactBlock.Data.GetRawText();
+
+        Assert.Contains("info@termabrand.ir", contactJson);
+        Assert.Contains("09127593778", contactJson);
+        Assert.Contains("شنبه تا پنجشنبه ۹ تا ۱۸", contactJson);
+        Assert.DoesNotContain("۸۸۸۸۸۸۸۸", contactJson);
+
+        // 5. Verify public /api/store/cms/site also reflects the updated contactInfo
+        var siteResponse = await anonymous.GetAsync("/api/store/cms/site");
+        Assert.Equal(HttpStatusCode.OK, siteResponse.StatusCode);
+        var site = (await siteResponse.Content.ReadFromJsonAsync<CmsPublishedPageDto>(JsonOptions))!;
+        var siteContact = site.Document.Blocks.FirstOrDefault(b => b.Type == "contactInfo");
+        Assert.NotNull(siteContact);
+        var siteContactJson = siteContact.Data.GetRawText();
+        Assert.Contains("info@termabrand.ir", siteContactJson);
+        Assert.Contains("09127593778", siteContactJson);
+    }
+
     private static CmsDocumentDto Document(string title) => new() { Seo = new() { Title = title, Description = "Description" }, Blocks = [] };
 
     private static async Task<HttpResponseMessage> SendAsync(HttpClient client, HttpMethod method, string url, object? body, string etag)
