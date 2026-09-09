@@ -42,7 +42,23 @@ public sealed class CmsService(TermaDbContext db, IMediaStorage mediaStorage, Ti
             ?? throw new NotFoundException($"CMS page '{slug}' was not found.");
         if (page.PublishedRevisionId is null) throw new NotFoundException($"CMS page '{slug}' is not published.");
         var revision = await db.CmsRevisions.AsNoTracking().SingleAsync(x => x.Id == page.PublishedRevisionId, cancellationToken);
-        return new(page.Slug, page.Name, Deserialize(revision.DocumentJson), revision.CreatedAt);
+        var doc = Deserialize(revision.DocumentJson);
+
+        if (string.Equals(slug, "contact", StringComparison.OrdinalIgnoreCase))
+        {
+            var sitePage = await db.CmsPages.AsNoTracking().SingleOrDefaultAsync(x => x.Slug == "site-settings" && x.Status != CmsPageStatus.Archived, cancellationToken);
+            if (sitePage?.PublishedRevisionId != null)
+            {
+                var siteRev = await db.CmsRevisions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == sitePage.PublishedRevisionId.Value, cancellationToken);
+                if (siteRev != null)
+                {
+                    var siteDoc = Deserialize(siteRev.DocumentJson);
+                    doc = MergeContactWithSiteSettings(doc, siteDoc);
+                }
+            }
+        }
+
+        return new(page.Slug, page.Name, doc, revision.CreatedAt);
     }
 
     public async Task<CmsPageDetailDto> CreatePageAsync(CreateCmsPageRequest request, string actor, CancellationToken cancellationToken)
@@ -70,6 +86,7 @@ public sealed class CmsService(TermaDbContext db, IMediaStorage mediaStorage, Ti
         var revision = new CmsRevision(page.Id, await NextRevisionNumberAsync(page.Id, cancellationToken), Serialize(request.Document), actor);
         page.SaveDraft(revision.Id);
         await db.CmsRevisions.AddAsync(revision, cancellationToken);
+        await SyncContactInfoAsync(page, request.Document, isPublish: false, actor, cancellationToken);
         await SaveAsync(cancellationToken);
         return MapDetail(page, request.Document);
     }
@@ -80,6 +97,9 @@ public sealed class CmsService(TermaDbContext db, IMediaStorage mediaStorage, Ti
         CheckVersion(page, ifMatch);
         if (page.DraftRevisionId is null) throw new ConflictException("This page has no draft to publish.");
         page.Publish(page.DraftRevisionId.Value);
+        var pubRev = await db.CmsRevisions.SingleAsync(x => x.Id == page.DraftRevisionId.Value, cancellationToken);
+        var pubDoc = Deserialize(pubRev.DocumentJson);
+        await SyncContactInfoAsync(page, pubDoc, isPublish: true, actor, cancellationToken);
         await SaveAsync(cancellationToken);
         return await MapDetailAsync(page, cancellationToken);
     }
@@ -194,6 +214,128 @@ public sealed class CmsService(TermaDbContext db, IMediaStorage mediaStorage, Ti
     {
         try { await db.SaveChangesAsync(cancellationToken); }
         catch (DbUpdateConcurrencyException) { throw new PreconditionFailedException("This content was changed in another session. Reload the latest version before saving."); }
+    }
+
+    private static CmsDocumentDto MergeContactWithSiteSettings(CmsDocumentDto contactDoc, CmsDocumentDto siteDoc)
+    {
+        var siteContactBlock = siteDoc.Blocks.FirstOrDefault(b => string.Equals(b.Type, "contactInfo", StringComparison.OrdinalIgnoreCase));
+        if (siteContactBlock is null) return contactDoc;
+
+        var siteDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(siteContactBlock.Data.GetRawText(), JsonOptions) ?? new();
+        string? GetSiteStr(string key) =>
+            siteDict.TryGetValue(key, out var val) && val.ValueKind == JsonValueKind.String ? val.GetString() : null;
+
+        var contactBlock = contactDoc.Blocks.FirstOrDefault(b => string.Equals(b.Type, "contactInfo", StringComparison.OrdinalIgnoreCase));
+        if (contactBlock is null) return contactDoc;
+
+        var contactDict = JsonSerializer.Deserialize<Dictionary<string, object?>>(contactBlock.Data.GetRawText(), JsonOptions) ?? new();
+
+        void OverrideIfSiteHas(string key)
+        {
+            var siteVal = GetSiteStr(key);
+            if (!string.IsNullOrWhiteSpace(siteVal))
+            {
+                contactDict[key] = siteVal;
+            }
+        }
+
+        OverrideIfSiteHas("email");
+        OverrideIfSiteHas("phone");
+        OverrideIfSiteHas("instagramUrl");
+        OverrideIfSiteHas("telegramUrl");
+        OverrideIfSiteHas("whatsappUrl");
+        OverrideIfSiteHas("responseHours");
+
+        if (contactDict.TryGetValue("text", out var textObj) && textObj?.ToString() is string textStr && (textStr.Contains("۸۸۸۸۸۸۸۸") || textStr.Contains("info@terma.ir")))
+        {
+            contactDict["text"] = "برای راهنمایی انتخاب محصول، پیگیری سفارش، پیشنهاد همکاری یا هر پرسش دیگر، با ما در ارتباط باشید.";
+        }
+
+        var newElement = JsonSerializer.SerializeToElement(contactDict, JsonOptions);
+        var newBlocks = contactDoc.Blocks.Select(b => b.Id == contactBlock.Id ? new CmsBlockDto { Id = b.Id, Type = b.Type, Data = newElement } : b).ToList();
+
+        return new CmsDocumentDto
+        {
+            SchemaVersion = contactDoc.SchemaVersion,
+            Seo = contactDoc.Seo,
+            Blocks = newBlocks
+        };
+    }
+
+    private async Task SyncContactInfoAsync(CmsPage sourcePage, CmsDocumentDto sourceDoc, bool isPublish, string actor, CancellationToken cancellationToken)
+    {
+        string targetSlug;
+        if (string.Equals(sourcePage.Slug, "site-settings", StringComparison.OrdinalIgnoreCase))
+            targetSlug = "contact";
+        else if (string.Equals(sourcePage.Slug, "contact", StringComparison.OrdinalIgnoreCase))
+            targetSlug = "site-settings";
+        else
+            return;
+
+        var sourceContactBlock = sourceDoc.Blocks.FirstOrDefault(b => string.Equals(b.Type, "contactInfo", StringComparison.OrdinalIgnoreCase));
+        if (sourceContactBlock is null) return;
+
+        var sourceDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(sourceContactBlock.Data.GetRawText(), JsonOptions) ?? new();
+        string? GetSourceStr(string key) =>
+            sourceDict.TryGetValue(key, out var val) && val.ValueKind == JsonValueKind.String ? val.GetString() : null;
+
+        var targetPage = await db.CmsPages.SingleOrDefaultAsync(x => x.Slug == targetSlug && x.Status != CmsPageStatus.Archived, cancellationToken);
+        if (targetPage is null) return;
+
+        var targetRevisionId = isPublish ? (targetPage.PublishedRevisionId ?? targetPage.DraftRevisionId) : (targetPage.DraftRevisionId ?? targetPage.PublishedRevisionId);
+        if (targetRevisionId is null) return;
+
+        var targetRevision = await db.CmsRevisions.SingleOrDefaultAsync(x => x.Id == targetRevisionId.Value, cancellationToken);
+        if (targetRevision is null) return;
+
+        var targetDoc = Deserialize(targetRevision.DocumentJson);
+        var targetBlock = targetDoc.Blocks.FirstOrDefault(b => string.Equals(b.Type, "contactInfo", StringComparison.OrdinalIgnoreCase));
+        if (targetBlock is null) return;
+
+        var targetDict = JsonSerializer.Deserialize<Dictionary<string, object?>>(targetBlock.Data.GetRawText(), JsonOptions) ?? new();
+
+        void CopyProp(string propName)
+        {
+            var str = GetSourceStr(propName);
+            if (!string.IsNullOrWhiteSpace(str))
+            {
+                targetDict[propName] = str;
+            }
+        }
+
+        CopyProp("email");
+        CopyProp("phone");
+        CopyProp("instagramUrl");
+        CopyProp("telegramUrl");
+        CopyProp("whatsappUrl");
+        CopyProp("responseHours");
+
+        if (targetSlug == "contact" && targetDict.TryGetValue("text", out var txtObj) && txtObj?.ToString() is string txtStr && (txtStr.Contains("۸۸۸۸۸۸۸۸") || txtStr.Contains("info@terma.ir")))
+        {
+            targetDict["text"] = "برای راهنمایی انتخاب محصول، پیگیری سفارش، پیشنهاد همکاری یا هر پرسش دیگر، با ما در ارتباط باشید.";
+        }
+
+        var newTargetBlockData = JsonSerializer.SerializeToElement(targetDict, JsonOptions);
+        var updatedBlocks = targetDoc.Blocks.Select(b => b.Id == targetBlock.Id ? new CmsBlockDto { Id = b.Id, Type = b.Type, Data = newTargetBlockData } : b).ToList();
+        var updatedTargetDoc = new CmsDocumentDto
+        {
+            SchemaVersion = targetDoc.SchemaVersion,
+            Seo = targetDoc.Seo,
+            Blocks = updatedBlocks
+        };
+
+        var newRevisionNumber = await NextRevisionNumberAsync(targetPage.Id, cancellationToken);
+        var newRevision = new CmsRevision(targetPage.Id, newRevisionNumber, Serialize(updatedTargetDoc), actor);
+        await db.CmsRevisions.AddAsync(newRevision, cancellationToken);
+
+        if (isPublish)
+        {
+            targetPage.Publish(newRevision.Id);
+        }
+        else
+        {
+            targetPage.SaveDraft(newRevision.Id);
+        }
     }
 
     private static string ETag(long version) => $"\"{version}\"";

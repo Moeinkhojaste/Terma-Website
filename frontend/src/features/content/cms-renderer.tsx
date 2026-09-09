@@ -50,10 +50,22 @@ export function RichTextOutput({ node }: { node?: RichTextNode }) {
   return <>{children}</>;
 }
 
-export function CmsBlockRenderer({ block, products = [], showContactForm = false }: { block: CmsBlock; products?: Product[]; showContactForm?: boolean }) {
+export type SiteContactInfo = {
+  brandName?: string;
+  tagline?: string;
+  logoUrl?: string;
+  email?: string;
+  phone?: string;
+  instagramUrl?: string;
+  telegramUrl?: string;
+  whatsappUrl?: string;
+  responseHours?: string;
+};
+
+export function CmsBlockRenderer({ block, products = [], showContactForm = false, siteContactInfo }: { block: CmsBlock; products?: Product[]; showContactForm?: boolean; siteContactInfo?: SiteContactInfo }) {
   const data = block.data;
   const title = stringValue(data.title);
-  const text = stringValue(data.text);
+  let text = stringValue(data.text);
   const eyebrow = stringValue(data.eyebrow);
   const imageUrl = resolveCmsMediaUrl(data.imageUrl);
   const imageAlt = stringValue(data.imageAlt, title);
@@ -88,12 +100,17 @@ export function CmsBlockRenderer({ block, products = [], showContactForm = false
   if (block.type === "faq") return <section className="cms-faq section-pad"><Container><h2>{title}</h2><div>{items.map((item, index) => <details key={`${item.question}-${index}`}><summary>{item.question}<span aria-hidden="true">+</span></summary><p>{item.answer}</p></details>)}</div></Container></section>;
   if (block.type === "cta") return <section className="cms-cta section-pad"><Container><div><h2>{title}</h2><p>{text}</p></div>{data.label && <Button href={safeHref(data.href)}>{stringValue(data.label)}</Button>}</Container></section>;
   if (block.type === "contactInfo") {
-    const email = stringValue(data.email);
-    const phone = stringValue(data.phone);
-    const responseHours = stringValue(data.responseHours);
-    const instagramUrl = stringValue(data.instagramUrl);
-    const telegramUrl = stringValue(data.telegramUrl);
-    const whatsappUrl = stringValue(data.whatsappUrl);
+    const email = stringValue(data.email) || siteContactInfo?.email || "";
+    const phone = stringValue(data.phone) || siteContactInfo?.phone || "";
+    const responseHours = stringValue(data.responseHours) || siteContactInfo?.responseHours || "";
+    const instagramUrl = stringValue(data.instagramUrl) || siteContactInfo?.instagramUrl || "";
+    const telegramUrl = stringValue(data.telegramUrl) || siteContactInfo?.telegramUrl || "";
+    const whatsappUrl = stringValue(data.whatsappUrl) || siteContactInfo?.whatsappUrl || "";
+
+    if (text.includes("۸۸۸۸۸۸۸۸") || text.includes("info@terma.ir")) {
+      text = "برای راهنمایی انتخاب محصول، پیگیری سفارش، پیشنهاد همکاری یا هر پرسش دیگر، با ما در ارتباط باشید.";
+    }
+
     return (
       <section className="cms-contact section-pad">
         <Container className="cms-contact__grid">
@@ -173,6 +190,6 @@ export function CmsBlockRenderer({ block, products = [], showContactForm = false
   return null;
 }
 
-export function CmsDocumentRenderer({ document, products, showContactForm }: { document: CmsDocument; products?: Product[]; showContactForm?: boolean }) {
-  return <>{document.blocks.map((block) => <CmsBlockRenderer block={block} products={products} showContactForm={showContactForm} key={block.id} />)}</>;
+export function CmsDocumentRenderer({ document, products, showContactForm, siteContactInfo }: { document: CmsDocument; products?: Product[]; showContactForm?: boolean; siteContactInfo?: SiteContactInfo }) {
+  return <>{document.blocks.map((block) => <CmsBlockRenderer block={block} products={products} showContactForm={showContactForm} siteContactInfo={siteContactInfo} key={block.id} />)}</>;
 }

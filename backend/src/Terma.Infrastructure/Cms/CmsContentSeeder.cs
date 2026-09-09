@@ -72,7 +72,7 @@ public sealed class CmsContentSeeder(TermaDbContext db)
                 Blocks =
                 [
                     Block("hero", new { eyebrow = "ارتباط با ترما", title = Legacy("contact", "intro", "پرسش شما، شروع گفت‌وگوست"), text = Legacy("contact", "intro", "برای راهنمایی انتخاب محصول، پیگیری سفارش یا همکاری با ما پیام بفرستید.", true) }),
-                    Block("contactInfo", new { title = "راه‌های ارتباط", text = Legacy("contact", "details", "پیش از ارسال پیام، پرسش‌های رایج را هم ببینید.", true), email = "info@terma.ir", phone = "۰۲۱-۸۸۸۸۸۸۸۸", instagramUrl = "https://instagram.com/terma_ir", telegramUrl = "https://t.me/terma_ir", whatsappUrl = "https://wa.me/989121234567", responseHours = "شنبه تا چهارشنبه، ۹ تا ۱۸" }),
+                    Block("contactInfo", new { title = "راه‌های ارتباط", text = "برای راهنمایی انتخاب محصول، پیگیری سفارش، پیشنهاد همکاری یا هر پرسش دیگر، با ما در ارتباط باشید.", email = "info@terma.ir", phone = "۰۲۱-۸۸۸۸۸۸۸۸", instagramUrl = "https://instagram.com/terma_ir", telegramUrl = "https://t.me/terma_ir", whatsappUrl = "https://wa.me/989121234567", responseHours = "شنبه تا چهارشنبه، ۹ تا ۱۸" }),
                     Block("faq", new { title = "پرسش‌های رایج", items = new[] { new { question = "چطور اندازه مناسب را انتخاب کنم؟", answer = "ابعاد فضای موردنظر را با مشخصات محصول مقایسه کنید." }, new { question = "برای پیگیری سفارش چه اطلاعاتی لازم است؟", answer = "نام خریدار، شماره تماس و شماره سفارش را بنویسید." }, new { question = "رنگ محصول دقیقاً شبیه عکس است؟", answer = "نور محیط و نمایشگر می‌تواند رنگ را کمی متفاوت نشان دهد." } } })
                 ]
             });

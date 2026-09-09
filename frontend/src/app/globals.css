@@ -6859,3 +6859,479 @@ html, body {
     font-size: 0.75rem;
   }
 }
+
+/* ==========================================================================
+   About Page - Luxury Iranian Craft Redesign
+   ========================================================================== */
+.about-luxury-page {
+  background: var(--background);
+  color: var(--charcoal);
+  overflow-x: hidden;
+}
+
+.about-hero {
+  padding-block: clamp(2.5rem, 6vw, 4.5rem);
+}
+.about-hero__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  align-items: center;
+  gap: clamp(2rem, 5vw, 4.5rem);
+}
+.about-hero__copy {
+  display: grid;
+  gap: 1.25rem;
+}
+.about-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  background: #f4ece0;
+  border: 1px solid #dfcfb6;
+  color: #78531e;
+  font-size: 0.82rem;
+  font-weight: 700;
+  width: fit-content;
+}
+.about-hero__badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.25);
+}
+.about-hero__title {
+  font-size: clamp(2.1rem, 4vw, 3.2rem);
+  font-weight: 900;
+  line-height: 1.25;
+  color: var(--charcoal);
+  margin: 0;
+}
+.about-hero__lead {
+  font-size: clamp(0.98rem, 1.3vw, 1.12rem);
+  line-height: 2;
+  color: var(--muted);
+  margin: 0;
+  max-width: 42rem;
+}
+.about-hero__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.about-hero__features-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+.about-hero__feature-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--teal-deep);
+  background: var(--teal-soft);
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.5rem;
+}
+.about-hero__visual {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.about-hero__frame--main {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  border: 1px solid rgba(197, 160, 89, 0.35);
+  box-shadow: 0 20px 44px rgba(15, 62, 57, 0.08);
+}
+.about-hero__frame--accent {
+  position: absolute;
+  bottom: -1.75rem;
+  right: -1.5rem;
+  width: 44%;
+  aspect-ratio: 1;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 3px solid #fff;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.12);
+}
+.about-hero__floating-card {
+  position: absolute;
+  top: 1.5rem;
+  left: -1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(197, 160, 89, 0.35);
+  border-radius: 0.85rem;
+  padding: 0.65rem 1rem;
+  box-shadow: 0 10px 24px rgba(36, 33, 30, 0.08);
+}
+.about-hero__floating-icon {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: var(--gold);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.about-hero__floating-card strong {
+  display: block;
+  font-size: 0.84rem;
+  color: var(--charcoal);
+}
+.about-hero__floating-card small {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.about-story-section {
+  padding-block: clamp(2.5rem, 5vw, 4rem);
+}
+.about-story-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+  gap: clamp(2rem, 4vw, 3.5rem);
+  align-items: center;
+}
+.about-story-header {
+  display: grid;
+  gap: 0.85rem;
+}
+.about-story-header h2 {
+  font-size: clamp(1.75rem, 3vw, 2.4rem);
+  font-weight: 800;
+  line-height: 1.3;
+  margin: 0;
+}
+.about-story-lead {
+  font-size: 1.05rem;
+  line-height: 2;
+  color: var(--muted);
+  margin: 0;
+}
+.about-story-quote-card {
+  position: relative;
+  padding: 2.2rem 2.4rem;
+  background: linear-gradient(135deg, #fcf9f4, #f6f0e4);
+  border: 1px solid #dfd1b8;
+  border-radius: 1.25rem;
+  box-shadow: 0 6px 20px rgba(120, 83, 30, 0.04);
+}
+.about-story-quote-ornament {
+  position: absolute;
+  top: 0.65rem;
+  right: 1.25rem;
+  font-size: 4rem;
+  line-height: 1;
+  color: rgba(197, 160, 89, 0.3);
+  font-family: serif;
+}
+.about-story-quote-card blockquote {
+  position: relative;
+  z-index: 1;
+  font-size: 1.08rem;
+  line-height: 1.95;
+  font-weight: 600;
+  color: #4a381e;
+  margin: 0 0 1rem;
+}
+.about-story-quote-card cite {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gold);
+  font-style: normal;
+}
+
+.about-principles-section {
+  padding-block: clamp(2.5rem, 5vw, 4rem);
+}
+.about-section-header {
+  max-width: 42rem;
+  margin-inline: auto;
+  margin-bottom: 2.5rem;
+  text-align: center;
+}
+.about-section-header h2 {
+  font-size: clamp(1.75rem, 3vw, 2.3rem);
+  font-weight: 800;
+  margin: 0.4rem 0 0;
+}
+.about-section-desc {
+  font-size: 0.95rem;
+  line-height: 1.8;
+  color: var(--muted);
+  margin: 0.5rem 0 0;
+}
+.about-principles-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+}
+.about-principle-card {
+  padding: 1.6rem 1.4rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+}
+.about-principle-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--gold);
+  box-shadow: 0 12px 28px rgba(197, 160, 89, 0.12);
+}
+.about-principle-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.about-principle-card__number {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--gold);
+  opacity: 0.75;
+}
+.about-principle-card__icon {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.65rem;
+  background: var(--teal-soft);
+  color: var(--teal-deep);
+  display: grid;
+  place-items: center;
+}
+.about-principle-card h3 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--charcoal);
+}
+.about-principle-card p {
+  font-size: 0.88rem;
+  line-height: 1.8;
+  color: var(--muted);
+  margin: 0;
+}
+
+.about-craft-showcase {
+  padding-block: clamp(2.5rem, 5vw, 4rem);
+}
+.about-craft-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: center;
+}
+.about-craft-visual {
+  position: relative;
+}
+.about-craft-image-wrap {
+  position: relative;
+  aspect-ratio: 4/3;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+}
+.about-craft-badge {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 1.25rem;
+  right: 1.25rem;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  padding: 0.85rem 1.25rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(197, 160, 89, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.about-craft-badge strong {
+  font-size: 0.92rem;
+  color: var(--charcoal);
+}
+.about-craft-badge span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.about-craft-content {
+  display: grid;
+  gap: 1.25rem;
+}
+.about-craft-content h2 {
+  font-size: clamp(1.75rem, 3vw, 2.3rem);
+  font-weight: 800;
+  margin: 0;
+}
+.about-craft-content p {
+  font-size: 0.95rem;
+  line-height: 1.9;
+  color: var(--muted);
+  margin: 0;
+}
+.about-craft-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  display: grid;
+  gap: 0.85rem;
+}
+.about-craft-checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+.about-craft-checklist li svg {
+  color: var(--teal-deep);
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+}
+
+.about-journey-section {
+  padding-block: clamp(2.5rem, 5vw, 4rem);
+}
+.about-journey-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+.about-journey-step {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1.8rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.about-journey-step__num {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  background: var(--teal-deep);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.1rem;
+  display: grid;
+  place-items: center;
+}
+.about-journey-step h3 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 0.25rem 0 0;
+}
+.about-journey-step p {
+  font-size: 0.88rem;
+  line-height: 1.8;
+  color: var(--muted);
+  margin: 0;
+}
+
+.about-cta-section {
+  padding-block: clamp(2rem, 5vw, 3.5rem);
+}
+.about-cta-card {
+  background: linear-gradient(135deg, #0f3e39 0%, #17544d 100%);
+  color: #fff;
+  border-radius: 1.5rem;
+  padding: clamp(2rem, 5vw, 3.5rem);
+  border: 1px solid rgba(197, 160, 89, 0.45);
+  box-shadow: 0 16px 40px rgba(15, 62, 57, 0.2);
+  text-align: center;
+}
+.about-cta-card__content {
+  max-width: 44rem;
+  margin-inline: auto;
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+}
+.about-cta-card__eyebrow {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.05em;
+}
+.about-cta-card h2 {
+  font-size: clamp(1.8rem, 3.2vw, 2.5rem);
+  font-weight: 900;
+  color: #fff;
+  line-height: 1.3;
+  margin: 0;
+}
+.about-cta-card p {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 1rem;
+  line-height: 1.9;
+  margin: 0;
+}
+.about-cta-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+.about-cta-card__link {
+  color: var(--gold);
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 0.92rem;
+  transition: opacity 0.2s;
+}
+.about-cta-card__link:hover {
+  opacity: 0.85;
+  text-decoration: underline;
+}
+
+@media (max-width: 1024px) {
+  .about-principles-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 768px) {
+  .about-hero__grid,
+  .about-story-grid,
+  .about-craft-grid {
+    grid-template-columns: 1fr;
+  }
+  .about-hero__frame--accent {
+    width: 38%;
+    bottom: -1rem;
+    right: -0.5rem;
+  }
+  .about-hero__floating-card {
+    top: 0.5rem;
+    left: 0.5rem;
+  }
+  .about-principles-cards,
+  .about-journey-steps {
+    grid-template-columns: 1fr;
+  }
+}
+

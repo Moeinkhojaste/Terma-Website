@@ -21,10 +21,18 @@ import type {
   CmsBlockData,
   CmsPageDetail,
   CmsRevision,
+  CmsStatus,
   MediaAsset,
   RichTextNode,
 } from "@/features/content/cms-types";
 import { RichTextEditor } from "./rich-text-editor";
+
+const statusLabels: Record<CmsStatus, string> = {
+  Draft: "پیش‌نویس",
+  Scheduled: "زمان‌بندی‌شده",
+  Published: "منتشرشده",
+  Archived: "آرشیو",
+};
 
 const blockCatalog = [
   ["hero", "بنر اصلی"],
@@ -119,7 +127,7 @@ export function AdminCmsEditor({ id }: { id: string }) {
   const [media, setMedia] = useState<MediaAsset[]>([]);
   const [error, setError] = useState<string>();
   const [saveState, setSaveState] = useState<
-    "idle" | "saving" | "saved" | "error"
+    "idle" | "saving" | "saved" | "published" | "error"
   >("idle");
   const [previewSize, setPreviewSize] = useState<
     "mobile" | "tablet" | "desktop"
@@ -281,7 +289,7 @@ export function AdminCmsEditor({ id }: { id: string }) {
       setPage(result);
       lastSaved.current = editableSnapshot(result);
       refreshRevisions();
-      setSaveState("saved");
+      setSaveState("published");
     } catch (e) {
       setError(getApiErrorMessage(e));
     }
@@ -341,9 +349,14 @@ export function AdminCmsEditor({ id }: { id: string }) {
   return (
     <AdminShell title={`ویرایش ${page.name}`}>
       <div className="cms-editor-top">
-        <Link href="/admin/content" className="text-link">
-          بازگشت به صفحات
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <Link href="/admin/content" className="text-link">
+            بازگشت به صفحات
+          </Link>
+          <span className={`status-pill cms-status--${page.status.toLowerCase()}`}>
+            {statusLabels[page.status] ?? page.status}
+          </span>
+        </div>
         <button
           type="button"
           onClick={async () => {
@@ -365,14 +378,29 @@ export function AdminCmsEditor({ id }: { id: string }) {
         >
           پیش‌نمایش کامل
         </button>
-        <div className="cms-save-state" role="status">
+        <div
+          className={`cms-save-state ${saveState === "published" ? "cms-save-state--published" : ""}`}
+          role="status"
+          style={
+            saveState === "published"
+              ? {
+                  color: "#15803d",
+                  backgroundColor: "#dcfce7",
+                  borderColor: "#86efac",
+                  fontWeight: 600,
+                }
+              : undefined
+          }
+        >
           {saveState === "saving"
             ? "در حال ذخیره…"
-            : saveState === "saved"
-              ? "پیش‌نویس ذخیره شد"
-              : saveState === "error"
-                ? "ذخیره ناموفق"
-                : "تغییر ذخیره‌نشده"}
+            : saveState === "published"
+              ? "✓ با موفقیت منتشر شد"
+              : saveState === "saved"
+                ? "پیش‌نویس ذخیره شد"
+                : saveState === "error"
+                  ? "ذخیره ناموفق"
+                  : "تغییر ذخیره‌نشده"}
         </div>
         <button
           type="button"
@@ -772,6 +800,20 @@ function BlockFields({
       )}
       {block.type === "contactInfo" && (
         <>
+          <div
+            style={{
+              padding: "0.75rem 1rem",
+              backgroundColor: "rgba(180, 83, 9, 0.08)",
+              borderRadius: "8px",
+              border: "1px solid rgba(180, 83, 9, 0.2)",
+              marginBottom: "1rem",
+              fontSize: "0.85rem",
+              color: "#92400e",
+              lineHeight: 1.6,
+            }}
+          >
+            💡 <strong>نکته مهم:</strong> تغییرات اطلاعات تماس (ایمیل، تلفن، ساعات پاسخ‌گویی و شبکه‌های اجتماعی) پس از انتشار، به صورت خودکار و یکپارچه در کل سایت از جمله هدر، فوتر و صفحه ارتباط با ما اعمال خواهد شد.
+          </div>
           {field("brandName", "نام برند")}
           {field("tagline", "شعار کوتاه")}
           <label className="form-field">
