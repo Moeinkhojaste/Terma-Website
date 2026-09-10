@@ -6,10 +6,7 @@ import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { ArrowLeftIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "@/components/ui/icons";
 import type { ProductMedia } from "@/features/products/models";
 
-const MEDIA_LABELS: Record<ProductMedia["kind"], string> = {
-  full: "نمای کامل", table: "روی میز", folded: "نمای تاشده", texture: "بافت پارچه",
-  stitching: "جزئیات دوخت", lining: "آستر پشت", other: "نمای دیگر",
-};
+
 
 export function ProductGallery({ media, productName }: { media: ProductMedia[]; productName: string }) {
   const [index, setIndex] = useState(0);
@@ -56,15 +53,22 @@ export function ProductGallery({ media, productName }: { media: ProductMedia[]; 
       </div>
       <div className="product-gallery__thumbnails" role="list" aria-label="انتخاب تصویر">
         {media.map((item, itemIndex) => (
-          <button type="button" role="listitem" className={itemIndex === index ? "is-active" : ""} onClick={() => { setIndex(itemIndex); setZoom(1); }} aria-label={`${MEDIA_LABELS[item.kind]}: ${item.alt}`} aria-current={itemIndex === index ? "true" : undefined} key={item.id}>
-            <span><Image src={item.src} alt="" fill sizes="88px" /></span><small>{MEDIA_LABELS[item.kind]}</small>
+          <button
+            type="button"
+            role="listitem"
+            className={itemIndex === index ? "is-active" : ""}
+            onClick={() => { setIndex(itemIndex); setZoom(1); }}
+            aria-label={`تصویر ${new Intl.NumberFormat("fa-IR").format(itemIndex + 1)}`}
+            aria-current={itemIndex === index ? "true" : undefined}
+            key={item.id}
+          >
+            <span><Image src={item.src} alt="" fill sizes="88px" /></span>
           </button>
         ))}
       </div>
 
       <AccessibleDialog open={viewerOpen} onClose={() => { setViewerOpen(false); setZoom(1); }} className="gallery-viewer" label={`نمایش تمام‌صفحه تصاویر ${productName}`}>
         <div className="gallery-viewer__toolbar">
-          <strong>{MEDIA_LABELS[current.kind]}</strong>
           <div>
             <button type="button" onClick={() => setZoom((value) => Math.max(1, value - 1))} disabled={zoom === 1} aria-label="کاهش بزرگ‌نمایی"><ZoomOutIcon /></button>
             <span>{new Intl.NumberFormat("fa-IR").format(zoom)}×</span>
