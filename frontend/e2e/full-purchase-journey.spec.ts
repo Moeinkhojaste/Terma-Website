@@ -1,6 +1,16 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Full End-to-End Purchase Flow & Mobile Audit", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(/(trustseal\.enamad\.ir|enamad\.ir)/, (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88"><rect width="88" height="88" fill="#eee"/></svg>',
+      });
+    });
+  });
+
   const viewports = [
     { name: "Mobile Extra Small (320px)", width: 320, height: 640 },
     { name: "Mobile iPhone (375px)", width: 375, height: 812 },
