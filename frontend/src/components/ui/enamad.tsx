@@ -29,6 +29,7 @@ export function EnamadBadge({ className = "" }: EnamadBadgeProps) {
           src={logoUrl}
           alt="نماد اعتماد الکترونیکی"
           style={{ cursor: "pointer" }}
+          loading="lazy"
           // @ts-expect-error Enamad verification crawler reads custom code attribute on the img tag
           code="xDHmhMgAjw7KUdF1p22YTRX47sE5EHN7"
         />
