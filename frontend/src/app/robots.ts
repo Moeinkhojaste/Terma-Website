@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://terma.ir";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://termabrand.ir";
   const indexingEnabled = process.env.NEXT_PUBLIC_SITE_INDEXING_ENABLED !== "false" && process.env.SITE_INDEXING_ENABLED !== "false";
 
   if (!indexingEnabled) {

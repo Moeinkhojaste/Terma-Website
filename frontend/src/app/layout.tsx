@@ -13,7 +13,7 @@ const cairo = Cairo({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://terma.ir"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://termabrand.ir"),
   title: {
     default: "ترما | سفره‌های ترمه ایرانی",
     template: "%s | ترما",
@@ -26,16 +26,19 @@ export const metadata: Metadata = {
     title: "ترما | سفره‌های ترمه ایرانی",
     description: "سفره‌های ترمه با نقش اصیل ایرانی، دوخت دقیق و آستر ساتن در دسته‌های چهار، شش و هشت نفره.",
   },
+  other: {
+    enamad: "8428039",
+  },
 };
 
 const websiteStructuredData = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   name: "ترما",
-  url: "https://terma.ir",
+  url: "https://termabrand.ir",
   potentialAction: {
     "@type": "SearchAction",
-    target: "https://terma.ir/products?search={search_term_string}",
+    target: "https://termabrand.ir/products?search={search_term_string}",
     "query-input": "required name=search_term_string",
   },
 };
@@ -44,8 +47,8 @@ const organizationStructuredData = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "ترما",
-  url: "https://terma.ir",
-  logo: "https://terma.ir/images/terma-logo.webp",
+  url: "https://termabrand.ir",
+  logo: "https://termabrand.ir/images/terma-logo.webp",
   contactPoint: {
     "@type": "ContactPoint",
     telephone: "+98-21-12345678",
