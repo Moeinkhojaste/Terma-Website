@@ -1,6 +1,16 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
+test.beforeEach(async ({ page }) => {
+  await page.route(/(trustseal\.enamad\.ir|enamad\.ir)/, (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88"><rect width="88" height="88" fill="#eee"/></svg>',
+    });
+  });
+});
+
 test("customer can sign in with the development OTP and open the account", async ({ page }, testInfo) => {
   const suffix = `${testInfo.project.name.startsWith("mobile") ? "8" : "7"}${String(Date.now()).slice(-6)}`;
   await page.goto("/account/login");
