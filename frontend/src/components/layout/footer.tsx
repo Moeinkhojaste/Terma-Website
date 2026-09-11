@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { InstagramIcon, TelegramIcon, WhatsAppIcon } from "@/components/ui/icons";
+import { EnamadBadge } from "@/components/ui/enamad";
 import { getPublishedSite } from "@/features/content/cms-api";
 import type { CmsPublishedPage } from "@/features/content/cms-types";
 
@@ -211,6 +212,10 @@ export function Footer({
             <WhatsAppIcon className="size-5" />
             <span>واتساپ</span>
           </a>
+          <div className="footer-trust">
+            <h2>نماد اعتماد الکترونیکی</h2>
+            <EnamadBadge />
+          </div>
         </div>
       </Container>
       <Container className="footer-bottom">
