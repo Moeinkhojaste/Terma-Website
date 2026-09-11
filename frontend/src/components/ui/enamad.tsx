@@ -17,7 +17,7 @@ export function EnamadBadge({ className = "" }: EnamadBadgeProps) {
       <a
         referrerPolicy="origin"
         target="_blank"
-        rel="noopener noreferrer"
+        rel="noopener"
         href={enamadUrl}
         title="نماد اعتماد الکترونیکی ترما"
         aria-label="نماد اعتماد الکترونیکی اینماد"
