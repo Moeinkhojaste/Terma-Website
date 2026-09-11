@@ -43,4 +43,19 @@ describe("Footer", () => {
     expect(screen.getByRole("link", { name: "درباره ما" })).toHaveAttribute("href", "/about");
     expect(screen.getByRole("link", { name: "ارتباط با ما" })).toHaveAttribute("href", "/contact");
   });
+
+  it("renders enamad trust badge with origin referrerpolicy and verification attributes", () => {
+    render(<Footer />);
+
+    const enamadLink = screen.getByRole("link", { name: /اینماد/i });
+    expect(enamadLink).toBeInTheDocument();
+    expect(enamadLink).toHaveAttribute("target", "_blank");
+    expect(enamadLink).toHaveAttribute("referrerpolicy", "origin");
+    expect(enamadLink).toHaveAttribute("href", expect.stringContaining("7710569"));
+
+    const enamadImg = screen.getByAltText("نماد اعتماد الکترونیکی");
+    expect(enamadImg).toBeInTheDocument();
+    expect(enamadImg).toHaveAttribute("src", expect.stringContaining("7710569"));
+    expect(enamadImg).toHaveAttribute("referrerpolicy", "origin");
+  });
 });
