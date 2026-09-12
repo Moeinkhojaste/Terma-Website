@@ -55,11 +55,11 @@ describe("Footer", () => {
     expect(enamadLink).toBeInTheDocument();
     expect(enamadLink).toHaveAttribute("target", "_blank");
     expect(enamadLink).toHaveAttribute("referrerpolicy", "origin");
-    expect(enamadLink).toHaveAttribute("href", "https://trustseal.enamad.ir/?id=7710569&Code=xDHmhMgAjw7KUdF1p22YTRX47sE5EHN7");
+    expect(enamadLink).toHaveAttribute("href", "https://trustseal.enamad.ir/?id=7710569&code=xDHmhMgAjw7KUdF1p22YTRX47sE5EHN7");
 
     const enamadImg = container.querySelector<HTMLImageElement>("img[src*='trustseal.enamad.ir']");
     expect(enamadImg).toBeInTheDocument();
-    expect(enamadImg).toHaveAttribute("src", "https://trustseal.enamad.ir/logo.aspx?id=7710569&Code=xDHmhMgAjw7KUdF1p22YTRX47sE5EHN7");
+    expect(enamadImg).toHaveAttribute("src", "https://trustseal.enamad.ir/logo.aspx?id=7710569&code=xDHmhMgAjw7KUdF1p22YTRX47sE5EHN7");
     expect(enamadImg).toHaveAttribute("referrerpolicy", "origin");
     expect(enamadImg).toHaveAttribute("code", "xDHmhMgAjw7KUdF1p22YTRX47sE5EHN7");
   });
