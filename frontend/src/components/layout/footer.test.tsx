@@ -44,18 +44,23 @@ describe("Footer", () => {
     expect(screen.getByRole("link", { name: "ارتباط با ما" })).toHaveAttribute("href", "/contact");
   });
 
-  it("renders enamad trust badge with origin referrerpolicy and verification attributes", () => {
-    render(<Footer />);
+  it("renders enamad trust badge in dedicated column with exact verification snippet", () => {
+    const { container } = render(<Footer />);
 
-    const enamadLink = screen.getByRole("link", { name: /اینماد/i });
+    const trustColumn = container.querySelector(".footer-trust-column");
+    expect(trustColumn).toBeInTheDocument();
+    expect(trustColumn).toHaveTextContent("نماد اعتماد");
+
+    const enamadLink = container.querySelector<HTMLAnchorElement>("a[href*='trustseal.enamad.ir']");
     expect(enamadLink).toBeInTheDocument();
     expect(enamadLink).toHaveAttribute("target", "_blank");
     expect(enamadLink).toHaveAttribute("referrerpolicy", "origin");
-    expect(enamadLink).toHaveAttribute("href", expect.stringContaining("7710569"));
+    expect(enamadLink).toHaveAttribute("href", "https://trustseal.enamad.ir/?id=7710569&Code=xDHmhMgAjw7KUdF1p22YTRX47sE5EHN7");
 
-    const enamadImg = screen.getByAltText("نماد اعتماد الکترونیکی");
+    const enamadImg = container.querySelector<HTMLImageElement>("img[src*='trustseal.enamad.ir']");
     expect(enamadImg).toBeInTheDocument();
-    expect(enamadImg).toHaveAttribute("src", expect.stringContaining("7710569"));
+    expect(enamadImg).toHaveAttribute("src", "https://trustseal.enamad.ir/logo.aspx?id=7710569&Code=xDHmhMgAjw7KUdF1p22YTRX47sE5EHN7");
     expect(enamadImg).toHaveAttribute("referrerpolicy", "origin");
+    expect(enamadImg).toHaveAttribute("code", "xDHmhMgAjw7KUdF1p22YTRX47sE5EHN7");
   });
 });

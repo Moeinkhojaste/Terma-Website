@@ -212,10 +212,10 @@ export function Footer({
             <WhatsAppIcon className="size-5" />
             <span>واتساپ</span>
           </a>
-          <div className="footer-trust">
-            <h2>نماد اعتماد الکترونیکی</h2>
-            <EnamadBadge />
-          </div>
+        </div>
+        <div className="footer-trust-column">
+          <h2>نماد اعتماد</h2>
+          <EnamadBadge />
         </div>
       </Container>
       <Container className="footer-bottom">
