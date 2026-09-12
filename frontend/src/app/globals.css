@@ -1314,7 +1314,7 @@ img { max-width: 100%; }
 .guide-grid > :nth-child(2) { animation-delay: 120ms; }
 
 .footer { padding-top: 4.5rem; background: #1d2f2c; color: #fffaf0; }
-.footer-grid { display: grid; grid-template-columns: 1.3fr repeat(3, 1fr); gap: 2rem; padding-bottom: 3.5rem; }
+.footer-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr auto; gap: 2rem; padding-bottom: 3.5rem; align-items: start; }
 .footer-brand { display: flex; align-items: center; gap: 1.1rem; max-width: 22rem; }
 .brand-mark--footer { width: 4.6rem; height: 4.6rem; flex: 0 0 auto; border-radius: 0.95rem; box-shadow: 0 6px 20px rgb(0 0 0 / 0.32), inset 0 0 0 1px rgb(255 255 255 / 0.18); }
 .footer-brand-text { display: flex; flex-direction: column; justify-content: center; }
@@ -1328,12 +1328,12 @@ img { max-width: 100%; }
 .footer-social a { display: inline-flex; align-items: center; gap: 0.55rem; min-height: 38px; color: rgb(255 250 240 / 0.75); transition: color 180ms ease, transform 180ms ease; }
 .footer-social a:hover { color: #e0b06c; transform: translateX(-3px); }
 .footer-social a svg { flex-shrink: 0; }
-.footer-trust { margin-top: 1.1rem; display: flex; flex-direction: column; align-items: start; gap: 0.5rem; max-width: 100%; box-sizing: border-box; }
-.enamad-badge-card { display: inline-flex; align-items: center; justify-content: center; background: #ffffff; border-radius: 0.75rem; padding: 0.5rem 0.65rem; box-shadow: 0 4px 14px rgb(0 0 0 / 0.18); transition: transform 180ms ease, box-shadow 180ms ease; max-width: 100%; box-sizing: border-box; }
-.enamad-badge-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgb(0 0 0 / 0.28); }
+.footer-trust-column { display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem; justify-self: end; max-width: 100%; box-sizing: border-box; }
+.enamad-badge-card { display: inline-flex; align-items: center; justify-content: center; background: #ffffff; border-radius: 1.25rem; padding: 1rem 1.25rem; box-shadow: 0 6px 24px rgb(0 0 0 / 0.25); transition: transform 180ms ease, box-shadow 180ms ease; max-width: 100%; box-sizing: border-box; }
+.enamad-badge-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgb(0 0 0 / 0.35); }
 .enamad-badge-card a { min-height: auto !important; display: flex !important; align-items: center !important; justify-content: center !important; transform: none !important; padding: 0 !important; max-width: 100%; }
 .enamad-badge-card a:hover { transform: none !important; }
-.enamad-badge-card img { width: 88px; height: auto; display: block; max-width: 100%; }
+.enamad-badge-card img { width: 160px; min-height: 160px; height: auto; display: block; max-width: 100%; object-fit: contain; }
 .footer-bottom { min-height: 4rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid rgb(255 255 255 / 0.12); color: rgb(255 250 240 / 0.5); font-size: 0.7rem; }
 
 .loading-page { width: min(calc(100% - 2rem), var(--container)); margin: 5rem auto; }
@@ -1606,6 +1606,7 @@ img { max-width: 100%; }
   .detail-copy h2 br { display: none; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
   .footer-brand { grid-column: 1 / -1; }
+  .footer-trust-column { grid-column: 1 / -1; justify-self: start; }
   .footer-grid > div:last-child { grid-column: auto; }
   .footer-bottom { flex-direction: column; justify-content: center; gap: 0; padding-block: 0.8rem; }
   .footer-bottom p { margin: 0; }
