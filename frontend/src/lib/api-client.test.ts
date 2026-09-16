@@ -56,6 +56,12 @@ describe("api-client", () => {
     expect(getApiErrorMessage(new ApiError("Too Many Requests", { status: 429 }))).toBe(
       "تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً کمی صبر کرده و دوباره تلاش کنید.",
     );
+    expect(getApiErrorMessage(new ApiError("Payload Too Large", { status: 413 }))).toBe(
+      "حجم فایل ارسالی بیش از حد مجاز است. لطفاً فایل کوچک‌تری انتخاب نمایید.",
+    );
+    expect(getApiErrorMessage(new ApiError("Unsupported Media Type", { status: 415 }))).toBe(
+      "فرمت یا محتوای فایل تصویر انتخاب‌شده نامعتبر است.",
+    );
   });
 
   it("preserves genuine Persian business and domain messages", () => {
