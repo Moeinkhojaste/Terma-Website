@@ -51,21 +51,6 @@ public sealed class ProductTests
         Assert.Equal(updatedAt, product.UpdatedAt);
     }
 
-    [Fact]
-    public void Create_And_Update_WithDetailedDescription_SetsPropertyCorrectly()
-    {
-        var categoryId = Guid.NewGuid();
-        var product = new Product("Nila", "TER-NIL-001", "Short desc", 1_500_000m, 3, 4, 150m, 180m,
-            "Termeh", "Satin", "Blue", "Boteh", categoryId, detailedDescription: "  توضیحات تفصیلی چندخطی  ");
-
-        Assert.Equal("توضیحات تفصیلی چندخطی", product.DetailedDescription);
-
-        product.Update("Nila", "TER-NIL-001", "Short desc", 1_500_000m, 3, 4, 150m, 180m,
-            "Termeh", "Satin", "Blue", "Boteh", categoryId, detailedDescription: "توضیحات به‌روزرسانی‌شده");
-
-        Assert.Equal("توضیحات به‌روزرسانی‌شده", product.DetailedDescription);
-    }
-
     private static Product CreateProduct(
         string sku = "TER-NIL-001",
         decimal price = 1_500_000m,

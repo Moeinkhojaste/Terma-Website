@@ -12,7 +12,6 @@ public class Product : BaseEntity
     public string Slug { get; private set; } = string.Empty;
     public string Sku { get; private set; } = string.Empty;
     public string? Description { get; private set; }
-    public string? DetailedDescription { get; private set; }
     public decimal Price { get; private set; }
     public decimal? CompareAtPrice { get; private set; }
     public int? DiscountPercent { get; private set; }
@@ -48,12 +47,11 @@ public class Product : BaseEntity
         Guid categoryId,
         int? discountPercent = null,
         bool isActive = true,
-        string? slug = null,
-        string? detailedDescription = null)
+        string? slug = null)
     {
         Slug = string.IsNullOrWhiteSpace(slug) ? PersianSlugHelper.GenerateSlug(name) : PersianSlugHelper.NormalizeSlug(slug);
         ApplyChanges(name, sku, description, price, stockQuantity, tableCapacity, length, width,
-            fabricType, liningType, color, pattern, categoryId, discountPercent, isActive, detailedDescription);
+            fabricType, liningType, color, pattern, categoryId, discountPercent, isActive);
         _variants.Add(new ProductVariant(Id, "تنوع پیش‌فرض", Sku, Color, TableCapacity, Length, Width, Price, CompareAtPrice, StockQuantity, 2, isActive));
     }
 
@@ -73,15 +71,14 @@ public class Product : BaseEntity
         Guid categoryId,
         int? discountPercent = null,
         bool isActive = true,
-        string? slug = null,
-        string? detailedDescription = null)
+        string? slug = null)
     {
         if (!string.IsNullOrWhiteSpace(slug))
         {
             Slug = PersianSlugHelper.NormalizeSlug(slug);
         }
         ApplyChanges(name, sku, description, price, stockQuantity, tableCapacity, length, width,
-            fabricType, liningType, color, pattern, categoryId, discountPercent, isActive, detailedDescription);
+            fabricType, liningType, color, pattern, categoryId, discountPercent, isActive);
         MarkUpdated();
     }
 
@@ -128,13 +125,11 @@ public class Product : BaseEntity
         string pattern,
         Guid categoryId,
         int? discountPercent,
-        bool isActive,
-        string? detailedDescription = null)
+        bool isActive)
     {
         Name = Required(name, "Product name");
         Sku = Required(sku, "Product SKU").ToUpperInvariant();
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
-        DetailedDescription = string.IsNullOrWhiteSpace(detailedDescription) ? null : detailedDescription.Trim();
 
         if (price <= 0) throw new DomainException("Product price must be greater than zero.");
         if (stockQuantity < 0) throw new DomainException("Stock quantity cannot be negative.");
