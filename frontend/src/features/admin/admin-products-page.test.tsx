@@ -57,7 +57,8 @@ describe("AdminProductsPage", () => {
     });
 
     expect(screen.getByText("TER-FIR-01")).toBeInTheDocument();
-    expect(screen.getByText("توضیحات (نمایش در بخش جزئیات محصول)")).toBeInTheDocument();
+    expect(screen.getByText("خلاصه کوتاه محصول (نمایش زیر عنوان بالای صفحه)")).toBeInTheDocument();
+    expect(screen.getByText("توضیحات تفصیلی (نمایش در بخش جزئیات محصول)")).toBeInTheDocument();
     expect(screen.getByText("ایجاد گروه محصول")).toBeInTheDocument();
   });
 });
