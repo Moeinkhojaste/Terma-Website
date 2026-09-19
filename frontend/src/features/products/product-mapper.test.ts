@@ -96,7 +96,7 @@ describe("product-mapper", () => {
     expect(product.media).toHaveLength(2);
     expect(product.image).toBe("/images/nila-folded.webp");
     expect(product.tableImage).toBe("/images/nila-table.webp");
-    expect(product.detailedDescription).toBe("توضیحات تست ترمه نیلا");
+    expect(product.description).toBe("توضیحات تست ترمه نیلا");
   });
 
   it("builds capacity options (4, 6, 8 persons) with availability flags", () => {

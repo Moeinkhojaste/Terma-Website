@@ -196,8 +196,7 @@ public sealed class ProductService(
 
         var product = new Product(request.Name, request.Sku, request.Description, request.Price, request.StockQuantity,
             request.TableCapacity, request.Length, request.Width, request.FabricType, request.LiningType,
-            request.Color, request.Pattern, request.CategoryId, request.DiscountPercent, request.IsActive, slug,
-            request.DetailedDescription);
+            request.Color, request.Pattern, request.CategoryId, request.DiscountPercent, request.IsActive, slug);
 
         await productRepository.AddAsync(product, cancellationToken);
         await productRepository.SaveChangesAsync(cancellationToken);
@@ -221,8 +220,7 @@ public sealed class ProductService(
 
         product.Update(request.Name, request.Sku, request.Description, request.Price, request.StockQuantity,
             request.TableCapacity, request.Length, request.Width, request.FabricType, request.LiningType,
-            request.Color, request.Pattern, request.CategoryId, request.DiscountPercent, request.IsActive, slug,
-            request.DetailedDescription);
+            request.Color, request.Pattern, request.CategoryId, request.DiscountPercent, request.IsActive, slug);
 
         foreach (var variant in product.Variants)
         {

@@ -141,7 +141,6 @@ function buildCapacitiesList(dto: ProductDto): ProductCapacityOption[] {
 
 export function mapProduct(dto: ProductDto): Product {
   const description = dto.description?.trim() || "اطلاعات تکمیلی این محصول به‌زودی ثبت می‌شود.";
-  const detailedDescription = dto.detailedDescription?.trim() || description;
   const media = buildMedia(dto);
   const primaryMedia = media.find((item) => item.isPrimary) ?? media[0];
   const tableMedia = media.find((item) => item.kind === "table") ?? media[1] ?? primaryMedia;
@@ -191,7 +190,6 @@ export function mapProduct(dto: ProductDto): Product {
     media,
     description,
     longDescription: description,
-    detailedDescription,
     categoryId: dto.categoryId,
     categoryName: dto.categoryName,
     categorySlug: dto.categorySlug,

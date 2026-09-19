@@ -24,7 +24,6 @@ public sealed record PublicProductDto
     public string Slug { get; init; } = string.Empty;
     public string Sku { get; init; } = string.Empty;
     public string? Description { get; init; }
-    public string? DetailedDescription { get; init; }
     public decimal Price { get; init; }
     public decimal? CompareAtPrice { get; init; }
     public int? DiscountPercent { get; init; }
@@ -67,8 +66,7 @@ public sealed record ProductDto(
     DateTime CreatedAt,
     DateTime? UpdatedAt,
     IReadOnlyList<ProductVariantDto>? Variants = null,
-    IReadOnlyList<ProductMediaDto>? Media = null,
-    string? DetailedDescription = null);
+    IReadOnlyList<ProductMediaDto>? Media = null);
 
 public sealed record ProductFacetsDto(
     IReadOnlyList<string> Colors,
@@ -82,7 +80,6 @@ public class ProductWriteRequest
     public string? Slug { get; init; }
     public string Sku { get; init; } = string.Empty;
     public string? Description { get; init; }
-    public string? DetailedDescription { get; init; }
     public decimal Price { get; init; }
     public int? DiscountPercent { get; init; }
     public int StockQuantity { get; init; }
