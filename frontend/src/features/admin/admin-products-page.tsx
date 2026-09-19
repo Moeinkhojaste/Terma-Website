@@ -12,6 +12,7 @@ const emptyProductForm = {
   name: "",
   sku: "",
   description: "",
+  detailedDescription: "",
   price: "",
   discountPercent: "",
   stockQuantity: "",
@@ -85,6 +86,7 @@ export function AdminProductsPage() {
       name: item.name,
       sku: item.sku,
       description: item.description ?? "",
+      detailedDescription: item.detailedDescription ?? "",
       price: item.compareAtPrice ? String(item.compareAtPrice) : String(item.price),
       discountPercent: item.discountPercent ? String(item.discountPercent) : "",
       stockQuantity: String(item.stockQuantity),
@@ -280,12 +282,22 @@ export function AdminProductsPage() {
             <Field label="نوع آستر (مشترک)" value={form.liningType} onChange={(v) => changeProduct("liningType", v)} required />
 
             <label className="form-field form-field--full">
-              <span>توضیحات (نمایش در بخش جزئیات محصول)</span>
+              <span>خلاصه کوتاه محصول (نمایش زیر عنوان بالای صفحه)</span>
               <textarea
                 value={form.description}
                 onChange={(e) => changeProduct("description", e.target.value)}
+                rows={2}
+                placeholder="یک یا دو خط خلاصه کوتاه از سفره که در بالای صفحه زیر نام سفره نمایش داده می‌شود..."
+              />
+            </label>
+
+            <label className="form-field form-field--full">
+              <span>توضیحات تفصیلی (نمایش در بخش جزئیات محصول)</span>
+              <textarea
+                value={form.detailedDescription}
+                onChange={(e) => changeProduct("detailedDescription", e.target.value)}
                 rows={4}
-                placeholder="چند خط توضیحات راجع به محصول..."
+                placeholder="چند خط توضیحات تفصیلی، داستان بافت و ویژگی‌های سفره که در جدول جزئیات محصول نمایش داده می‌شود..."
               />
             </label>
           </div>

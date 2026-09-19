@@ -11,6 +11,7 @@ public abstract class ProductWriteRequestValidator<TRequest> : AbstractValidator
         RuleFor(request => request.Slug).MaximumLength(160);
         RuleFor(request => request.Sku).NotEmpty().MaximumLength(64);
         RuleFor(request => request.Description).MaximumLength(4000);
+        RuleFor(request => request.DetailedDescription).MaximumLength(4000);
         RuleFor(request => request.Price).GreaterThan(0);
         RuleFor(request => request.DiscountPercent)
             .InclusiveBetween(1, 99)

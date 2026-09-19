@@ -49,10 +49,10 @@ export function ProductDetailExperience({ product }: { product: Product }) {
           <div><dt>ترکیب رنگ</dt><dd>{product.colors}</dd></div>
           <div><dt>طرح</dt><dd>{product.pattern}</dd></div>
           <div><dt>دسته‌بندی</dt><dd>{product.categoryName}</dd></div>
-          {product.description && (
+          {(product.detailedDescription || product.description) && (
             <div>
               <dt>توضیحات</dt>
-              <dd className="product-information__description">{product.description}</dd>
+              <dd className="product-information__description">{product.detailedDescription || product.description}</dd>
             </div>
           )}
         </dl>
