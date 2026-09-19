@@ -140,4 +140,16 @@ describe("product-mapper", () => {
     expect(paged.items[0].name).toBe("رومیزی ترمه نیلا آبی");
     expect(paged.totalCount).toBe(1);
   });
+
+  it("maps static products without server media to exactly one primary image", () => {
+    const staticSkus = ["TER-NIL-BLU-4P-001", "TER-LAJ-NVY-6P-001", "TER-FIR-BLU-8P-001"];
+    for (const sku of staticSkus) {
+      const product = mapProduct({ ...baseDto, sku, media: [] });
+      expect(product.media).toHaveLength(1);
+      expect(product.media[0].kind).toBe("folded");
+      expect(product.media[0].isPrimary).toBe(true);
+      expect(product.image).toBe(product.media[0].src);
+      expect(product.tableImage).toBe(product.media[0].src);
+    }
+  });
 });

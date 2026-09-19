@@ -143,6 +143,8 @@ export function sanitizeErrorMessage(rawMessage?: string | null, status?: number
   if (lower.includes("too many requests") || lower.includes("rate limit")) return "تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً کمی صبر کرده و دوباره تلاش کنید.";
   if (lower.includes("validation") || lower.includes("bad request")) return "اطلاعات وارد شده نامعتبر است. لطفاً ورودی‌های خود را بررسی و اصلاح فرمایید.";
   if (lower.includes("content changed") || lower.includes("precondition failed")) return "اطلاعات هم‌زمان توسط فرآیند دیگری تغییر یافته است. لطفاً صفحه را تازه‌سازی نمایید.";
+  if (lower.includes("payload too large") || lower.includes("request entity too large") || lower.includes("file size")) return "حجم فایل ارسالی بیش از حد مجاز است. لطفاً فایل کوچک‌تری انتخاب نمایید.";
+  if (lower.includes("unsupported media type") || lower.includes("invalid image") || lower.includes("image format")) return "فرمت یا محتوای فایل تصویر انتخاب‌شده نامعتبر است.";
   if (lower.includes("server error") || lower.includes("internal server error")) return "خطایی در پردازش اطلاعات در سرور رخ داده است. لطفاً لحظاتی دیگر دوباره تلاش نمایید.";
 
   return getFallbackMessageByStatus(status);
@@ -165,6 +167,10 @@ function getFallbackMessageByStatus(status?: number): string {
       return "اعتبار این عملیات یا کد به پایان رسیده است.";
     case 412:
       return "اطلاعات توسط فرآیند دیگری تغییر یافته است. لطفاً صفحه را تازه‌سازی فرمایید.";
+    case 413:
+      return "حجم فایل ارسالی بیش از حد مجاز است. لطفاً فایل کوچک‌تری انتخاب نمایید.";
+    case 415:
+      return "فرمت فایل ارسالی پشتیبانی نمی‌شود.";
     case 429:
       return "تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً کمی صبر کرده و دوباره تلاش کنید.";
     case 500:
