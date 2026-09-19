@@ -39,7 +39,28 @@ export function ProductDetailExperience({ product }: { product: Product }) {
       </Container>
     </section>
     <StickyProductPurchase product={activeProduct} purchaseAnchor={purchaseAnchor} />
-    <section className="product-information section-pad"><Container className="product-information__grid"><div><p className="section-eyebrow">رنگ و نقش</p><h2>جزئیات محصول</h2></div><dl><div><dt>ترکیب رنگ</dt><dd>{product.colors}</dd></div><div><dt>طرح</dt><dd>{product.pattern}</dd></div><div><dt>دسته‌بندی</dt><dd>{product.categoryName}</dd></div></dl></Container></section>
+    <section className="product-information section-pad">
+      <Container className="product-information__grid">
+        <div className="product-information__header">
+          <p className="section-eyebrow">شناسنامه و اصالت</p>
+          <h2>جزئیات محصول</h2>
+          {product.detailedDescription && (
+            <div className="product-information__description">
+              <p>{product.detailedDescription}</p>
+            </div>
+          )}
+        </div>
+        <dl>
+          <div><dt>ترکیب رنگ</dt><dd>{product.colors}</dd></div>
+          <div><dt>طرح و نقش</dt><dd>{product.pattern}</dd></div>
+          <div><dt>دسته‌بندی</dt><dd>{product.categoryName}</dd></div>
+          <div><dt>جنس پارچه (رویه)</dt><dd>{product.fabricType}</dd></div>
+          <div><dt>جنس آستر</dt><dd>{product.lining}</dd></div>
+          <div><dt>ابعاد استاندارد</dt><dd>{product.dimensions}</dd></div>
+          <div><dt>کد محصول (SKU)</dt><dd dir="ltr">{product.sku}</dd></div>
+        </dl>
+      </Container>
+    </section>
     <ProductReviewsSection product={product} />
     <ProductRecommendations productId={product.id} variantId={activeProduct.variantId} />
   </>;

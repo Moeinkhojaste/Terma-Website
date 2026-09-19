@@ -1082,6 +1082,19 @@ img { max-width: 100%; }
 .product-information dl div { display: grid; grid-template-columns: 10rem 1fr; gap: 1rem; padding: 1.15rem 0; border-top: 1px solid var(--line); }
 .product-information dt { color: var(--muted); font-size: 0.8rem; }
 .product-information dd { margin: 0; }
+.product-information__description {
+  margin-top: 1.35rem;
+  color: #555047;
+  font-size: 0.95rem;
+  line-height: 1.85;
+  white-space: pre-line;
+}
+.product-information__description p {
+  margin: 0 0 0.85rem;
+}
+.product-information__description p:last-child {
+  margin-bottom: 0;
+}
 .related-products { background: var(--surface); }
 .products-grid--related { max-width: 58rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 

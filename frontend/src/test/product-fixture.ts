@@ -29,6 +29,7 @@ export function createProduct(overrides: Partial<Product> = {}): Product {
     ],
     description: "سفره پارچه‌ای",
     longDescription: "سفره پارچه‌ای مناسب میز شش نفره",
+    detailedDescription: "این سفره ترمه با ترکیب رنگ اصیل و بافت متراکم ابریشمی تولید شده است.",
     categoryId: "category-1",
     categoryName: "سفره میز",
     isActive: true,

@@ -30,6 +30,7 @@ const mockProduct: Product = {
   dimensions: "۱۰۰ × ۱۵۰ سانتی‌متر",
   description: "ترمه فاخر دستباف",
   longDescription: "توضیحات کامل ترمه نیلا",
+  detailedDescription: "توضیحات تفصیلی ترمه نیلا",
   stock: "موجود در انبار",
   stockQuantity: 10,
   sku: "NILA-01",

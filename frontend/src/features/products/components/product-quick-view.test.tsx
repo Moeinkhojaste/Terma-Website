@@ -34,6 +34,7 @@ const mockProductWithVariants: Product = {
   tableImageAlt: "تصویر نیلا روی میز",
   description: "ترمه اصیل یزد با الیاف طبیعی",
   longDescription: "توضیحات کامل ترمه نیلا",
+  detailedDescription: "توضیحات تفصیلی ترمه نیلا",
   categoryId: "cat-1",
   categoryName: "رومیزی",
   isActive: true,
