@@ -22,6 +22,7 @@ export type ProductDto = {
   slug?: string;
   sku: string;
   description: string | null;
+  detailedDescription?: string | null;
   price: number;
   compareAtPrice?: number | null;
   discountPercent?: number | null;
@@ -129,6 +130,7 @@ export type Product = {
   media: ProductMedia[];
   description: string;
   longDescription: string;
+  detailedDescription: string;
   categoryId: string;
   categoryName: string;
   categorySlug?: string;
