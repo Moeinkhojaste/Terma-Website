@@ -53,7 +53,7 @@ export async function ContactPage({ email, phone, instagramUrl }: ContactPagePro
         <section className="contact-content section-pad section-rule">
           <Container className="contact-content__grid">
             <div className="contact-channels">
-              <article><span><MailIcon className="size-5" /></span><div><h2>ایمیل</h2>{email ? <a href={`mailto:${email}`} dir="ltr">{email}</a> : <p>info@terma.ir</p>}</div></article>
+              <article><span><MailIcon className="size-5" /></span><div><h2>ایمیل</h2>{email ? <a href={`mailto:${email}`} dir="ltr">{email}</a> : <p>info@termabrand.ir</p>}</div></article>
               <article><span><PhoneIcon className="size-5" /></span><div><h2>تلفن پشتیبانی</h2>{phone ? <a href={`tel:${phone}`} dir="ltr">{phone}</a> : <p>۰۲۱-۸۸۸۸۸۸۸۸</p>}</div></article>
               <article><span><MessageIcon className="size-5" /></span><div><h2>اینستاگرام</h2>{instagramUrl ? <a href={instagramUrl} target="_blank" rel="noreferrer">رفتن به صفحه ترما</a> : <p>صفحه رسمی ترما</p>}</div></article>
               <article><span><ClockIcon className="size-5" /></span><div><h2>زمان پاسخ‌گویی</h2><p>شنبه تا چهارشنبه، ۹ تا ۱۸</p></div></article>

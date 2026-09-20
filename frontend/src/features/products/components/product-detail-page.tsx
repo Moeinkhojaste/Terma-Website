@@ -7,6 +7,7 @@ import { ProductDetailExperience } from "@/features/products/components/product-
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 import { getProduct } from "@/features/products/product-api";
 import { ApiError } from "@/lib/api-client";
+import { getSiteUrl } from "@/lib/site-url";
 
 type ProductPageProps = { params: Promise<{ id?: string; slug?: string }> };
 const getProductForRequest = cache(getProduct);
@@ -27,7 +28,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   if (!identifier) notFound();
 
   const product = await loadProduct(identifier);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://terma.ir";
+  const siteUrl = getSiteUrl();
   const canonicalUrl = `${siteUrl}/products/${encodeURIComponent(product.slug)}`;
 
   return {
@@ -57,7 +58,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     permanentRedirect(`/products/${encodeURIComponent(product.slug)}`);
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://terma.ir";
+  const siteUrl = getSiteUrl();
 
   const productStructuredData = {
     "@context": "https://schema.org",
@@ -67,6 +68,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
     image: product.media.map((m) => m.src),
     sku: product.sku,
     category: product.categoryName,
+    brand: {
+      "@type": "Brand",
+      name: "ترما",
+    },
     offers: {
       "@type": "Offer",
       url: `${siteUrl}/products/${encodeURIComponent(product.slug)}`,
