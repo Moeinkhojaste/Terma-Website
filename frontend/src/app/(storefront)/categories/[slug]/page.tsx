@@ -7,6 +7,7 @@ import { ProductCatalog } from "@/features/products/components/product-catalog";
 import { ProductCatalogLoading } from "@/features/products/components/product-catalog-loading";
 import { getCategory } from "@/features/products/product-api";
 import { ApiError } from "@/lib/api-client";
+import { getSiteUrl } from "@/lib/site-url";
 
 type CategoryPageProps = { params: Promise<{ slug: string }> };
 export const dynamic = "force-dynamic";
@@ -27,18 +28,18 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
   if (!slug) notFound();
 
   const category = await loadCategory(slug);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://terma.ir";
+  const siteUrl = getSiteUrl();
   const canonicalUrl = `${siteUrl}/categories/${encodeURIComponent(category.slug || category.id)}`;
 
   return {
     title: category.name,
-    description: category.description || `مشاهده محصولات دسته ${category.name} در فروشگاه ترما`,
+    description: category.description || `مشاهده و خرید محصولات دسته‌بندی ${category.name} در فروشگاه ترما`,
     alternates: {
       canonical: canonicalUrl,
     },
     openGraph: {
       title: `${category.name} | ترما`,
-      description: category.description || `مشاهده محصولات دسته ${category.name} در فروشگاه ترما`,
+      description: category.description || `مشاهده و خرید محصولات دسته‌بندی ${category.name} در فروشگاه ترما`,
       url: canonicalUrl,
     },
   };
@@ -55,7 +56,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     permanentRedirect(`/categories/${encodeURIComponent(category.slug)}`);
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://terma.ir";
+  const siteUrl = getSiteUrl();
 
   const collectionStructuredData = {
     "@context": "https://schema.org",

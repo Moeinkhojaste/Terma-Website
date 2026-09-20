@@ -4,6 +4,7 @@ import { CartProvider } from "@/features/cart/cart-provider";
 import { CartDrawer } from "@/features/cart/cart-drawer";
 import { FeedbackProvider } from "@/components/ui/feedback-provider";
 import { WishlistProvider } from "@/features/account/wishlist-context";
+import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const cairo = Cairo({
@@ -12,19 +13,22 @@ const cairo = Cairo({
   display: "swap",
 });
 
+const siteUrl = getSiteUrl();
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://termabrand.ir"),
+  metadataBase: new URL(siteUrl),
   title: {
-    default: "ترما | سفره‌های ترمه ایرانی",
+    default: "ترما | سفره‌های اصیل ایرانی و طرح ترمه (۴، ۶ و ۸ نفره)",
     template: "%s | ترما",
   },
-  description: "سفره‌های ترمه با نقش اصیل ایرانی، دوخت دقیق و آستر ساتن در دسته‌های چهار، شش و هشت نفره.",
+  description: "سفره‌های پذیرایی و غذاخوری با نقش و طرح اصیل ترمه، دوخت منظم و آستر ساتن در اندازه‌های ۴، ۶ و ۸ نفره.",
   openGraph: {
     type: "website",
     locale: "fa_IR",
     siteName: "ترما",
-    title: "ترما | سفره‌های ترمه ایرانی",
-    description: "سفره‌های ترمه با نقش اصیل ایرانی، دوخت دقیق و آستر ساتن در دسته‌های چهار، شش و هشت نفره.",
+    title: "ترما | سفره‌های اصیل ایرانی و طرح ترمه (۴، ۶ و ۸ نفره)",
+    description: "سفره‌های پذیرایی و غذاخوری با نقش و طرح اصیل ترمه، دوخت منظم و آستر ساتن در اندازه‌های ۴، ۶ و ۸ نفره.",
+    url: siteUrl,
   },
   other: {
     enamad: "8428039",
@@ -35,10 +39,10 @@ const websiteStructuredData = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   name: "ترما",
-  url: "https://termabrand.ir",
+  url: siteUrl,
   potentialAction: {
     "@type": "SearchAction",
-    target: "https://termabrand.ir/products?search={search_term_string}",
+    target: `${siteUrl}/products?search={search_term_string}`,
     "query-input": "required name=search_term_string",
   },
 };
@@ -47,11 +51,11 @@ const organizationStructuredData = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "ترما",
-  url: "https://termabrand.ir",
-  logo: "https://termabrand.ir/images/terma-logo.webp",
+  url: siteUrl,
+  logo: `${siteUrl}/images/terma-logo.webp`,
   contactPoint: {
     "@type": "ContactPoint",
-    telephone: "+98-21-12345678",
+    telephone: "+98-21-88888888",
     contactType: "customer service",
     areaServed: "IR",
     availableLanguage: "Persian",

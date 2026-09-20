@@ -15,9 +15,9 @@ import { resolveCmsMediaUrl } from "@/features/content/cms-renderer";
 import type { CmsDocument, CmsPublishedPage } from "@/features/content/cms-types";
 
 const sizes = [
-  { title: "۴ نفره", size: 4, image: "/images/table-4p.webp", alt: "سفره ترمه روی میز چهار نفره", desc: "مناسب صبحانه و وعده‌های دونفره تا چهارنفره" },
-  { title: "۶ نفره", size: 6, image: "/images/table-6p.webp", alt: "سفره ترمه روی میز شش نفره", desc: "ابعاد استاندارد برای پذیرایی‌های خانوادگی" },
-  { title: "۸ نفره", size: 8, image: "/images/table-8p.webp", alt: "سفره ترمه روی میز هشت نفره", desc: "مناسب مهمانی‌های بزرگ و سفره‌های اصیل" },
+  { title: "۴ نفره", size: 4, image: "/images/table-4p.webp", alt: "سفره طرح ترمه روی میز چهار نفره", desc: "ابعاد ۱۰۰×۱۰۰ سانتی‌متر؛ مناسب صبحانه و وعده‌های دونفره تا چهارنفره" },
+  { title: "۶ نفره", size: 6, image: "/images/table-6p.webp", alt: "سفره طرح ترمه روی میز شش نفره", desc: "ابعاد ۱۶۰×۱۱۰ سانتی‌متر؛ ابعاد استاندارد برای پذیرایی‌های خانوادگی" },
+  { title: "۸ نفره", size: 8, image: "/images/table-8p.webp", alt: "سفره طرح ترمه روی میز هشت نفره", desc: "ابعاد ۲۴۰×۱۱۰ سانتی‌متر؛ مناسب مهمانی‌های بزرگ و سفره‌های اصیل" },
 ];
 
 const defaultValuesItems = [
