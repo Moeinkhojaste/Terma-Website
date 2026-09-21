@@ -22,7 +22,7 @@ public sealed class PaymentController(
     ILogger<PaymentController> logger) : ControllerBase
 {
     [HttpPost("initiate")]
-    [EnableRateLimiting("order-create")]
+    [EnableRateLimiting("payment-initiate")]
     [ValidateApiAntiforgeryToken(RequireAuthenticatedOnly = true)]
     public async Task<IActionResult> Initiate([FromBody] PaymentInitiateRequest request, CancellationToken ct)
     {
@@ -238,8 +238,15 @@ public sealed class PaymentController(
     private string? GetClientIp()
     {
         var forwarded = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        return !string.IsNullOrWhiteSpace(forwarded)
-            ? forwarded.Split(',')[0].Trim()
-            : HttpContext.Connection.RemoteIpAddress?.ToString();
+        if (!string.IsNullOrWhiteSpace(forwarded))
+        {
+            var ip = forwarded.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(ip)) return ip;
+        }
+
+        var realIp = HttpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(realIp)) return realIp.Trim();
+
+        return HttpContext.Connection.RemoteIpAddress?.ToString();
     }
 }

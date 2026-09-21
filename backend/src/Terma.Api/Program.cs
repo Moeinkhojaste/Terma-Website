@@ -117,6 +117,9 @@ builder.Services.AddRateLimiter(options =>
             var ip = forwardedFor.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(ip)) return ip;
         }
+        var realIp = httpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(realIp)) return realIp.Trim();
+
         return httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 
@@ -165,7 +168,17 @@ builder.Services.AddRateLimiter(options =>
             GetClientPartitionKey(httpContext),
             _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 5,
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy("payment-initiate", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
                 Window = TimeSpan.FromMinutes(10),
                 QueueLimit = 0
             }));

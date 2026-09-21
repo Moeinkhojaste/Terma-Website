@@ -72,7 +72,7 @@ services:
       Security__EnforceHttps: "true"
       EnableSwagger: "false"
       Database__AutoMigrate: "false"
-      ZarinPal__MerchantId: "${PROD_ZARINPAL_MERCHANT_ID:-}"
+      ZarinPal__MerchantId: "${PROD_ZARINPAL_MERCHANT_ID:-a0d2840c-d4bd-4a64-ba0b-636e5a7a7f45}"
       ZarinPal__IsSandbox: "${PROD_ZARINPAL_IS_SANDBOX:-false}"
       ZarinPal__CallbackUrl: "https://${PROD_DOMAIN}/api/payment/zarinpal/callback"
     deploy:

@@ -75,6 +75,7 @@ function validateForm(formData: FormData) {
 export function CheckoutPageClient() {
   const router = useRouter();
   const submissionLockRef = useRef(false);
+  const pendingOrderRef = useRef<{ id: string; number: string } | null>(null);
   const { items, hydrated, clearCart } = useCart();
   const [errors, setErrors] = useState<FormErrors>({});
   const [requestState, setRequestState] = useState<RequestState>("idle");
@@ -267,6 +268,7 @@ export function CheckoutPageClient() {
       total: Math.max(0, subtotal - discountTotal),
       paymentMethod,
     });
+    pendingOrderRef.current = null;
     setRequestState("idle");
     setServerError("");
     setErrorModal(null);
@@ -288,17 +290,25 @@ export function CheckoutPageClient() {
     setServerError("");
     setErrorModal(null);
     try {
-      const order = await createOrder(targetReview.request);
-      if (targetReview.paymentMethod === "online" && order?.id) {
-        const payment = await initiatePayment(order.id);
+      let currentOrder = pendingOrderRef.current;
+      if (!currentOrder) {
+        const order = await createOrder(targetReview.request);
+        currentOrder = { id: order.id, number: order.number };
+        pendingOrderRef.current = currentOrder;
+      }
+
+      if (targetReview.paymentMethod === "online" && currentOrder?.id) {
+        const payment = await initiatePayment(currentOrder.id);
         clearCart();
+        pendingOrderRef.current = null;
         if (payment?.paymentUrl) {
           window.location.href = payment.paymentUrl;
           return;
         }
       }
       clearCart();
-      router.replace(`/order/success?order=${encodeURIComponent(order.number)}`);
+      pendingOrderRef.current = null;
+      router.replace(`/order/success?order=${encodeURIComponent(currentOrder.number)}`);
     } catch (caught) {
       const errInfo = parseCheckoutError(caught);
       setServerError(errInfo.message);
@@ -319,6 +329,7 @@ export function CheckoutPageClient() {
 
   const editOrder = useCallback(() => {
     if (submissionLockRef.current) return;
+    pendingOrderRef.current = null;
     setReview(null);
     setErrorModal(null);
     setRequestState("idle");
@@ -878,16 +889,23 @@ export function parseCheckoutError(error: unknown): CheckoutErrorInfo {
     };
   }
 
+  if (error.status === 429) {
+    return {
+      title: "محدودیت تعداد درخواست",
+      message: error.problem?.detail || "تعداد درخواست‌های ارسالی بیش از حد مجاز است. لطفاً کمی بعد مجدداً تلاش فرمایید.",
+    };
+  }
+
   if (error.problem?.detail) {
     return {
-      title: "خطا در ثبت سفارش",
+      title: "خطا در پردازش سفارش",
       message: sanitizeErrorMessage(error.problem.detail, error.status),
     };
   }
 
-  if (error.status === 400) {
+  if (error.status === 400 && error.message) {
     return {
-      title: "اطلاعات سفارش نامعتبر است",
+      title: "خطا در اتصال به درگاه پرداخت",
       message: sanitizeErrorMessage(error.message, 400),
     };
   }
