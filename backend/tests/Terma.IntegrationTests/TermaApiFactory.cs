@@ -9,6 +9,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Terma.Api.Controllers;
 using Terma.Application.Common.Authorization;
 using Terma.Application.Customers;
+using Terma.Application.Payments;
+using Terma.Domain.Entities;
 using Terma.Infrastructure.Identity;
 using Terma.Infrastructure.Persistence;
 
@@ -56,6 +58,8 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<TimeProvider>();
             services.RemoveAll<IPhoneOtpSender>();
             services.AddScoped<IPhoneOtpSender, DevelopmentPhoneOtpSender>();
+            services.RemoveAll<IPaymentGatewayService>();
+            services.AddScoped<IPaymentGatewayService, TestPaymentGatewayService>();
 
             if (IsSqlServer)
             {
@@ -85,12 +89,13 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
         });
     }
 
-    public HttpClient CreateHttpsClient()
+    public HttpClient CreateHttpsClient(bool allowAutoRedirect = true)
     {
         Clock.Reset();
         var client = CreateClient(new WebApplicationFactoryClientOptions
         {
-            BaseAddress = new Uri("https://localhost")
+            BaseAddress = new Uri("https://localhost"),
+            AllowAutoRedirect = allowAutoRedirect
         });
         client.DefaultRequestHeaders.Add("X-Forwarded-For", $"10.0.0.{Interlocked.Increment(ref _clientCounter)}");
         return client;
@@ -174,4 +179,23 @@ public sealed class AdjustableTimeProvider : TimeProvider
     public void Advance(TimeSpan amount) => _utcNow = _utcNow.Add(amount);
 
     public void Reset() => _utcNow = DateTimeOffset.UtcNow;
+}
+
+public sealed class TestPaymentGatewayService : IPaymentGatewayService
+{
+    public Task<PaymentInitiateResponse> RequestPaymentAsync(Order order, string callbackUrl, CancellationToken cancellationToken = default)
+    {
+        var authority = $"S{Guid.NewGuid():N}";
+        return Task.FromResult(new PaymentInitiateResponse(true, $"https://sandbox.zarinpal.com/pg/StartPay/{authority}", authority, null));
+    }
+
+    public Task<PaymentVerificationResult> VerifyPaymentAsync(decimal amount, string authority, CancellationToken cancellationToken = default)
+    {
+        if (authority.Contains("fail", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(new PaymentVerificationResult(false, null, null, null, -51, "پرداخت ناموفق بود."));
+        }
+
+        return Task.FromResult(new PaymentVerificationResult(true, 123456789012, "502229******1234", "hash-xyz", 100, null));
+    }
 }

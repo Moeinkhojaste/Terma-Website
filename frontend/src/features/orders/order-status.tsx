@@ -26,7 +26,17 @@ const content = {
   },
 } satisfies Record<StatusType, { eyebrow: string; title: string; description: string }>;
 
-export function OrderStatus({ type, orderNumber }: { type: StatusType; orderNumber?: string }) {
+export function OrderStatus({
+  type,
+  orderNumber,
+  refId,
+  failureMessage,
+}: {
+  type: StatusType;
+  orderNumber?: string;
+  refId?: string;
+  failureMessage?: string;
+}) {
   const [copied, setCopied] = useState(false);
   const details = content[type];
 
@@ -90,9 +100,9 @@ export function OrderStatus({ type, orderNumber }: { type: StatusType; orderNumb
 
             <p className="section-eyebrow status-card-eyebrow">{details.eyebrow}</p>
             <h1 className="status-card-title">{details.title}</h1>
-            <p className="status-card-desc">{details.description}</p>
+            <p className="status-card-desc">{failureMessage || details.description}</p>
 
-            {type === "success" && orderNumber && (
+            {orderNumber && (
               <div className="order-number-card">
                 <div className="order-number-info">
                   <span>کد پیگیری و شماره سفارش</span>
@@ -114,6 +124,15 @@ export function OrderStatus({ type, orderNumber }: { type: StatusType; orderNumb
                     </>
                   )}
                 </button>
+              </div>
+            )}
+
+            {type === "success" && refId && (
+              <div className="order-number-card" style={{ marginTop: "0.75rem" }}>
+                <div className="order-number-info">
+                  <span>شماره پیگیری پرداخت بانکی (RefID)</span>
+                  <strong dir="ltr">{refId}</strong>
+                </div>
               </div>
             )}
 

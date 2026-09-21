@@ -20,6 +20,8 @@ using Terma.Application.Telegram;
 using Terma.Infrastructure.Telegram;
 using Terma.Infrastructure.Sms;
 using Terma.Infrastructure.Email;
+using Terma.Application.Payments;
+using Terma.Infrastructure.Payments;
 
 namespace Terma.Infrastructure;
 
@@ -98,6 +100,13 @@ public static class DependencyInjection
         });
         services.AddScoped<ITelegramUpdateHandler, TelegramUpdateHandler>();
         services.AddHostedService<TelegramPollingService>();
+        services.Configure<ZarinPalOptions>(configuration.GetSection(ZarinPalOptions.SectionName));
+        services.AddHttpClient<IPaymentGatewayService, ZarinPalGatewayService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        });
 
         return services;
     }

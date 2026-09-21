@@ -35,6 +35,7 @@ public class TermaDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Gu
     public DbSet<CartSession> CartSessions => Set<CartSession>();
     public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
     public DbSet<AdminPasswordResetChallenge> AdminPasswordResetChallenges => Set<AdminPasswordResetChallenge>();
+    public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

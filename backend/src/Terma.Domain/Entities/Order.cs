@@ -11,6 +11,7 @@ public sealed class Order : BaseEntity
 {
     private readonly List<OrderItem> _items = [];
     private readonly List<OrderStatusHistory> _history = [];
+    private readonly List<PaymentTransaction> _payments = [];
     public string Number { get; private set; } = string.Empty;
     public Guid CustomerId { get; private set; }
     public Customer Customer { get; private set; } = null!;
@@ -35,6 +36,7 @@ public sealed class Order : BaseEntity
     public string? RequestFingerprint { get; private set; }
     public IReadOnlyCollection<OrderItem> Items => _items.AsReadOnly();
     public IReadOnlyCollection<OrderStatusHistory> History => _history.AsReadOnly();
+    public IReadOnlyCollection<PaymentTransaction> Payments => _payments.AsReadOnly();
 
     private Order() { }
 
@@ -63,6 +65,15 @@ public sealed class Order : BaseEntity
     }
 
     public void AddItem(OrderItem item) => _items.Add(item);
+    public void AddPayment(PaymentTransaction payment) => _payments.Add(payment);
+
+    public void ConfirmPayment(long refId)
+    {
+        if (Status == OrderStatus.PendingConfirmation)
+        {
+            ChangeStatus(OrderStatus.Confirmed);
+        }
+    }
 
     public void SetIdempotency(string key, string requestFingerprint)
     {

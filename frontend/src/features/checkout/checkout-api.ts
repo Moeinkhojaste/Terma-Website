@@ -26,3 +26,19 @@ export function getQuote(request: Partial<CheckoutRequest>) {
     cache: "no-store",
   });
 }
+
+export type PaymentInitiateResponse = {
+  success: boolean;
+  paymentUrl: string;
+  authority: string;
+};
+
+export function initiatePayment(orderId: string) {
+  return apiRequest<PaymentInitiateResponse>("/api/payment/initiate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderId }),
+    cache: "no-store",
+  });
+}
+

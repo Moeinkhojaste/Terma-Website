@@ -72,6 +72,9 @@ services:
       Security__EnforceHttps: "true"
       EnableSwagger: "false"
       Database__AutoMigrate: "false"
+      ZarinPal__MerchantId: "${PROD_ZARINPAL_MERCHANT_ID:-}"
+      ZarinPal__IsSandbox: "${PROD_ZARINPAL_IS_SANDBOX:-false}"
+      ZarinPal__CallbackUrl: "https://${PROD_DOMAIN}/api/payment/zarinpal/callback"
     deploy:
       resources:
         limits:
@@ -148,6 +151,9 @@ services:
       Security__EnforceHttps: "true"
       EnableSwagger: "true"
       Database__AutoMigrate: "false"
+      ZarinPal__MerchantId: "${STAGING_ZARINPAL_MERCHANT_ID:-00000000-0000-0000-0000-000000000000}"
+      ZarinPal__IsSandbox: "${STAGING_ZARINPAL_IS_SANDBOX:-true}"
+      ZarinPal__CallbackUrl: "https://${STAGING_DOMAIN}/api/payment/zarinpal/callback"
     deploy:
       resources:
         limits:
