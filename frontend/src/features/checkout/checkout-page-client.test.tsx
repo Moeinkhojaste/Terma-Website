@@ -345,7 +345,7 @@ describe("checkout order review", () => {
 
       await waitFor(() => {
         expect(mocks.initiatePayment).toHaveBeenCalledWith("order-guid-123");
-        expect(mocks.clearCart).toHaveBeenCalled();
+        expect(mocks.clearCart).not.toHaveBeenCalled();
         expect(locationMock.href).toBe("https://sandbox.zarinpal.com/pg/StartPay/S0000000001");
       });
     } finally {

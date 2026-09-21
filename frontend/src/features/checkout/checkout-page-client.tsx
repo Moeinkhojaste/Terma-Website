@@ -299,7 +299,6 @@ export function CheckoutPageClient() {
 
       if (targetReview.paymentMethod === "online" && currentOrder?.id) {
         const payment = await initiatePayment(currentOrder.id);
-        clearCart();
         pendingOrderRef.current = null;
         if (payment?.paymentUrl) {
           window.location.href = payment.paymentUrl;

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckIcon, ClockIcon, CopyIcon, MinusIcon, TruckIcon, XIcon } from "@/components/ui/icons";
 import { Container } from "@/components/layout/container";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
+import { useCart } from "@/features/cart/cart-provider";
 
 type StatusType = "success" | "failed" | "cancelled";
 
@@ -37,8 +38,15 @@ export function OrderStatus({
   refId?: string;
   failureMessage?: string;
 }) {
+  const { clearCart } = useCart();
   const [copied, setCopied] = useState(false);
   const details = content[type];
+
+  useEffect(() => {
+    if (type === "success") {
+      clearCart();
+    }
+  }, [type, clearCart]);
 
   function copyOrderNumber() {
     if (!orderNumber) return;
