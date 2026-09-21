@@ -12,7 +12,7 @@ import { ApiError, sanitizeErrorMessage } from "@/lib/api-client";
 import { MapPinIcon, UserIcon, TruckIcon, AlertTriangleIcon, XIcon, CreditCardIcon, OnlinePaymentIcon, SnappPayLogo } from "@/components/ui/icons";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
-import { createOrder, getQuote, type CheckoutRequest } from "@/features/checkout/checkout-api";
+import { createOrder, getQuote, initiatePayment, type CheckoutRequest } from "@/features/checkout/checkout-api";
 import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
 import { IRAN_PROVINCES, getIranCities } from "@/lib/iran-locations";
 import { getCustomerSession, getCustomerProfile, getCustomerAddresses, logoutCustomer, type CustomerAddress } from "@/features/account/account-api";
@@ -289,6 +289,14 @@ export function CheckoutPageClient() {
     setErrorModal(null);
     try {
       const order = await createOrder(targetReview.request);
+      if (targetReview.paymentMethod === "online" && order?.id) {
+        const payment = await initiatePayment(order.id);
+        clearCart();
+        if (payment?.paymentUrl) {
+          window.location.href = payment.paymentUrl;
+          return;
+        }
+      }
       clearCart();
       router.replace(`/order/success?order=${encodeURIComponent(order.number)}`);
     } catch (caught) {

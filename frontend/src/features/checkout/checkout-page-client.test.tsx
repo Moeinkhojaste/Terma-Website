@@ -4,6 +4,7 @@ import { createProduct } from "@/test/product-fixture";
 
 const mocks = vi.hoisted(() => ({
   createOrder: vi.fn(),
+  initiatePayment: vi.fn(),
   getQuote: vi.fn(),
   getCustomerSession: vi.fn(),
   getCustomerAddresses: vi.fn(),
@@ -16,7 +17,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: mocks.replace }) }));
 vi.mock("next/link", () => ({ default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <a href={String(href)} {...props}>{children}</a> }));
 vi.mock("@/features/cart/cart-provider", () => ({ useCart: mocks.useCart }));
-vi.mock("@/features/checkout/checkout-api", () => ({ createOrder: mocks.createOrder, getQuote: mocks.getQuote }));
+vi.mock("@/features/checkout/checkout-api", () => ({
+  createOrder: mocks.createOrder,
+  initiatePayment: mocks.initiatePayment,
+  getQuote: mocks.getQuote,
+}));
 vi.mock("@/features/account/account-api", () => ({
   getCustomerSession: mocks.getCustomerSession,
   getCustomerProfile: vi.fn().mockResolvedValue({ email: "" }),
@@ -302,6 +307,53 @@ describe("checkout order review", () => {
     const dialog = await screen.findByRole("dialog", { name: "بازبینی و تأیید سفارش" });
     expect(within(dialog).getByText("روش پرداخت")).toBeInTheDocument();
     expect(within(dialog).getByText("پرداخت آنلاین از درگاه پرداخت")).toBeInTheDocument();
+  });
+
+  it("initiates online payment and redirects to gateway paymentUrl when order with id is created", async () => {
+    const originalLocation = window.location;
+    const locationMock = {
+      ...originalLocation,
+      href: "http://localhost:3000/checkout",
+      assign: vi.fn(),
+      replace: vi.fn(),
+    };
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: locationMock,
+    });
+
+    try {
+      mocks.createOrder.mockResolvedValue({
+        id: "order-guid-123",
+        number: "TRM-12345678-123456",
+        total: 1000,
+        reservationExpiresAtUtc: new Date().toISOString(),
+      });
+      mocks.initiatePayment.mockResolvedValue({
+        success: true,
+        paymentUrl: "https://sandbox.zarinpal.com/pg/StartPay/S0000000001",
+        authority: "S0000000001",
+      });
+
+      render(<CheckoutPageClient />);
+      fillValidCheckout();
+      fireEvent.click(screen.getByRole("button", { name: "ثبت سفارش" }));
+
+      const dialog = await screen.findByRole("dialog", { name: "بازبینی و تأیید سفارش" });
+      const confirm = within(dialog).getByRole("button", { name: "تأیید و ثبت سفارش" });
+      fireEvent.click(confirm);
+
+      await waitFor(() => {
+        expect(mocks.initiatePayment).toHaveBeenCalledWith("order-guid-123");
+        expect(mocks.clearCart).toHaveBeenCalled();
+        expect(locationMock.href).toBe("https://sandbox.zarinpal.com/pg/StartPay/S0000000001");
+      });
+    } finally {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
   });
 });
 

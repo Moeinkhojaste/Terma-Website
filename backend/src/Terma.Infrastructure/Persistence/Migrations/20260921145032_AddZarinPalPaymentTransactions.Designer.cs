@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Terma.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Terma.Infrastructure.Persistence;
 namespace Terma.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(TermaDbContext))]
-    partial class TermaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260921145032_AddZarinPalPaymentTransactions")]
+    partial class AddZarinPalPaymentTransactions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
