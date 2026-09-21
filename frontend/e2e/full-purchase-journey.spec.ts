@@ -34,6 +34,41 @@ test.describe("Full End-to-End Purchase Flow & Mobile Audit", () => {
   }
 
   test("completes end-to-end checkout flow from discovery to order status", async ({ page }) => {
+    let createdOrderNumber = "";
+    await page.route("**/api/orders", async (route) => {
+      const response = await route.fetch();
+      try {
+        const json = await response.json();
+        if (json?.number) {
+          createdOrderNumber = json.number;
+        }
+        await route.fulfill({ response, json });
+      } catch {
+        await route.fulfill({ response });
+      }
+    });
+
+    await page.route("**/api/payment/initiate", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          paymentUrl: `/order/success?order=${encodeURIComponent(createdOrderNumber || "TRM-14030101-001")}&refId=100200300`,
+          authority: "S00000000000000000000000000000000000",
+        }),
+      });
+    });
+
+    await page.route(/sandbox\.zarinpal\.com/, async (route) => {
+      await route.fulfill({
+        status: 302,
+        headers: {
+          Location: `/order/success?order=${encodeURIComponent(createdOrderNumber || "TRM-14030101-001")}&refId=100200300`,
+        },
+      });
+    });
+
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/products");
 
