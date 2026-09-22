@@ -7,6 +7,7 @@ import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { BagIcon, MinusIcon, PlusIcon, TrashIcon, XIcon } from "@/components/ui/icons";
 import { useCart, type CartItem } from "@/features/cart/cart-provider";
 import { RemoveCartItemDialog } from "@/features/cart/remove-cart-item-dialog";
+import { isUnoptimizedMedia } from "@/lib/media";
 
 function formatToman(amount: number): string {
   return new Intl.NumberFormat("fa-IR").format(amount) + " تومان";
@@ -66,6 +67,7 @@ export function CartDrawer() {
                           alt={product.imageAlt || product.name}
                           fill
                           sizes="80px"
+                          unoptimized={isUnoptimizedMedia(product.image)}
                         />
                       </div>
                       <div className="cart-drawer-item__content">

@@ -6,7 +6,7 @@ import { ProductCarousel } from "@/features/products/components/product-carousel
 import type { Product } from "@/features/products/models";
 import { ClockIcon, InstagramIcon, MailIcon, PhoneIcon, TelegramIcon, WhatsAppIcon } from "@/components/ui/icons";
 import { ContactForm } from "@/features/brand/contact-form";
-import { getApiBaseUrl } from "@/lib/api-client";
+import { normalizeMediaUrl } from "@/lib/media";
 import type { CmsBlock, CmsDocument, RichTextNode } from "./cms-types";
 
 function stringValue(value: unknown, fallback = "") { return typeof value === "string" ? value : fallback; }
@@ -19,10 +19,7 @@ function safeHref(value: unknown) {
 export function resolveCmsMediaUrl(value: unknown) {
   const path = stringValue(value);
   if (!path) return "";
-  if (path.startsWith("/api/media/")) {
-    try { return `${getApiBaseUrl()}${path}`; } catch { return path; }
-  }
-  return path;
+  return normalizeMediaUrl(path);
 }
 function CmsImage({ src, alt }: { src: string; alt: string }) { return <Image src={src} alt={alt} fill sizes="(max-width: 900px) 92vw, 50vw" unoptimized />; }
 

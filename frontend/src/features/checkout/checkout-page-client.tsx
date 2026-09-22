@@ -12,6 +12,7 @@ import { ApiError, sanitizeErrorMessage } from "@/lib/api-client";
 import { MapPinIcon, UserIcon, TruckIcon, AlertTriangleIcon, XIcon, CreditCardIcon, OnlinePaymentIcon, SnappPayLogo } from "@/components/ui/icons";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
+import { isUnoptimizedMedia } from "@/lib/media";
 import { createOrder, getQuote, initiatePayment, type CheckoutRequest } from "@/features/checkout/checkout-api";
 import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
 import { IRAN_PROVINCES, getIranCities } from "@/lib/iran-locations";
@@ -540,7 +541,7 @@ export function CheckoutPageClient() {
                 <div className="checkout-products">
                   {items.map(({ lineId, product, quantity }) => (
                     <div className="checkout-product" key={lineId}>
-                      <div className="checkout-product__image"><Image src={product.image} alt="" fill sizes="72px" /></div>
+                      <div className="checkout-product__image"><Image src={product.image} alt="" fill sizes="72px" unoptimized={isUnoptimizedMedia(product.image)} /></div>
                       <div><strong>{product.name}</strong><span>{product.capacity} · تعداد {new Intl.NumberFormat("fa-IR").format(quantity)}</span></div>
                       <b>{formatPrice(product.priceValue * quantity)}</b>
                     </div>
@@ -709,7 +710,7 @@ export function CheckoutReviewDialog({
               <div className="checkout-review__products">
                 {review.products.map((product) => (
                   <div className="checkout-review__product" key={product.lineId}>
-                    <div className="checkout-review__image"><Image src={product.image} alt="" fill sizes="56px" /></div>
+                    <div className="checkout-review__image"><Image src={product.image} alt="" fill sizes="56px" unoptimized={isUnoptimizedMedia(product.image)} /></div>
                     <div><strong>{product.name}</strong><span>{product.capacity} · تعداد {new Intl.NumberFormat("fa-IR").format(product.quantity)}</span></div>
                     <b>{formatPrice(product.lineTotal)}</b>
                   </div>

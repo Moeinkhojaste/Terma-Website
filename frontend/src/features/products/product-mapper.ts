@@ -1,5 +1,5 @@
 import { formatPrice } from "@/lib/format";
-import { getApiBaseUrl } from "@/lib/api-client";
+import { normalizeMediaUrl } from "@/lib/media";
 import type { Product, ProductDto, ProductPage, PagedResponse, ProductCapacityOption, ProductMedia, ProductMediaKind } from "@/features/products/models";
 
 const PRODUCT_PLACEHOLDER = "/images/product-placeholder.svg";
@@ -19,9 +19,7 @@ const PRODUCT_MEDIA: Record<string, ProductMedia[]> = {
 const MEDIA_KINDS = new Set<ProductMediaKind>(["full", "table", "folded", "texture", "stitching", "lining", "other"]);
 
 function mediaUrl(value: string) {
-  if (/^https?:\/\//i.test(value) || value.startsWith("/images/")) return value;
-  if (value.startsWith("/api/")) return `${getApiBaseUrl()}${value}`;
-  return value;
+  return normalizeMediaUrl(value);
 }
 
 function buildMedia(dto: ProductDto): ProductMedia[] {

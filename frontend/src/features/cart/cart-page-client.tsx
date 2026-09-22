@@ -8,6 +8,7 @@ import { MinusIcon, PlusIcon, TrashIcon } from "@/components/ui/icons";
 import { useCart, type CartItem } from "@/features/cart/cart-provider";
 import { RemoveCartItemDialog } from "@/features/cart/remove-cart-item-dialog";
 import { formatPrice } from "@/lib/format";
+import { isUnoptimizedMedia } from "@/lib/media";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 
@@ -47,7 +48,7 @@ export function CartPageClient() {
                   return (
                     <article className="cart-item" key={lineId}>
                       <Link className="cart-item__image" href={`/products/${product.slug || product.id}`} aria-label={`مشاهده ${product.name}`}>
-                        <Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 34vw, 180px" />
+                        <Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 34vw, 180px" unoptimized={isUnoptimizedMedia(product.image)} />
                       </Link>
                       <div className="cart-item__content">
                         <div>
