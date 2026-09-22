@@ -7,6 +7,7 @@ import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { XIcon } from "@/components/ui/icons";
 import { AddToCartButton } from "@/features/cart/add-to-cart-button";
 import { getDefaultCapacity, selectProductCapacity } from "@/features/products/product-selection";
+import { isUnoptimizedMedia } from "@/lib/media";
 import type { Product } from "@/features/products/models";
 
 export function ProductQuickView({ product, open, onClose }: { product: Product; open: boolean; onClose: () => void }) {
@@ -19,7 +20,7 @@ export function ProductQuickView({ product, open, onClose }: { product: Product;
     <AccessibleDialog open={open} onClose={onClose} className="quick-view-dialog sheet-dialog" label={`مشاهده سریع ${product.name}`}>
       <div className="quick-view">
         <button className="dialog-close" type="button" onClick={onClose} aria-label="بستن مشاهده سریع"><XIcon className="size-5" /></button>
-        <div className="quick-view__image"><Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 92vw, 420px" /></div>
+        <div className="quick-view__image"><Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 92vw, 420px" unoptimized={isUnoptimizedMedia(product.image)} /></div>
         <div className="quick-view__content">
           <span className={activeProduct.stockQuantity > 0 ? "stock" : "stock stock--off"}>{activeProduct.stock}</span>
           <h2>{product.name}</h2>

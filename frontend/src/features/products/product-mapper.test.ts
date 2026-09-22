@@ -152,4 +152,35 @@ describe("product-mapper", () => {
       expect(product.tableImage).toBe(product.media[0].src);
     }
   });
+
+  it("maps uploaded media items with relative /api/media/ URLs and strips internal hostnames", () => {
+    const product = mapProduct({
+      ...baseDto,
+      media: [
+        {
+          id: "med-uploaded-1",
+          productId: baseDto.id,
+          publicUrl: "/api/media/4c02209d6f314fbf972173f40d39e31d.webp",
+          altText: "نمای کامل لاجورد",
+          kind: "Full",
+          sortOrder: 0,
+          isPrimary: true,
+        },
+        {
+          id: "med-uploaded-2",
+          productId: baseDto.id,
+          publicUrl: "http://prod-backend:8080/api/media/second-photo.webp",
+          altText: "نمای کامل لاجورد ۲",
+          kind: "Full",
+          sortOrder: 1,
+          isPrimary: false,
+        },
+      ],
+    });
+
+    expect(product.media).toHaveLength(2);
+    expect(product.media[0].src).toBe("/api/media/4c02209d6f314fbf972173f40d39e31d.webp");
+    expect(product.media[1].src).toBe("/api/media/second-photo.webp");
+    expect(product.image).toBe("/api/media/4c02209d6f314fbf972173f40d39e31d.webp");
+  });
 });

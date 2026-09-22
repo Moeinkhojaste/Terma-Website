@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { ArrowLeftIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "@/components/ui/icons";
+import { isUnoptimizedMedia } from "@/lib/media";
 import type { ProductMedia } from "@/features/products/models";
 
 
@@ -42,7 +43,7 @@ export function ProductGallery({ media, productName }: { media: ProductMedia[]; 
     <div className="product-gallery" aria-label={`تصاویر ${productName}`}>
       <div className="product-gallery__stage" onTouchStart={(event) => { touchStart.current = event.touches[0].clientX; }} onTouchEnd={(event) => handleTouchEnd(event.changedTouches[0].clientX)}>
         <button type="button" className="product-gallery__open" onClick={() => setViewerOpen(true)} aria-label={`نمایش تمام‌صفحه ${current.alt}`}>
-          <Image src={current.src} alt={current.alt} fill priority={index === 0} sizes="(max-width: 900px) 94vw, 54vw" />
+          <Image src={current.src} alt={current.alt} fill priority={index === 0} sizes="(max-width: 900px) 94vw, 54vw" unoptimized={isUnoptimizedMedia(current.src)} />
           <span className="product-gallery__zoom-hint"><ZoomInIcon /> برای بزرگ‌نمایی لمس کنید</span>
         </button>
         {media.length > 1 && <>
@@ -62,7 +63,7 @@ export function ProductGallery({ media, productName }: { media: ProductMedia[]; 
             aria-current={itemIndex === index ? "true" : undefined}
             key={item.id}
           >
-            <span><Image src={item.src} alt="" fill sizes="88px" /></span>
+            <span><Image src={item.src} alt="" fill sizes="88px" unoptimized={isUnoptimizedMedia(item.src)} /></span>
           </button>
         ))}
       </div>
@@ -79,7 +80,7 @@ export function ProductGallery({ media, productName }: { media: ProductMedia[]; 
         <div className={`gallery-viewer__image${zoom > 1 ? " is-zoomed" : ""}`} onClick={() => setZoom((value) => value === 1 ? 2 : 1)} onTouchStart={(event) => { touchStart.current = event.touches[0].clientX; }} onTouchEnd={(event) => handleTouchEnd(event.changedTouches[0].clientX)}>
           {viewerOpen && (
             <div style={{ transform: `scale(${zoom})` }}>
-              <Image src={current.src} alt={current.alt} fill sizes="100vw" />
+              <Image src={current.src} alt={current.alt} fill sizes="100vw" unoptimized={isUnoptimizedMedia(current.src)} />
             </div>
           )}
         </div>

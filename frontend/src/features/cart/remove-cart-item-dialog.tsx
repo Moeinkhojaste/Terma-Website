@@ -5,6 +5,7 @@ import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { TrashIcon, XIcon } from "@/components/ui/icons";
 import type { CartItem } from "@/features/cart/cart-provider";
 import { formatPrice } from "@/lib/format";
+import { isUnoptimizedMedia } from "@/lib/media";
 
 export type RemoveCartItemDialogProps = {
   item: CartItem | null;
@@ -59,6 +60,7 @@ export function RemoveCartItemDialog({ item, onClose, onConfirm }: RemoveCartIte
               alt={product.imageAlt || product.name}
               fill
               sizes="64px"
+              unoptimized={isUnoptimizedMedia(product.image)}
             />
           </div>
           <div className="cart-remove-modal__product-info">

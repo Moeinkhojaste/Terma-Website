@@ -31,6 +31,8 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const siteUrl = getSiteUrl();
   const canonicalUrl = `${siteUrl}/products/${encodeURIComponent(product.slug)}`;
 
+  const toAbsoluteMediaUrl = (src: string) => (src.startsWith("http") ? src : `${siteUrl}${src.startsWith("/") ? "" : "/"}${src}`);
+
   return {
     title: product.name,
     description: product.description,
@@ -41,7 +43,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       title: `${product.name} | ترما`,
       description: product.description,
       url: canonicalUrl,
-      images: product.media.length > 0 ? [{ url: product.media[0].src, alt: product.media[0].alt }] : [],
+      images: product.media.length > 0 ? [{ url: toAbsoluteMediaUrl(product.media[0].src), alt: product.media[0].alt }] : [],
     },
   };
 }
@@ -59,13 +61,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   const siteUrl = getSiteUrl();
+  const toAbsoluteMediaUrl = (src: string) => (src.startsWith("http") ? src : `${siteUrl}${src.startsWith("/") ? "" : "/"}${src}`);
 
   const productStructuredData = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
     description: product.description,
-    image: product.media.map((m) => m.src),
+    image: product.media.map((m) => toAbsoluteMediaUrl(m.src)),
     sku: product.sku,
     category: product.categoryName,
     brand: {

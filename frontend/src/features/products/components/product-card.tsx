@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeftIcon, EyeIcon } from "@/components/ui/icons";
 import { ProductQuickView } from "@/features/products/components/product-quick-view";
 import { WishlistButton } from "@/features/account/components/wishlist-button";
+import { isUnoptimizedMedia } from "@/lib/media";
 import type { Product } from "@/features/products/models";
 
 export function ProductCard({ product, unavailable = false }: { product: Product; unavailable?: boolean }) {
@@ -16,7 +17,7 @@ export function ProductCard({ product, unavailable = false }: { product: Product
     <article className="product-card" id={`product-${product.id}`}>
       <div className="product-image-wrap">
         <Link className="product-card__image-link" href={productHref} tabIndex={-1} aria-hidden="true">
-          <Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 92vw, (max-width: 1100px) 45vw, 31vw" className="product-image" />
+          <Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 92vw, (max-width: 1100px) 45vw, 31vw" className="product-image" unoptimized={isUnoptimizedMedia(product.image)} />
         </Link>
         <WishlistButton productId={product.id} productName={product.name} className="product-card__wishlist" />
         <button className="product-card__quick-view" type="button" onClick={() => setQuickViewOpen(true)} aria-label={`مشاهده سریع ${product.name}`}><EyeIcon /><span>مشاهده سریع</span></button>
