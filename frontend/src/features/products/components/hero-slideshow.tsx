@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { ArrowLeftIcon } from "@/components/ui/icons";
+import { toPersianDigits } from "@/lib/format";
 
 export interface HeroSlideItem {
   src: string;
@@ -151,7 +152,7 @@ export function HeroSlideshow({ slides = DEFAULT_SLIDES }: { slides?: HeroSlideI
               type="button"
               role="tab"
               aria-selected={isActive}
-              aria-label={`نمایش تصویر ${index + 1}`}
+              aria-label={`نمایش تصویر ${toPersianDigits(index + 1)}`}
               className={`hero-slideshow__bar ${isActive ? "is-active" : isPassed ? "is-passed" : ""}`}
               onClick={() => setCurrentIndex(index)}
             >
@@ -176,7 +177,7 @@ export function HeroSlideshow({ slides = DEFAULT_SLIDES }: { slides?: HeroSlideI
           aria-label="تصویر قبلی"
           title="تصویر قبلی"
         >
-          <ArrowLeftIcon className="rotate-180" />
+          <ArrowLeftIcon />
         </button>
         <button
           type="button"
