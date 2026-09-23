@@ -68,7 +68,7 @@ export function AdminProductsPage() {
 
   const loadVariants = useCallback((productId: string) => {
     getVariants(productId)
-      .then(setVariants)
+      .then((data) => setVariants(Array.isArray(data) ? data : []))
       .catch((e) => setError(getApiErrorMessage(e)));
   }, []);
 
@@ -83,21 +83,21 @@ export function AdminProductsPage() {
   function startEditProduct(item: ProductDto) {
     setEditingId(item.id);
     setForm({
-      name: item.name,
-      sku: item.sku,
+      name: item.name ?? "",
+      sku: item.sku ?? "",
       description: item.description ?? "",
       detailedDescription: item.detailedDescription ?? "",
-      price: item.compareAtPrice ? String(item.compareAtPrice) : String(item.price),
+      price: item.compareAtPrice ? String(item.compareAtPrice) : item.price != null ? String(item.price) : "",
       discountPercent: item.discountPercent ? String(item.discountPercent) : "",
-      stockQuantity: String(item.stockQuantity),
-      tableCapacity: String(item.tableCapacity),
-      length: String(item.length),
-      width: String(item.width),
-      fabricType: item.fabricType,
-      liningType: item.liningType,
-      color: item.color,
-      pattern: item.pattern,
-      categoryId: item.categoryId,
+      stockQuantity: item.stockQuantity != null ? String(item.stockQuantity) : "",
+      tableCapacity: item.tableCapacity != null ? String(item.tableCapacity) : "4",
+      length: item.length != null ? String(item.length) : "100",
+      width: item.width != null ? String(item.width) : "100",
+      fabricType: item.fabricType ?? "ترمه",
+      liningType: item.liningType ?? "ساتن",
+      color: item.color ?? "",
+      pattern: item.pattern ?? "",
+      categoryId: item.categoryId ?? "",
       isActive: item.isActive ?? true,
     });
     setEditingVariantId(null);
@@ -118,22 +118,43 @@ export function AdminProductsPage() {
     e.preventDefault();
     setPending(true);
     setError(undefined);
+    const parsedDiscount = form.discountPercent && Number(form.discountPercent) > 0 ? Number(form.discountPercent) : null;
     const payload = {
       ...form,
       price: Number(form.price),
-      discountPercent: form.discountPercent ? Number(form.discountPercent) : null,
+      discountPercent: parsedDiscount,
       stockQuantity: Number(form.stockQuantity),
       tableCapacity: Number(form.tableCapacity),
       length: Number(form.length),
       width: Number(form.width),
     };
     try {
-      await apiRequest<ProductDto>(editingId ? `/api/admin/products/${editingId}` : "/api/admin/products", {
+      const updated = await apiRequest<ProductDto>(editingId ? `/api/admin/products/${editingId}` : "/api/admin/products", {
         method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (editingId) {
+        if (updated) {
+          setForm({
+            name: updated.name ?? "",
+            sku: updated.sku ?? "",
+            description: updated.description ?? "",
+            detailedDescription: updated.detailedDescription ?? "",
+            price: updated.compareAtPrice ? String(updated.compareAtPrice) : updated.price != null ? String(updated.price) : "",
+            discountPercent: updated.discountPercent ? String(updated.discountPercent) : "",
+            stockQuantity: updated.stockQuantity != null ? String(updated.stockQuantity) : "",
+            tableCapacity: updated.tableCapacity != null ? String(updated.tableCapacity) : "4",
+            length: updated.length != null ? String(updated.length) : "100",
+            width: updated.width != null ? String(updated.width) : "100",
+            fabricType: updated.fabricType ?? "ترمه",
+            liningType: updated.liningType ?? "ساتن",
+            color: updated.color ?? "",
+            pattern: updated.pattern ?? "",
+            categoryId: updated.categoryId ?? "",
+            isActive: updated.isActive ?? true,
+          });
+        }
         await loadVariants(editingId);
       } else {
         cancelEdit();
@@ -314,7 +335,7 @@ export function AdminProductsPage() {
 
         {/* Section 2: Manage Capacities & Dimensions directly in unified view when editing */}
         {editingId && (
-          <div className="admin-panel admin-form" style={{ marginTop: "1.5rem" }}>
+          <div className="admin-panel admin-form">
             <div className="admin-panel__heading">
               <div>
                 <p className="section-eyebrow">مدیریت ابعاد و ظرفیت‌ها</p>
@@ -471,7 +492,7 @@ export function AdminProductsPage() {
         )}
 
         {/* Product Catalog Table */}
-        <div className="admin-panel admin-table-wrap">
+        <div className={`admin-panel admin-table-wrap ${editingId ? "admin-table-wrap--full" : ""}`}>
           <div className="admin-panel__heading">
             <div>
               <p className="section-eyebrow">مدیریت کاتالوگ</p>

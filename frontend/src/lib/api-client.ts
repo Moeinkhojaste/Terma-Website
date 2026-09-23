@@ -136,6 +136,10 @@ export function sanitizeErrorMessage(rawMessage?: string | null, status?: number
 
   // Translate common standard HTTP/API English error phrases
   const lower = trimmed.toLowerCase();
+  if (lower.includes("compare-at price")) return "قیمت قبل از تخفیف باید از قیمت فروش بیشتر باشد.";
+  if (lower.includes("discount percentage") || lower.includes("discountpercent")) return "درصد تخفیف باید بین ۱ تا ۹۹ باشد.";
+  if (lower.includes("price must be greater than zero")) return "قیمت محصول باید بزرگ‌تر از صفر باشد.";
+  if (lower.includes("stock cannot be negative") || lower.includes("stock quantity cannot be negative")) return "موجودی انبار نمی‌تواند منفی باشد.";
   if (lower.includes("not found")) return "اطلاعات یا منبع مورد نظر یافت نشد.";
   if (lower.includes("unauthorized") || lower.includes("authentication required")) return "نشست کاربری شما به پایان رسیده است. لطفاً مجدداً وارد حساب کاربری شوید.";
   if (lower.includes("forbidden") || lower.includes("access denied")) return "شما دسترسی لازم برای انجام این عملیات را ندارید.";

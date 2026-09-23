@@ -233,8 +233,9 @@ public sealed class ProductService(
             }
         }
 
-        var defaultVariant = product.Variants.FirstOrDefault(variant => variant.Title == "تنوع پیش‌فرض");
-        defaultVariant?.SyncFromLegacy(request.Sku, request.Color, request.TableCapacity, request.Length, request.Width, product.Price, request.StockQuantity, request.IsActive);
+        var defaultVariant = product.Variants.FirstOrDefault(variant => variant.Title == "تنوع پیش‌فرض")
+            ?? (product.Variants.Count == 1 ? product.Variants.First() : null);
+        defaultVariant?.SyncFromLegacy(request.Sku, request.Color, request.TableCapacity, request.Length, request.Width, product.Price, product.CompareAtPrice, request.StockQuantity, request.IsActive);
         await productRepository.SaveChangesAsync(cancellationToken);
         return mapper.Map<ProductDto>(await productRepository.GetByIdAsync(id, cancellationToken));
     }
