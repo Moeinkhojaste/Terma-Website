@@ -61,4 +61,64 @@ describe("AdminProductsPage", () => {
     expect(screen.getByText("توضیحات تفصیلی (نمایش در بخش جزئیات محصول)")).toBeInTheDocument();
     expect(screen.getByText("ایجاد گروه محصول")).toBeInTheDocument();
   });
+
+  it("applies full-width class to catalog table when editing a product", async () => {
+    window.scrollTo = vi.fn();
+    vi.spyOn(apiClient, "apiRequest").mockImplementation(async (path: string) => {
+      if (path.includes("/variants")) {
+        return [];
+      }
+      if (path.includes("/api/admin/products")) {
+        return {
+          items: [
+            {
+              id: "prod-adm-1",
+              name: "سفره سنتی سبز 006",
+              sku: "TER-006-6P",
+              price: 1_615_000,
+              compareAtPrice: 1_900_000,
+              discountPercent: 15,
+              stockQuantity: 1,
+              tableCapacity: 6,
+              length: 160,
+              width: 110,
+              color: "سبز",
+              pattern: "بته جقه",
+              categoryId: "cat-1",
+              isActive: true,
+            },
+          ],
+          totalCount: 1,
+          page: 1,
+          pageSize: 100,
+          totalPages: 1,
+        };
+      }
+      if (path.includes("/api/admin/categories")) {
+        return [{ id: "cat-1", name: "رومیزی", slug: "tablecloth", description: null, isActive: true }];
+      }
+      return [];
+    });
+
+    render(<AdminProductsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("سفره سنتی سبز 006")).toBeInTheDocument();
+    });
+
+    // Before editing, catalog table does not have full-width class
+    const catalogTableWrap = screen.getByText("گروه‌های محصول فعال").closest(".admin-table-wrap");
+    expect(catalogTableWrap).not.toHaveClass("admin-table-wrap--full");
+
+    // Click edit
+    const editButton = screen.getByText("ویرایش گروه و ظرفیت‌ها");
+    editButton.click();
+
+    await waitFor(() => {
+      expect(screen.getByText("مشخصات عمومی و مشترک گروه محصول")).toBeInTheDocument();
+    });
+
+    // In edit mode, catalog table must span full width across grid columns
+    expect(catalogTableWrap).toHaveClass("admin-table-wrap--full");
+  });
 });

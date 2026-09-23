@@ -44,6 +44,96 @@ public sealed class ProductServiceTests
     }
 
     [Fact]
+    public async Task Update_WhenPriceAndDiscountChanged_SyncsDefaultVariantSuccessfully()
+    {
+        var categoryId = Guid.NewGuid();
+        var category = new Category("Tablecloths", null);
+        var product = new Product("Sabz 006", "TER-006-6P", "desc", 1_900_000, 1, 6, 160, 110, "Termeh", "Satin", "Green", "Boteh", categoryId, 15);
+        
+        var products = new Mock<IProductRepository>();
+        var categories = new Mock<ICategoryRepository>();
+        categories.Setup(r => r.GetByIdAsync(categoryId, It.IsAny<CancellationToken>())).ReturnsAsync(category);
+        products.Setup(r => r.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
+        products.Setup(r => r.SkuExistsAsync(It.IsAny<string>(), product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        products.Setup(r => r.SlugExistsAsync(It.IsAny<string>(), product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+
+        var service = CreateService(products.Object, categories.Object);
+
+        var updateRequest = new UpdateProductRequest
+        {
+            Name = "Sabz 006",
+            Sku = "TER-006-6P",
+            Price = 3_000_000,
+            DiscountPercent = 15,
+            StockQuantity = 1,
+            TableCapacity = 6,
+            Length = 160,
+            Width = 110,
+            FabricType = "Termeh",
+            LiningType = "Satin",
+            Color = "Green",
+            Pattern = "Boteh",
+            CategoryId = categoryId,
+            IsActive = true,
+        };
+
+        var result = await service.UpdateAsync(product.Id, updateRequest, CancellationToken.None);
+
+        Assert.Equal(2_550_000, product.Price);
+        Assert.Equal(3_000_000, product.CompareAtPrice);
+        Assert.Equal(15, product.DiscountPercent);
+
+        var defaultVariant = product.Variants.First(v => v.Title == "تنوع پیش‌فرض");
+        Assert.Equal(2_550_000, defaultVariant.Price);
+        Assert.Equal(3_000_000, defaultVariant.CompareAtPrice);
+    }
+
+    [Fact]
+    public async Task Update_WhenDiscountRemoved_ClearsDefaultVariantCompareAtPrice()
+    {
+        var categoryId = Guid.NewGuid();
+        var category = new Category("Tablecloths", null);
+        var product = new Product("Sabz 006", "TER-006-6P", "desc", 1_900_000, 1, 6, 160, 110, "Termeh", "Satin", "Green", "Boteh", categoryId, 15);
+        
+        var products = new Mock<IProductRepository>();
+        var categories = new Mock<ICategoryRepository>();
+        categories.Setup(r => r.GetByIdAsync(categoryId, It.IsAny<CancellationToken>())).ReturnsAsync(category);
+        products.Setup(r => r.GetByIdAsync(product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(product);
+        products.Setup(r => r.SkuExistsAsync(It.IsAny<string>(), product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        products.Setup(r => r.SlugExistsAsync(It.IsAny<string>(), product.Id, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+
+        var service = CreateService(products.Object, categories.Object);
+
+        var updateRequest = new UpdateProductRequest
+        {
+            Name = "Sabz 006",
+            Sku = "TER-006-6P",
+            Price = 3_000_000,
+            DiscountPercent = null,
+            StockQuantity = 1,
+            TableCapacity = 6,
+            Length = 160,
+            Width = 110,
+            FabricType = "Termeh",
+            LiningType = "Satin",
+            Color = "Green",
+            Pattern = "Boteh",
+            CategoryId = categoryId,
+            IsActive = true,
+        };
+
+        await service.UpdateAsync(product.Id, updateRequest, CancellationToken.None);
+
+        Assert.Equal(3_000_000, product.Price);
+        Assert.Null(product.CompareAtPrice);
+        Assert.Null(product.DiscountPercent);
+
+        var defaultVariant = product.Variants.First(v => v.Title == "تنوع پیش‌فرض");
+        Assert.Equal(3_000_000, defaultVariant.Price);
+        Assert.Null(defaultVariant.CompareAtPrice);
+    }
+
+    [Fact]
     public void AutoMapperConfiguration_IsValid()
     {
         using var provider = CreateMapperProvider();

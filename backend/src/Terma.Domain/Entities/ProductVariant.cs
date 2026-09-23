@@ -41,9 +41,9 @@ public sealed class ProductVariant : BaseEntity
         MarkUpdated();
     }
 
-    public void SyncFromLegacy(string sku, string color, int tableCapacity, decimal length, decimal width, decimal price, int stockQuantity, bool isActive)
+    public void SyncFromLegacy(string sku, string color, int tableCapacity, decimal length, decimal width, decimal price, decimal? compareAtPrice, int stockQuantity, bool isActive)
     {
-        Apply(Title, sku, color, tableCapacity, length, width, price, CompareAtPrice, stockQuantity, LowStockThreshold, isActive);
+        Apply(Title, sku, color, tableCapacity, length, width, price, compareAtPrice, stockQuantity, LowStockThreshold, isActive);
         if (ReservedQuantity > StockQuantity) throw new DomainException("Stock cannot be lower than the reserved quantity.");
         MarkUpdated();
     }

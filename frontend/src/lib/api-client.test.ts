@@ -70,6 +70,17 @@ describe("api-client", () => {
     );
   });
 
+  it("translates domain pricing and discount validation errors to friendly Persian", () => {
+    expect(
+      getApiErrorMessage(
+        new ApiError("Compare-at price must be greater than the selling price.", { status: 400 }),
+      ),
+    ).toBe("قیمت قبل از تخفیف باید از قیمت فروش بیشتر باشد.");
+    expect(
+      getApiErrorMessage(new ApiError("Discount percentage must be between 1 and 99.", { status: 400 })),
+    ).toBe("درصد تخفیف باید بین ۱ تا ۹۹ باشد.");
+  });
+
   it("handles network errors with internet check message", () => {
     const networkError = new ApiError("Failed to fetch", { isNetworkError: true });
     expect(getApiErrorMessage(networkError)).toBe(
