@@ -15,7 +15,9 @@ import {
   CheckIcon,
   CopyIcon,
   ExternalLinkIcon,
+  GiftIcon,
   MapPinIcon,
+  PackageIcon,
   TruckIcon,
 } from "@/components/ui/icons";
 
@@ -188,6 +190,7 @@ export function AccountOrderClient({ id }: { id: string }) {
                   <thead>
                     <tr>
                       <th>محصول</th>
+                      <th>بسته‌بندی</th>
                       <th>کد محصول (SKU)</th>
                       <th>قیمت واحد</th>
                       <th>تعداد</th>
@@ -200,10 +203,23 @@ export function AccountOrderClient({ id }: { id: string }) {
                         <td>
                           <strong>{item.productName}</strong>
                         </td>
+                        <td>
+                          {item.packagingType === "GiftBox" ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-teal-50 text-teal-900 border border-teal-200">
+                              <GiftIcon className="size-3.5 text-teal-700" />
+                              <span>بسته‌بندی کادویی (جعبه)</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-stone-600 bg-stone-100">
+                              <PackageIcon className="size-3.5 text-stone-500" />
+                              <span>بسته‌بندی معمولی</span>
+                            </span>
+                          )}
+                        </td>
                         <td dir="ltr" className="sku-cell">
                           {item.sku}
                         </td>
-                        <td>{formatPrice(item.unitPrice)}</td>
+                        <td>{formatPrice(item.unitPrice + (item.packagingFee || 0))}</td>
                         <td>{item.quantity.toLocaleString("fa-IR")}</td>
                         <td>
                           <b>{formatPrice(item.lineTotal)}</b>

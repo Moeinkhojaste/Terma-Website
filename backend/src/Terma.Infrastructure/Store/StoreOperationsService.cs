@@ -12,6 +12,7 @@ using Terma.Application.Store;
 using Terma.Application.Telegram;
 using Terma.Domain.Entities;
 using Terma.Domain.Exceptions;
+using Microsoft.Extensions.Configuration;
 using Terma.Domain.Services;
 using Terma.Infrastructure.Persistence;
 
@@ -20,7 +21,8 @@ namespace Terma.Infrastructure.Store;
 public sealed class StoreOperationsService(
     TermaDbContext db,
     ITelegramBotService? telegramBotService = null,
-    ILogger<StoreOperationsService>? logger = null) : IStoreOperationsService
+    ILogger<StoreOperationsService>? logger = null,
+    IConfiguration? configuration = null) : IStoreOperationsService
 {
     private static readonly PersianCalendar Pc = new();
     private static readonly TimeZoneInfo IranTimeZone = GetIranTimeZone();
@@ -892,22 +894,25 @@ public sealed class StoreOperationsService(
     public async Task<CheckoutQuoteDto> QuoteAsync(CheckoutRequest request, CancellationToken cancellationToken)
     {
         var lines = await ResolveLines(request.Items, cancellationToken);
-        var subtotal = lines.Sum(x => x.UnitPrice * x.Quantity);
+        var productSubtotal = lines.Sum(x => x.UnitPrice * x.Quantity);
+        var packagingTotal = lines.Sum(x => x.PackagingFee * x.Quantity);
+        var totalSubtotal = productSubtotal + packagingTotal;
         var promotions = await db.Promotions.AsNoTracking().Where(x => x.IsActive).ToListAsync(cancellationToken);
         var now = DateTime.UtcNow;
-        var matchingPromotions = promotions.Where(x => x.Applies(request.CouponCode, subtotal, now)).ToList();
-        var discount = matchingPromotions.Select(x => x.Calculate(subtotal)).DefaultIfEmpty(0).Max();
+        var matchingPromotions = promotions.Where(x => x.Applies(request.CouponCode, totalSubtotal, now)).ToList();
+        var discount = matchingPromotions.Select(x => x.Calculate(totalSubtotal)).DefaultIfEmpty(0).Max();
 
         var rules = await db.ShippingRules.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Priority).ToListAsync(cancellationToken);
         var rule = rules.FirstOrDefault(x => x.Matches(request.Province, request.City));
-        var shipping = rule?.Calculate(subtotal) ?? 0;
+        var shipping = rule?.Calculate(totalSubtotal) ?? 0;
 
         return new(
-            subtotal,
+            totalSubtotal,
+            packagingTotal,
             discount,
             shipping,
-            subtotal - discount + shipping,
-            lines.Select(x => new CheckoutQuoteItemDto(x.ProductId, x.VariantId, x.ProductName, x.Sku, x.UnitPrice, x.Quantity, x.AvailableQuantity)).ToList(),
+            totalSubtotal - discount + shipping,
+            lines.Select(x => new CheckoutQuoteItemDto(x.ProductId, x.VariantId, x.ProductName, x.Sku, x.UnitPrice, x.PackagingFee, x.PackagingType, x.Quantity, x.AvailableQuantity)).ToList(),
             DateTime.UtcNow.AddHours(24));
     }
 
@@ -938,7 +943,7 @@ public sealed class StoreOperationsService(
             transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
 
             var lines = await ResolveLines(request.Items, cancellationToken);
-        var subtotal = lines.Sum(x => x.UnitPrice * x.Quantity);
+        var subtotal = lines.Sum(x => (x.UnitPrice + x.PackagingFee) * x.Quantity);
 
         // Resolve promotion inside transaction with lock/tracking
         Promotion? appliedPromo = null;
@@ -1034,7 +1039,7 @@ public sealed class StoreOperationsService(
 
         foreach (var line in lines)
         {
-            order.AddItem(new OrderItem(line.ProductId, line.VariantId, line.ProductName, line.Sku, line.UnitPrice, line.Quantity));
+            order.AddItem(new OrderItem(line.ProductId, line.VariantId, line.ProductName, line.Sku, line.UnitPrice, line.Quantity, line.PackagingType, line.PackagingFee));
         }
 
         customer.AddOrder(order.Total);
@@ -1214,6 +1219,7 @@ public sealed class StoreOperationsService(
     private async Task<List<CheckoutLine>> ResolveLines(IReadOnlyList<CheckoutItemRequest> requests, CancellationToken cancellationToken)
     {
         if (requests.Count == 0) throw new DomainException("At least one product is required.");
+        var packagingSettings = await GetPublicPackagingSettingsAsync(cancellationToken);
         var result = new List<CheckoutLine>();
         foreach (var request in requests)
         {
@@ -1225,18 +1231,26 @@ public sealed class StoreOperationsService(
                 : product.Variants.FirstOrDefault(x => x.IsActive);
             if (variant is null) throw new NotFoundException("Product variant was not found.");
             if (request.Quantity > variant.AvailableQuantity) throw new ConflictException($"Only {variant.AvailableQuantity} items of '{product.Name}' are available.");
-            result.Add(new CheckoutLine(product.Id, variant.Id, product.Name, variant.Sku, variant.Price, request.Quantity, variant.AvailableQuantity, variant, product));
+
+            var pkgType = request.PackagingType;
+            if (pkgType == PackagingType.GiftBox && !packagingSettings.IsGiftPackagingEnabled)
+            {
+                pkgType = PackagingType.Standard;
+            }
+            var pkgFee = pkgType == PackagingType.GiftBox ? packagingSettings.GiftPackagingPrice : 0m;
+
+            result.Add(new CheckoutLine(product.Id, variant.Id, product.Name, variant.Sku, variant.Price, pkgFee, pkgType, request.Quantity, variant.AvailableQuantity, variant, product));
         }
         return result;
     }
 
-    private sealed record CheckoutLine(Guid ProductId, Guid? VariantId, string ProductName, string Sku, decimal UnitPrice, int Quantity, int AvailableQuantity, ProductVariant Variant, Product Product);
+    private sealed record CheckoutLine(Guid ProductId, Guid? VariantId, string ProductName, string Sku, decimal UnitPrice, decimal PackagingFee, PackagingType PackagingType, int Quantity, int AvailableQuantity, ProductVariant Variant, Product Product);
 
     private static string CalculateRequestFingerprint(CheckoutRequest request)
     {
         var normalized = new
         {
-            items = request.Items.OrderBy(i => i.ProductId).ThenBy(i => i.VariantId).Select(i => new { i.ProductId, i.VariantId, i.Quantity }).ToList(),
+            items = request.Items.OrderBy(i => i.ProductId).ThenBy(i => i.VariantId).ThenBy(i => i.PackagingType).Select(i => new { i.ProductId, i.VariantId, i.PackagingType, i.Quantity }).ToList(),
             phone = IranianPhoneNumber.Normalize(request.Phone),
             email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim().ToLowerInvariant(),
             fullName = request.FullName.Trim(),
@@ -1293,12 +1307,70 @@ public sealed class StoreOperationsService(
                     capacity = p.TableCapacity;
                 }
                 var formattedTitle = title ?? (capacity > 0 ? $"{capacity} نفره" : null);
-                return new AdminOrderItemDto(i.ProductId, i.VariantId, i.ProductName, formattedTitle, capacity, i.Sku, i.UnitPrice, i.Quantity);
+                return new AdminOrderItemDto(i.ProductId, i.VariantId, i.ProductName, formattedTitle, capacity, i.Sku, i.UnitPrice, i.PackagingFee, i.PackagingType, i.Quantity);
             }).ToList();
 
             result.Add(new AdminOrderDto(x.Id, x.Number, x.FullNameSnapshot, x.PhoneSnapshot, x.Status, x.Total, x.CreatedAt, x.ReservationExpiresAtUtc, x.Province, x.City, x.Address, x.PostalCode, x.CustomerNotes, x.PostalTrackingCode, items));
         }
         return result;
+    }
+
+    public async Task<PublicPackagingSettingsDto> GetPublicPackagingSettingsAsync(CancellationToken cancellationToken)
+    {
+        var settings = await db.StoreSettings.AsNoTracking().ToListAsync(cancellationToken);
+        var priceSetting = settings.FirstOrDefault(s => s.Key == "Packaging:GiftBoxPrice");
+        var enabledSetting = settings.FirstOrDefault(s => s.Key == "Packaging:GiftBoxEnabled");
+
+        var price = priceSetting != null && decimal.TryParse(priceSetting.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var p) ? p : 200000m;
+        var enabled = enabledSetting == null || !bool.TryParse(enabledSetting.Value, out var e) || e;
+
+        return new PublicPackagingSettingsDto(price, enabled);
+    }
+
+    public async Task<StoreSettingsDto> GetStoreSettingsAsync(CancellationToken cancellationToken)
+    {
+        var reservationHours = configuration?.GetValue("Store:ReservationHours", 24) ?? 24;
+        var lowStock = configuration?.GetValue("Store:LowStockDefaultThreshold", 2) ?? 2;
+        var publicPackaging = await GetPublicPackagingSettingsAsync(cancellationToken);
+
+        return new StoreSettingsDto(
+            reservationHours,
+            lowStock,
+            "تومان",
+            publicPackaging.GiftPackagingPrice,
+            publicPackaging.IsGiftPackagingEnabled);
+    }
+
+    public async Task<StoreSettingsDto> UpdatePackagingSettingsAsync(UpdatePackagingSettingsRequest request, CancellationToken cancellationToken)
+    {
+        if (request.GiftPackagingPrice < 0)
+            throw new DomainException("Gift packaging price cannot be negative.");
+
+        var priceSetting = await db.StoreSettings.SingleOrDefaultAsync(s => s.Key == "Packaging:GiftBoxPrice", cancellationToken);
+        if (priceSetting is null)
+        {
+            priceSetting = new StoreSetting("Packaging:GiftBoxPrice", request.GiftPackagingPrice.ToString(CultureInfo.InvariantCulture), "هزینه بسته‌بندی کادویی داخل جعبه به تومان");
+            await db.StoreSettings.AddAsync(priceSetting, cancellationToken);
+        }
+        else
+        {
+            priceSetting.UpdateValue(request.GiftPackagingPrice.ToString(CultureInfo.InvariantCulture));
+        }
+
+        var enabledSetting = await db.StoreSettings.SingleOrDefaultAsync(s => s.Key == "Packaging:GiftBoxEnabled", cancellationToken);
+        if (enabledSetting is null)
+        {
+            enabledSetting = new StoreSetting("Packaging:GiftBoxEnabled", request.IsGiftPackagingEnabled.ToString().ToLowerInvariant(), "فعال/غیرفعال بودن انتخاب بسته‌بندی کادویی در فروشگاه");
+            await db.StoreSettings.AddAsync(enabledSetting, cancellationToken);
+        }
+        else
+        {
+            enabledSetting.UpdateValue(request.IsGiftPackagingEnabled.ToString().ToLowerInvariant());
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return await GetStoreSettingsAsync(cancellationToken);
     }
 
     private static PromotionDto Map(Promotion x) => new(x.Id, x.Name, x.Code, x.Type, x.DiscountType, x.Value, x.MinimumSubtotal, x.MaximumDiscount, x.UsageLimit, x.UsageCount, x.StartsAtUtc, x.EndsAtUtc, x.IsActive);

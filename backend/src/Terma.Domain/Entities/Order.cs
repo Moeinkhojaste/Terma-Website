@@ -29,6 +29,7 @@ public sealed class Order : BaseEntity
     public decimal DiscountTotal { get; private set; }
     public decimal ShippingTotal { get; private set; }
     public decimal Total { get; private set; }
+    public decimal PackagingTotal => _items.Sum(i => i.PackagingFee * i.Quantity);
     public DateTime ReservationExpiresAtUtc { get; private set; }
     public string? TrackingTokenHash { get; private set; }
     public string? PostalTrackingCode { get; private set; }
@@ -142,12 +143,21 @@ public sealed class OrderItem : BaseEntity
     public string ProductName { get; private set; } = string.Empty;
     public string Sku { get; private set; } = string.Empty;
     public decimal UnitPrice { get; private set; }
+    public decimal PackagingFee { get; private set; }
+    public PackagingType PackagingType { get; private set; } = PackagingType.Standard;
     public int Quantity { get; private set; }
-    public decimal LineTotal => UnitPrice * Quantity;
+    public decimal LineTotal => (UnitPrice + PackagingFee) * Quantity;
     private OrderItem() { }
-    public OrderItem(Guid productId, Guid? variantId, string productName, string sku, decimal unitPrice, int quantity)
+    public OrderItem(Guid productId, Guid? variantId, string productName, string sku, decimal unitPrice, int quantity, PackagingType packagingType = PackagingType.Standard, decimal packagingFee = 0)
     {
-        ProductId = productId; VariantId = variantId; ProductName = productName.Trim(); Sku = sku.Trim(); UnitPrice = unitPrice; Quantity = quantity;
+        ProductId = productId;
+        VariantId = variantId;
+        ProductName = productName.Trim();
+        Sku = sku.Trim();
+        UnitPrice = unitPrice;
+        Quantity = quantity;
+        PackagingType = packagingType;
+        PackagingFee = packagingFee >= 0 ? packagingFee : 0;
     }
 }
 

@@ -18,8 +18,7 @@ public sealed class AdminStoreController(
     IStoreOperationsService service,
     IProductService productService,
     ICategoryService categoryService,
-    ISecurityAuditService auditService,
-    IConfiguration configuration) : ControllerBase
+    ISecurityAuditService auditService) : ControllerBase
 {
     [HttpGet("dashboard")]
     public Task<DashboardDto> Dashboard(CancellationToken ct) => service.DashboardAsync(ct);
@@ -44,12 +43,17 @@ public sealed class AdminStoreController(
         service.TopViewedProductsAsync(days, limit, ct);
 
     [HttpGet("settings")]
-    public object Settings() => new
+    public Task<StoreSettingsDto> Settings(CancellationToken ct) =>
+        service.GetStoreSettingsAsync(ct);
+
+    [HttpPut("settings/packaging")]
+    [ValidateApiAntiforgeryToken]
+    public async Task<StoreSettingsDto> UpdatePackagingSettings([FromBody] UpdatePackagingSettingsRequest request, CancellationToken ct)
     {
-        reservationHours = configuration.GetValue("Store:ReservationHours", 24),
-        lowStockDefaultThreshold = configuration.GetValue("Store:LowStockDefaultThreshold", 2),
-        currency = "تومان"
-    };
+        var result = await service.UpdatePackagingSettingsAsync(request, ct);
+        await auditService.LogAsync(GetActor(), "UpdatePackagingSettings", $"Price: {request.GiftPackagingPrice}, Enabled: {request.IsGiftPackagingEnabled}", "Success", HttpContext.TraceIdentifier, GetClientIp(), ct);
+        return result;
+    }
 
     [HttpGet("reports/sales")]
     public Task<SalesReportDto> SalesReport([FromQuery] DateTime? fromUtc, [FromQuery] DateTime? toUtc, CancellationToken ct) =>

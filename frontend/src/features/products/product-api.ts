@@ -73,3 +73,12 @@ export async function getRecommendations(productId: string, variantId?: string, 
   );
   return response.map(mapProduct);
 }
+
+export type PublicPackagingSettings = {
+  giftPackagingPrice: number;
+  isGiftPackagingEnabled: boolean;
+};
+
+export function getStorePackagingSettings(signal?: AbortSignal) {
+  return apiRequest<PublicPackagingSettings>("/api/store/packaging", { signal, cache: "no-store" });
+}

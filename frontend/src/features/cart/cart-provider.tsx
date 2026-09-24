@@ -5,10 +5,14 @@ import { useFeedback } from "@/components/ui/feedback-provider";
 import type { Product } from "@/features/products/models";
 import { apiRequest } from "@/lib/api-client";
 
+export type PackagingType = "Standard" | "GiftBox";
+
 export type CartItem = {
   lineId: string;
   productId: string;
   variantId?: string;
+  packagingType: PackagingType;
+  packagingFee: number;
   product: Product;
   quantity: number;
 };
@@ -24,11 +28,12 @@ type CartContextValue = {
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
-  addItem: (product: Product, openDrawer?: boolean) => void;
+  addItem: (product: Product, packagingTypeOrOpenDrawer?: PackagingType | boolean, packagingFee?: number, openDrawer?: boolean) => void;
   setQuantity: (lineId: string, quantity: number) => void;
   removeItem: (lineId: string) => void;
   clearCart: () => void;
-  getLineId: (product: Product) => string;
+  toggleItemPackaging: (lineId: string, defaultGiftFee?: number) => void;
+  getLineId: (product: Pick<Product, "id" | "variantId">, packagingType?: PackagingType) => string;
 };
 
 const STORAGE_KEY = "terma-cart";
@@ -45,8 +50,11 @@ function getOrCreateSessionKey(): string {
   return key;
 }
 
-export function getCartLineId(product: Pick<Product, "id" | "variantId">) {
-  return `${product.id}:${product.variantId ?? "default"}`;
+export function getCartLineId(
+  product: Pick<Product, "id" | "variantId">,
+  packagingType: PackagingType = "Standard"
+) {
+  return `${product.id}:${product.variantId ?? "default"}:${packagingType}`;
 }
 
 function isProduct(value: unknown): value is Product {
@@ -56,14 +64,24 @@ function isProduct(value: unknown): value is Product {
     && typeof product.stockQuantity === "number" && typeof product.image === "string";
 }
 
-function sanitizeItem(product: Product, quantity: number, storedVariantId?: string): CartItem | undefined {
+function sanitizeItem(
+  product: Product,
+  quantity: number,
+  storedVariantId?: string,
+  packagingType: PackagingType = "Standard",
+  packagingFee = 0
+): CartItem | undefined {
   if (!isProduct(product) || !product.isActive || product.stockQuantity < 1) return;
   const variantId = storedVariantId ?? product.variantId ?? product.capacities?.find((option) => option.tableCapacity === product.size)?.id;
   const snapshot = variantId === product.variantId ? product : { ...product, variantId };
+  const pkgType: PackagingType = packagingType === "GiftBox" ? "GiftBox" : "Standard";
+  const pkgFee = typeof packagingFee === "number" && packagingFee >= 0 ? packagingFee : 0;
   return {
-    lineId: getCartLineId(snapshot),
+    lineId: getCartLineId(snapshot, pkgType),
     productId: product.id,
     variantId,
+    packagingType: pkgType,
+    packagingFee: pkgFee,
     product: snapshot,
     quantity: Math.max(1, Math.min(Number(quantity) || 1, product.stockQuantity)),
   };
@@ -86,7 +104,13 @@ export function readStoredCart(value: string): CartItem[] {
     return mergeLines(parsed.items.flatMap((item) => {
       const candidate = item as Partial<CartItem>;
       if (!isProduct(candidate.product)) return [];
-      const sanitized = sanitizeItem(candidate.product, candidate.quantity ?? 1, candidate.variantId);
+      const sanitized = sanitizeItem(
+        candidate.product,
+        candidate.quantity ?? 1,
+        candidate.variantId,
+        candidate.packagingType ?? "Standard",
+        candidate.packagingFee ?? 0
+      );
       if (!sanitized) return [];
       return [sanitized];
     }));
@@ -156,17 +180,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timeout);
   }, [hydrated, items]);
 
-  const addItem = useCallback((product: Product, openDrawer = true) => {
+  const addItem = useCallback((
+    product: Product,
+    packagingTypeOrOpenDrawer: PackagingType | boolean = "Standard",
+    packagingFee = 0,
+    openDrawer = true
+  ) => {
+    let resolvedPackaging: PackagingType = "Standard";
+    const resolvedFee = packagingFee;
+    let resolvedOpenDrawer = openDrawer;
+
+    if (typeof packagingTypeOrOpenDrawer === "boolean") {
+      resolvedOpenDrawer = packagingTypeOrOpenDrawer;
+    } else {
+      resolvedPackaging = packagingTypeOrOpenDrawer;
+    }
+
     if (!product.isActive || product.stockQuantity < 1) return;
-    const lineId = getCartLineId(product);
+    const lineId = getCartLineId(product, resolvedPackaging);
     setItems((current) => {
       const existing = current.find((item) => item.lineId === lineId);
       return existing
-        ? current.map((item) => item.lineId === lineId ? { ...item, product, quantity: Math.min(item.quantity + 1, product.stockQuantity) } : item)
-        : [...current, { lineId, productId: product.id, variantId: product.variantId, product, quantity: 1 }];
+        ? current.map((item) => item.lineId === lineId ? { ...item, product, packagingType: resolvedPackaging, packagingFee: resolvedFee, quantity: Math.min(item.quantity + 1, product.stockQuantity) } : item)
+        : [...current, { lineId, productId: product.id, variantId: product.variantId, packagingType: resolvedPackaging, packagingFee: resolvedFee, product, quantity: 1 }];
     });
     showFeedback(`${product.name} به سبد خرید اضافه شد.`);
-    if (openDrawer) setIsCartOpen(true);
+    if (resolvedOpenDrawer) setIsCartOpen(true);
   }, [showFeedback]);
 
   const setQuantity = useCallback((lineId: string, quantity: number) => {
@@ -188,11 +227,37 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, [showFeedback]);
 
+  const toggleItemPackaging = useCallback((lineId: string, defaultGiftFee = 200000) => {
+    setItems((current) => {
+      const targetItem = current.find((item) => item.lineId === lineId);
+      if (!targetItem) return current;
+
+      const newPackaging: PackagingType = targetItem.packagingType === "GiftBox" ? "Standard" : "GiftBox";
+      const newFee = newPackaging === "GiftBox" ? (targetItem.packagingFee > 0 ? targetItem.packagingFee : defaultGiftFee) : 0;
+      const newLineId = getCartLineId(targetItem.product, newPackaging);
+
+      const existingSameLine = current.find((item) => item.lineId === newLineId);
+      if (existingSameLine) {
+        return current
+          .filter((item) => item.lineId !== lineId)
+          .map((item) => item.lineId === newLineId
+            ? { ...item, quantity: Math.min(item.quantity + targetItem.quantity, item.product.stockQuantity) }
+            : item
+          );
+      }
+
+      return current.map((item) => item.lineId === lineId
+        ? { ...item, lineId: newLineId, packagingType: newPackaging, packagingFee: newFee }
+        : item
+      );
+    });
+  }, []);
+
   const clearCart = useCallback(() => setItems([]), []);
   const value = useMemo<CartContextValue>(() => ({
     items, hydrated, itemCount: items.reduce((total, item) => total + item.quantity, 0), isCartOpen,
-    openCart, closeCart, toggleCart, addItem, setQuantity, removeItem, clearCart, getLineId: getCartLineId,
-  }), [items, hydrated, isCartOpen, openCart, closeCart, toggleCart, addItem, setQuantity, removeItem, clearCart]);
+    openCart, closeCart, toggleCart, addItem, setQuantity, removeItem, clearCart, toggleItemPackaging, getLineId: getCartLineId,
+  }), [items, hydrated, isCartOpen, openCart, closeCart, toggleCart, addItem, setQuantity, removeItem, clearCart, toggleItemPackaging]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

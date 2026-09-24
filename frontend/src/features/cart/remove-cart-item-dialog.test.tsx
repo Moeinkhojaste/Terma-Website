@@ -19,9 +19,11 @@ beforeAll(() => {
 describe("RemoveCartItemDialog", () => {
   const product = createProduct({ name: "رومیزی سنتی یزد" });
   const mockItem: CartItem = {
-    lineId: "prod-1:var-1",
+    lineId: "prod-1:var-1:Standard",
     productId: product.id,
     variantId: product.variantId,
+    packagingType: "Standard",
+    packagingFee: 0,
     product,
     quantity: 2,
   };

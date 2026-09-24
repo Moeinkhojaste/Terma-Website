@@ -38,3 +38,16 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasMany(x => x.Payments).WithOne(x => x.Order).HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+public sealed class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
+{
+    public void Configure(EntityTypeBuilder<OrderItem> builder)
+    {
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.ProductName).HasMaxLength(300).IsRequired();
+        builder.Property(x => x.Sku).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.UnitPrice).HasPrecision(18, 2);
+        builder.Property(x => x.PackagingFee).HasPrecision(18, 2).HasDefaultValue(0m);
+        builder.Property(x => x.PackagingType).HasConversion<string>().HasMaxLength(30).HasDefaultValue(PackagingType.Standard);
+    }
+}

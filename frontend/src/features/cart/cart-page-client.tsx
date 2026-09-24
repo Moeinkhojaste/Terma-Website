@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
-import { MinusIcon, PlusIcon, TrashIcon } from "@/components/ui/icons";
+import { GiftIcon, MinusIcon, PackageIcon, PlusIcon, TrashIcon } from "@/components/ui/icons";
 import { useCart, type CartItem } from "@/features/cart/cart-provider";
 import { RemoveCartItemDialog } from "@/features/cart/remove-cart-item-dialog";
 import { formatPrice } from "@/lib/format";
@@ -13,9 +13,11 @@ import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 
 export function CartPageClient() {
-  const { items, hydrated, setQuantity, removeItem } = useCart();
+  const { items, hydrated, setQuantity, removeItem, toggleItemPackaging } = useCart();
   const [itemToRemove, setItemToRemove] = useState<CartItem | null>(null);
-  const subtotal = items.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
+  const productSubtotal = items.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
+  const packagingTotal = items.reduce((total, item) => total + item.packagingFee * item.quantity, 0);
+  const subtotal = productSubtotal + packagingTotal;
 
   return (
     <>
@@ -44,7 +46,8 @@ export function CartPageClient() {
             <div className="cart-layout">
               <section className="cart-items" aria-label="محصولات سبد خرید">
                 {items.map((item) => {
-                  const { lineId, product, quantity } = item;
+                  const { lineId, product, quantity, packagingType, packagingFee } = item;
+                  const lineTotal = (product.priceValue + packagingFee) * quantity;
                   return (
                     <article className="cart-item" key={lineId}>
                       <Link className="cart-item__image" href={`/products/${product.slug || product.id}`} aria-label={`مشاهده ${product.name}`}>
@@ -55,6 +58,32 @@ export function CartPageClient() {
                           <span className="cart-item__capacity">{product.capacity}</span>
                           <h2><Link href={`/products/${product.slug || product.id}`}>{product.name}</Link></h2>
                           <p>{product.dimensions}</p>
+                        </div>
+                        <div className="cart-item__packaging flex items-center gap-3 my-2 text-xs">
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-medium ${
+                            packagingType === "GiftBox" ? "bg-teal-50 text-teal-900 border border-teal-200" : "bg-stone-100 text-stone-700"
+                          }`}>
+                            {packagingType === "GiftBox" ? (
+                              <>
+                                <GiftIcon className="size-3.5 text-teal-700" />
+                                <span>بسته‌بندی کادویی (جعبه)</span>
+                              </>
+                            ) : (
+                              <>
+                                <PackageIcon className="size-3.5 text-stone-500" />
+                                <span>بسته‌بندی معمولی</span>
+                              </>
+                            )}
+                            {packagingFee > 0 && <span>({formatPrice(packagingFee)})</span>}
+                          </span>
+                          <button
+                            type="button"
+                            className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-xs cursor-pointer"
+                            onClick={() => toggleItemPackaging(lineId)}
+                            title="تغییر نوع بسته‌بندی این کالا"
+                          >
+                            {packagingType === "GiftBox" ? "تغییر به بسته‌بندی معمولی" : "تغییر به بسته‌بندی کادویی"}
+                          </button>
                         </div>
                         <div className="cart-item__actions">
                           <div className="quantity-control" aria-label={`تعداد ${product.name}`}>
@@ -86,7 +115,7 @@ export function CartPageClient() {
                         </div>
                         {quantity >= product.stockQuantity && <p className="cart-stock-note" role="status">حداکثر تعداد قابل سفارش برای این محصول در سبد است.</p>}
                       </div>
-                      <strong className="cart-item__price">{formatPrice(product.priceValue * quantity)}</strong>
+                      <strong className="cart-item__price">{formatPrice(lineTotal)}</strong>
                     </article>
                   );
                 })}
@@ -95,7 +124,10 @@ export function CartPageClient() {
               <aside className="order-summary" aria-labelledby="cart-summary-title">
                 <h2 id="cart-summary-title">خلاصه سبد</h2>
                 <dl>
-                  <div><dt>جمع محصولات</dt><dd>{formatPrice(subtotal)}</dd></div>
+                  <div><dt>قیمت اقلام</dt><dd>{formatPrice(productSubtotal)}</dd></div>
+                  {packagingTotal > 0 && (
+                    <div><dt>هزینه بسته‌بندی کادویی</dt><dd className="text-amber-800 font-semibold">{formatPrice(packagingTotal)}</dd></div>
+                  )}
                   <div><dt>هزینه ارسال</dt><dd>پس از واردکردن آدرس</dd></div>
                 </dl>
                 <div className="order-summary__total"><span>مبلغ فعلی</span><strong>{formatPrice(subtotal)}</strong></div>

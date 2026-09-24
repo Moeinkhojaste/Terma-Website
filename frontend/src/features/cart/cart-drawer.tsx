@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AccessibleDialog } from "@/components/ui/accessible-dialog";
-import { BagIcon, MinusIcon, PlusIcon, TrashIcon, XIcon } from "@/components/ui/icons";
+import { BagIcon, GiftIcon, MinusIcon, PackageIcon, PlusIcon, TrashIcon, XIcon } from "@/components/ui/icons";
 import { useCart, type CartItem } from "@/features/cart/cart-provider";
 import { RemoveCartItemDialog } from "@/features/cart/remove-cart-item-dialog";
 import { isUnoptimizedMedia } from "@/lib/media";
@@ -14,10 +14,10 @@ function formatToman(amount: number): string {
 }
 
 export function CartDrawer() {
-  const { items, itemCount, isCartOpen, closeCart, setQuantity, removeItem } = useCart();
+  const { items, itemCount, isCartOpen, closeCart, setQuantity, removeItem, toggleItemPackaging } = useCart();
   const [itemToRemove, setItemToRemove] = useState<CartItem | null>(null);
 
-  const subtotal = items.reduce((sum, item) => sum + item.product.priceValue * item.quantity, 0);
+  const subtotal = items.reduce((sum, item) => sum + (item.product.priceValue + item.packagingFee) * item.quantity, 0);
 
   return (
     <>
@@ -55,9 +55,9 @@ export function CartDrawer() {
             ) : (
               <ul className="cart-drawer__list">
                 {items.map((item) => {
-                  const { lineId, product, quantity } = item;
+                  const { lineId, product, quantity, packagingType, packagingFee } = item;
                   const atLimit = quantity >= product.stockQuantity;
-                  const lineTotal = product.priceValue * quantity;
+                  const lineTotal = (product.priceValue + packagingFee) * quantity;
 
                   return (
                     <li key={lineId} className="cart-drawer-item">
@@ -85,6 +85,33 @@ export function CartDrawer() {
                         </div>
 
                         <p className="cart-drawer-item__spec">{product.capacity} · {product.dimensions}</p>
+
+                        <div className="cart-drawer-item__packaging flex items-center justify-between my-1 text-xs">
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium ${
+                            packagingType === "GiftBox" ? "bg-teal-50 text-teal-900 border border-teal-200" : "bg-stone-100 text-stone-600"
+                          }`}>
+                            {packagingType === "GiftBox" ? (
+                              <>
+                                <GiftIcon className="size-3 text-teal-700" />
+                                <span>کادویی</span>
+                              </>
+                            ) : (
+                              <>
+                                <PackageIcon className="size-3 text-stone-500" />
+                                <span>معمولی</span>
+                              </>
+                            )}
+                            {packagingFee > 0 && <span>({formatToman(packagingFee)})</span>}
+                          </span>
+                          <button
+                            type="button"
+                            className="text-teal-700 hover:text-teal-900 underline underline-offset-2 text-[11px] cursor-pointer"
+                            onClick={() => toggleItemPackaging(lineId)}
+                            title="تغییر نوع بسته‌بندی"
+                          >
+                            {packagingType === "GiftBox" ? "تبدیل به معمولی" : "تبدیل به کادویی"}
+                          </button>
+                        </div>
 
                         <div className="cart-drawer-item__bottom">
                           <div className="cart-drawer-item__quantity">
