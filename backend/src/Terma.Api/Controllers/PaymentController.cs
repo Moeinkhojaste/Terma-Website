@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Terma.Api.ErrorHandling;
 using Terma.Application.Common.Interfaces;
 using Terma.Application.Payments;
+using Terma.Application.Telegram;
 using Terma.Domain.Entities;
 using Terma.Domain.Exceptions;
 using Terma.Infrastructure.Persistence;
@@ -19,7 +20,8 @@ public sealed class PaymentController(
     IOptions<ZarinPalOptions> zarinPalOptions,
     ISecurityAuditService auditService,
     IConfiguration configuration,
-    ILogger<PaymentController> logger) : ControllerBase
+    ILogger<PaymentController> logger,
+    ITelegramBotService? telegramBotService = null) : ControllerBase
 {
     [HttpPost("initiate")]
     [EnableRateLimiting("payment-initiate")]
@@ -97,6 +99,7 @@ public sealed class PaymentController(
         var cleanAuthority = authority.Trim();
         var transaction = await db.PaymentTransactions
             .Include(x => x.Order)
+                .ThenInclude(o => o.Items)
             .SingleOrDefaultAsync(x => x.Authority == cleanAuthority, ct);
 
         if (transaction is null)
@@ -115,6 +118,12 @@ public sealed class PaymentController(
                 order.Number, cleanAuthority);
 
             transaction.MarkCancelled();
+            if (order.Status == OrderStatus.PendingConfirmation)
+            {
+                order.ChangeStatus(OrderStatus.Cancelled);
+                await db.OrderStatusHistories.AddAsync(new OrderStatusHistory(order.Id, OrderStatus.Cancelled, DateTime.UtcNow), ct);
+                await ReleaseOrderStockAsync(order, ct);
+            }
             await db.SaveChangesAsync(ct);
 
             await auditService.LogAsync(
@@ -139,6 +148,8 @@ public sealed class PaymentController(
 
             transaction.MarkVerified(verifyResult.RefId.Value, verifyResult.CardPan, verifyResult.CardHash);
             order.ConfirmPayment(verifyResult.RefId.Value);
+            await db.OrderStatusHistories.AddAsync(new OrderStatusHistory(order.Id, OrderStatus.Confirmed, DateTime.UtcNow), ct);
+            await CommitOrderStockAsync(order, ct);
             await db.SaveChangesAsync(ct);
 
             await auditService.LogAsync(
@@ -149,6 +160,8 @@ public sealed class PaymentController(
                 HttpContext.TraceIdentifier,
                 GetClientIp(),
                 ct);
+
+            SendOrderTelegramNotification(order);
 
             return Redirect(BuildStorefrontUrl("/order/success", [
                 ("order", order.Number),
@@ -162,6 +175,12 @@ public sealed class PaymentController(
             order.Number, cleanAuthority, failureMsg);
 
         transaction.MarkFailed(failureMsg);
+        if (order.Status == OrderStatus.PendingConfirmation)
+        {
+            order.ChangeStatus(OrderStatus.Cancelled);
+            await db.OrderStatusHistories.AddAsync(new OrderStatusHistory(order.Id, OrderStatus.Cancelled, DateTime.UtcNow), ct);
+            await ReleaseOrderStockAsync(order, ct);
+        }
         await db.SaveChangesAsync(ct);
 
         await auditService.LogAsync(
@@ -177,6 +196,120 @@ public sealed class PaymentController(
             ("order", order.Number),
             ("message", failureMsg)
         ]));
+    }
+
+    private async Task ReleaseOrderStockAsync(Order order, CancellationToken ct)
+    {
+        foreach (var item in order.Items)
+        {
+            if (item.VariantId.HasValue)
+            {
+                var variant = await db.ProductVariants.SingleOrDefaultAsync(v => v.Id == item.VariantId.Value, ct);
+                if (variant is not null)
+                {
+                    var releaseQty = Math.Min(variant.ReservedQuantity, item.Quantity);
+                    if (releaseQty > 0)
+                    {
+                        variant.ReleaseReservation(releaseQty);
+                    }
+                }
+            }
+
+            var product = await db.Products.SingleOrDefaultAsync(p => p.Id == item.ProductId, ct);
+            if (product is not null)
+            {
+                product.AdjustStock(item.Quantity);
+            }
+        }
+    }
+
+    private async Task CommitOrderStockAsync(Order order, CancellationToken ct)
+    {
+        foreach (var item in order.Items)
+        {
+            if (item.VariantId.HasValue)
+            {
+                var variant = await db.ProductVariants.SingleOrDefaultAsync(v => v.Id == item.VariantId.Value, ct);
+                if (variant is not null)
+                {
+                    var commitQty = Math.Min(variant.ReservedQuantity, item.Quantity);
+                    if (commitQty > 0)
+                    {
+                        variant.CommitReservation(commitQty);
+                    }
+                    var remaining = item.Quantity - commitQty;
+                    if (remaining > 0)
+                    {
+                        var deduct = Math.Min(variant.AvailableQuantity, remaining);
+                        if (deduct > 0)
+                        {
+                            variant.AdjustStock(-deduct);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void SendOrderTelegramNotification(Order order)
+    {
+        if (telegramBotService is null) return;
+
+        var variantIds = order.Items.Where(i => i.VariantId.HasValue).Select(i => i.VariantId!.Value).Distinct().ToList();
+        var productIds = order.Items.Select(i => i.ProductId).Distinct().ToList();
+        var variants = variantIds.Count == 0 ? new Dictionary<Guid, ProductVariant>() : db.ProductVariants.AsNoTracking().Where(x => variantIds.Contains(x.Id)).ToDictionary(x => x.Id);
+        var products = productIds.Count == 0 ? new Dictionary<Guid, Product>() : db.Products.AsNoTracking().Where(x => productIds.Contains(x.Id)).ToDictionary(x => x.Id);
+
+        var notificationDto = new OrderNotificationDto(
+            order.Id,
+            order.Number,
+            order.FullNameSnapshot,
+            order.PhoneSnapshot,
+            order.EmailSnapshot,
+            order.Province,
+            order.City,
+            order.Address,
+            order.PostalCode,
+            order.CustomerNotes,
+            order.Subtotal,
+            order.DiscountTotal,
+            order.ShippingTotal,
+            order.Total,
+            order.Items.Select(item =>
+            {
+                variants.TryGetValue(item.VariantId ?? Guid.Empty, out var variant);
+                products.TryGetValue(item.ProductId, out var product);
+                return new OrderNotificationItemDto(
+                    item.ProductId,
+                    item.VariantId,
+                    item.ProductName,
+                    item.Sku,
+                    variant?.Title,
+                    variant?.Color,
+                    (variant?.TableCapacity > 0 ? variant.TableCapacity : product?.TableCapacity),
+                    (variant?.Length > 0 ? variant.Length : product?.Length),
+                    (variant?.Width > 0 ? variant.Width : product?.Width),
+                    product?.FabricType,
+                    product?.LiningType,
+                    product?.Pattern,
+                    item.UnitPrice,
+                    item.Quantity
+                );
+            }).ToList(),
+            order.CreatedAt
+        );
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await telegramBotService.NotifyNewOrderAsync(notificationDto, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Background Telegram notification failed for verified order {OrderNumber}", order.Number);
+            }
+        });
     }
 
     private string ResolveCallbackUrl()

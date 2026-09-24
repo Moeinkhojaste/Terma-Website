@@ -20,8 +20,6 @@ namespace Terma.Infrastructure.Store;
 
 public sealed class StoreOperationsService(
     TermaDbContext db,
-    ITelegramBotService? telegramBotService = null,
-    ILogger<StoreOperationsService>? logger = null,
     IConfiguration? configuration = null) : IStoreOperationsService
 {
     private static readonly PersianCalendar Pc = new();
@@ -653,7 +651,7 @@ public sealed class StoreOperationsService(
 
     private static string ToPersianStatus(OrderStatus status) => status switch
     {
-        OrderStatus.PendingConfirmation => "در انتظار بررسی",
+        OrderStatus.PendingConfirmation => "در انتظار پرداخت",
         OrderStatus.Confirmed => "تأیید شده",
         OrderStatus.Preparing => "در حال آماده‌سازی",
         OrderStatus.Shipped => "ارسال شده",
@@ -674,7 +672,7 @@ public sealed class StoreOperationsService(
 
     public async Task<IReadOnlyList<AdminOrderDto>> OrdersAsync(OrderStatus? status, CancellationToken cancellationToken)
     {
-        var query = db.Orders.AsNoTracking().Include(x => x.Items).OrderByDescending(x => x.CreatedAt).AsQueryable();
+        var query = db.Orders.AsNoTracking().Include(x => x.Items).Include(x => x.Payments).OrderByDescending(x => x.CreatedAt).AsQueryable();
         if (status.HasValue) query = query.Where(x => x.Status == status.Value).OrderByDescending(x => x.CreatedAt);
         var orders = await query.ToListAsync(cancellationToken);
         return await MapOrdersAsync(orders, cancellationToken);
@@ -682,7 +680,7 @@ public sealed class StoreOperationsService(
 
     public async Task<AdminOrderDto> ChangeOrderStatusAsync(Guid id, OrderStatus status, string? postalTrackingCode, CancellationToken cancellationToken)
     {
-        var order = await db.Orders.Include(x => x.Items).Include(x => x.History).SingleOrDefaultAsync(x => x.Id == id, cancellationToken)
+        var order = await db.Orders.Include(x => x.Items).Include(x => x.History).Include(x => x.Payments).SingleOrDefaultAsync(x => x.Id == id, cancellationToken)
             ?? throw new NotFoundException($"Order '{id}' was not found.");
 
         if (postalTrackingCode is not null)
@@ -1010,7 +1008,7 @@ public sealed class StoreOperationsService(
             subtotal,
             discount,
             shipping,
-            DateTime.UtcNow.AddHours(24),
+            DateTime.UtcNow.AddMinutes(30),
             null,
             request.CustomerNotes);
 
@@ -1056,56 +1054,7 @@ public sealed class StoreOperationsService(
             await transaction.CommitAsync(cancellationToken);
         }
 
-            if (telegramBotService is not null)
-            {
-                var notificationDto = new OrderNotificationDto(
-                    order.Id,
-                    order.Number,
-                    order.FullNameSnapshot,
-                    order.PhoneSnapshot,
-                    order.EmailSnapshot,
-                    order.Province,
-                    order.City,
-                    order.Address,
-                    order.PostalCode,
-                    order.CustomerNotes,
-                    order.Subtotal,
-                    order.DiscountTotal,
-                    order.ShippingTotal,
-                    order.Total,
-                    lines.Select(l => new OrderNotificationItemDto(
-                        l.ProductId,
-                        l.VariantId,
-                        l.ProductName,
-                        l.Sku,
-                        l.Variant.Title,
-                        l.Variant.Color,
-                        l.Variant.TableCapacity > 0 ? l.Variant.TableCapacity : l.Product.TableCapacity,
-                        l.Variant.Length > 0 ? l.Variant.Length : l.Product.Length,
-                        l.Variant.Width > 0 ? l.Variant.Width : l.Product.Width,
-                        l.Product.FabricType,
-                        l.Product.LiningType,
-                        l.Product.Pattern,
-                        l.UnitPrice,
-                        l.Quantity
-                    )).ToList(),
-                    order.CreatedAt
-                );
-
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await telegramBotService.NotifyNewOrderAsync(notificationDto, CancellationToken.None);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger?.LogError(ex, "Background Telegram notification failed for order {OrderNumber}", order.Number);
-                    }
-                });
-            }
-
-            return new CreatedOrderDto(order.Id, order.Number, order.Total, order.ReservationExpiresAtUtc);
+        return new CreatedOrderDto(order.Id, order.Number, order.Total, order.ReservationExpiresAtUtc);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -1145,7 +1094,7 @@ public sealed class StoreOperationsService(
 
     public async Task<AdminOrderDto> TrackOrderAsync(string token, CancellationToken cancellationToken)
     {
-        var order = await db.Orders.AsNoTracking().Include(x => x.Items).SingleOrDefaultAsync(x => x.TrackingTokenHash == Hash(token), cancellationToken)
+        var order = await db.Orders.AsNoTracking().Include(x => x.Items).Include(x => x.Payments).SingleOrDefaultAsync(x => x.TrackingTokenHash == Hash(token), cancellationToken)
             ?? throw new NotFoundException("Order was not found.");
         var mapped = await MapOrdersAsync([order], cancellationToken);
         return mapped.Single();
@@ -1310,7 +1259,33 @@ public sealed class StoreOperationsService(
                 return new AdminOrderItemDto(i.ProductId, i.VariantId, i.ProductName, formattedTitle, capacity, i.Sku, i.UnitPrice, i.PackagingFee, i.PackagingType, i.Quantity);
             }).ToList();
 
-            result.Add(new AdminOrderDto(x.Id, x.Number, x.FullNameSnapshot, x.PhoneSnapshot, x.Status, x.Total, x.CreatedAt, x.ReservationExpiresAtUtc, x.Province, x.City, x.Address, x.PostalCode, x.CustomerNotes, x.PostalTrackingCode, items));
+            string paymentStatus;
+            var lastPayment = x.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
+
+            if (x.Status is OrderStatus.Confirmed or OrderStatus.Preparing or OrderStatus.Shipped or OrderStatus.Delivered)
+            {
+                paymentStatus = "Paid";
+            }
+            else if (x.Status == OrderStatus.Cancelled)
+            {
+                paymentStatus = lastPayment?.Status == PaymentStatus.Cancelled ? "Cancelled" : "Failed";
+            }
+            else if (x.Status == OrderStatus.Expired)
+            {
+                paymentStatus = "Expired";
+            }
+            else // PendingConfirmation
+            {
+                paymentStatus = lastPayment?.Status switch
+                {
+                    PaymentStatus.Verified => "Paid",
+                    PaymentStatus.Cancelled => "Cancelled",
+                    PaymentStatus.Failed => "Failed",
+                    _ => "Pending"
+                };
+            }
+
+            result.Add(new AdminOrderDto(x.Id, x.Number, x.FullNameSnapshot, x.PhoneSnapshot, x.Status, x.Total, x.CreatedAt, x.ReservationExpiresAtUtc, x.Province, x.City, x.Address, x.PostalCode, x.CustomerNotes, x.PostalTrackingCode, items, paymentStatus));
         }
         return result;
     }

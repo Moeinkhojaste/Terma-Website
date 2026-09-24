@@ -234,7 +234,7 @@ export const removeFromWishlist = (productId: string) =>
   });
 
 export const orderStatusLabels: Record<OrderStatus, string> = {
-  PendingConfirmation: "در انتظار تأیید",
+  PendingConfirmation: "در انتظار پرداخت",
   Confirmed: "تأیید شده",
   Preparing: "در حال آماده‌سازی",
   Shipped: "ارسال شده",
