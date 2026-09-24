@@ -17,5 +17,5 @@ export function ProductRecommendations({ productId, variantId }: { productId: st
     return () => controller.abort();
   }, [productId, variantId]);
   if (products.length === 0) return null;
-  return <section className="related-products section-pad"><Container><div className="catalog-toolbar"><h2>محصولات مشابه</h2><Link href="/products">مشاهده همه محصولات</Link></div><div className="products-grid products-grid--related">{products.map((product) => <ProductCard product={product} key={product.id} />)}</div></Container></section>;
+  return <section className="related-products section-pad"><Container><div className="catalog-toolbar"><h2>محصولات مشابه</h2><Link href="/products">مشاهده همه محصولات</Link></div><div className="products-grid products-grid--related">{products.slice(0, 4).map((product) => <ProductCard product={product} key={product.id} />)}</div></Container></section>;
 }

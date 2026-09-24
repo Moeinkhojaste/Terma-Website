@@ -15,7 +15,7 @@ export function RecentlyViewedProducts({ currentProductId, title, compact = fals
     const ids = readRecentlyViewed().filter((id) => id !== currentProductId).slice(0, 8);
     const load = ids.length > 0
       ? lookupProducts(ids, controller.signal)
-      : listProducts({ inStock: true, pageSize: currentProductId ? 5 : 4 }, controller.signal).then((page) => page.items);
+      : listProducts({ inStock: true, pageSize: currentProductId ? 8 : 4 }, controller.signal).then((page) => page.items);
     load.then((items) => {
       setProducts(items.filter((product) => product.id !== currentProductId));
       setSource(ids.length > 0 ? "history" : "suggestions");
@@ -30,7 +30,7 @@ export function RecentlyViewedProducts({ currentProductId, title, compact = fals
     <section className={compact ? "recent-products recent-products--compact" : "recent-products"} aria-labelledby={`recent-title-${currentProductId ?? "list"}`}>
       <div className="catalog-toolbar"><h2 id={`recent-title-${currentProductId ?? "list"}`}>{title ?? (source === "history" ? "محصولات دیده‌شده اخیر" : "پیشنهاد برای ادامه خرید")}</h2></div>
       <div className="products-grid products-grid--related">
-        {products.slice(0, compact ? 3 : 4).map((product) => <ProductCard product={product} key={product.id} />)}
+        {products.slice(0, 4).map((product) => <ProductCard product={product} key={product.id} />)}
       </div>
     </section>
   );
