@@ -9,7 +9,7 @@ import { Container } from "@/components/layout/container";
 import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { formatPrice } from "@/lib/format";
 import { ApiError, sanitizeErrorMessage } from "@/lib/api-client";
-import { MapPinIcon, UserIcon, TruckIcon, AlertTriangleIcon, XIcon, CreditCardIcon, OnlinePaymentIcon, SnappPayLogo } from "@/components/ui/icons";
+import { MapPinIcon, UserIcon, TruckIcon, AlertTriangleIcon, XIcon, CreditCardIcon, OnlinePaymentIcon, SnappPayLogo, GiftIcon, PackageIcon } from "@/components/ui/icons";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 import { isUnoptimizedMedia } from "@/lib/media";
@@ -23,7 +23,9 @@ type FormErrors = Partial<Record<FieldName, string>>;
 type RequestState = "idle" | "submitting" | "network-error" | "server-error";
 export type CheckoutReviewSnapshot = {
   request: CheckoutRequest;
-  products: Array<{ lineId: string; name: string; capacity: string; image: string; quantity: number; lineTotal: number }>;
+  products: Array<{ lineId: string; name: string; capacity: string; image: string; quantity: number; lineTotal: number; packagingType?: string; packagingFee?: number }>;
+  productSubtotal: number;
+  packagingTotal: number;
   subtotal: number;
   discountTotal: number;
   total: number;
@@ -163,7 +165,9 @@ export function CheckoutPageClient() {
   const [couponLoading, setCouponLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"online" | "snapppay">("online");
 
-  const subtotal = items.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
+  const productSubtotal = items.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
+  const packagingTotal = items.reduce((total, item) => total + item.packagingFee * item.quantity, 0);
+  const subtotal = productSubtotal + packagingTotal;
 
   function handleBlur(event: FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const name = event.currentTarget.name as FieldName;
@@ -202,7 +206,7 @@ export function CheckoutPageClient() {
     setCouponMessage(null);
     try {
       const quote = await getQuote({
-        items: items.map(({ productId, variantId, quantity }) => ({ productId, variantId, quantity })),
+        items: items.map(({ productId, variantId, quantity, packagingType }) => ({ productId, variantId, quantity, packagingType })),
         couponCode: code,
       });
       if (quote.discountTotal > 0) {
@@ -242,7 +246,7 @@ export function CheckoutPageClient() {
     }
 
     const request: CheckoutRequest = {
-      items: items.map(({ productId, variantId, quantity }) => ({ productId, variantId, quantity })),
+      items: items.map(({ productId, variantId, quantity, packagingType }) => ({ productId, variantId, quantity, packagingType })),
       fullName: String(form.get("fullName") ?? "").trim(),
       phone: normalizeIranianMobile(String(form.get("mobile") ?? ""))!,
       email: String(form.get("email") ?? "").trim() || undefined,
@@ -256,14 +260,18 @@ export function CheckoutPageClient() {
 
     setReview({
       request,
-      products: items.map(({ lineId, product, quantity }) => ({
+      products: items.map(({ lineId, product, quantity, packagingType, packagingFee }) => ({
         lineId,
         name: product.name,
         capacity: product.capacity,
         image: product.image,
         quantity,
-        lineTotal: product.priceValue * quantity,
+        packagingType,
+        packagingFee,
+        lineTotal: (product.priceValue + packagingFee) * quantity,
       })),
+      productSubtotal,
+      packagingTotal,
       subtotal,
       discountTotal,
       total: Math.max(0, subtotal - discountTotal),
@@ -539,11 +547,29 @@ export function CheckoutPageClient() {
               <aside className="order-summary checkout-summary" aria-labelledby="checkout-summary-title">
                 <div className="checkout-summary__heading"><h2 id="checkout-summary-title">سفارش شما</h2><Link href="/cart">ویرایش سبد</Link></div>
                 <div className="checkout-products">
-                  {items.map(({ lineId, product, quantity }) => (
+                  {items.map(({ lineId, product, quantity, packagingType, packagingFee }) => (
                     <div className="checkout-product" key={lineId}>
                       <div className="checkout-product__image"><Image src={product.image} alt="" fill sizes="72px" unoptimized={isUnoptimizedMedia(product.image)} /></div>
-                      <div><strong>{product.name}</strong><span>{product.capacity} · تعداد {new Intl.NumberFormat("fa-IR").format(quantity)}</span></div>
-                      <b>{formatPrice(product.priceValue * quantity)}</b>
+                      <div>
+                        <strong>{product.name}</strong>
+                        <span>{product.capacity} · تعداد {new Intl.NumberFormat("fa-IR").format(quantity)}</span>
+                        <span className={`inline-flex items-center gap-1.5 mt-1 text-[11px] px-2 py-0.5 rounded font-medium ${
+                          packagingType === "GiftBox" ? "bg-teal-50 text-teal-900 border border-teal-200" : "bg-stone-100 text-stone-600"
+                        }`}>
+                          {packagingType === "GiftBox" ? (
+                            <>
+                              <GiftIcon className="size-3 text-teal-700" />
+                              <span>بسته‌بندی کادویی (جعبه)</span>
+                            </>
+                          ) : (
+                            <>
+                              <PackageIcon className="size-3 text-stone-500" />
+                              <span>بسته‌بندی معمولی</span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                      <b>{formatPrice((product.priceValue + packagingFee) * quantity)}</b>
                     </div>
                   ))}
                 </div>
@@ -632,11 +658,13 @@ export function CheckoutPageClient() {
                 </div>
 
                 <dl>
-                  <div><dt>جمع محصولات</dt><dd>{formatPrice(subtotal)}</dd></div>
+                  <div><dt>قیمت اقلام</dt><dd>{formatPrice(productSubtotal)}</dd></div>
+                  {packagingTotal > 0 && (
+                    <div><dt>هزینه بسته‌بندی کادویی</dt><dd>{formatPrice(packagingTotal)}</dd></div>
+                  )}
                   {discountTotal > 0 && (
                     <div><dt style={{ color: "var(--teal-deep)" }}>تخفیف کد ({appliedCoupon})</dt><dd style={{ color: "var(--teal-deep)", fontWeight: 700 }}>{formatPrice(discountTotal)}-</dd></div>
                   )}
-                  <div><dt>هزینه ارسال</dt><dd>پس از بررسی آدرس</dd></div>
                 </dl>
                 <div className="order-summary__total"><span>مبلغ نهایی</span><strong>{formatPrice(Math.max(0, subtotal - discountTotal))}</strong></div>
                 <p>در این مرحله هیچ مبلغی از شما دریافت نمی‌شود.</p>
@@ -711,13 +739,34 @@ export function CheckoutReviewDialog({
                 {review.products.map((product) => (
                   <div className="checkout-review__product" key={product.lineId}>
                     <div className="checkout-review__image"><Image src={product.image} alt="" fill sizes="56px" unoptimized={isUnoptimizedMedia(product.image)} /></div>
-                    <div><strong>{product.name}</strong><span>{product.capacity} · تعداد {new Intl.NumberFormat("fa-IR").format(product.quantity)}</span></div>
+                    <div>
+                      <strong>{product.name}</strong>
+                      <span>{product.capacity} · تعداد {new Intl.NumberFormat("fa-IR").format(product.quantity)}</span>
+                      <span className={`inline-flex items-center gap-1.5 mt-1 text-[11px] px-2 py-0.5 rounded font-medium ${
+                        product.packagingType === "GiftBox" ? "bg-teal-50 text-teal-900 border border-teal-200" : "bg-stone-100 text-stone-600"
+                      }`}>
+                        {product.packagingType === "GiftBox" ? (
+                          <>
+                            <GiftIcon className="size-3 text-teal-700" />
+                            <span>بسته‌بندی کادویی (جعبه)</span>
+                          </>
+                        ) : (
+                          <>
+                            <PackageIcon className="size-3 text-stone-500" />
+                            <span>بسته‌بندی معمولی</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
                     <b>{formatPrice(product.lineTotal)}</b>
                   </div>
                 ))}
               </div>
               <dl className="checkout-review__totals">
-                <div><dt>جمع محصولات</dt><dd>{formatPrice(review.subtotal)}</dd></div>
+                <div><dt>قیمت اقلام</dt><dd>{formatPrice(review.productSubtotal)}</dd></div>
+                {review.packagingTotal > 0 && (
+                  <div><dt>هزینه بسته‌بندی کادویی</dt><dd>{formatPrice(review.packagingTotal)}</dd></div>
+                )}
                 {review.discountTotal > 0 && <div className="checkout-review__discount"><dt>تخفیف</dt><dd>{formatPrice(review.discountTotal)}-</dd></div>}
                 <div><dt>هزینه ارسال</dt><dd>پس از بررسی آدرس</dd></div>
                 <div className="checkout-review__total"><dt>مبلغ نهایی</dt><dd>{formatPrice(review.total)}</dd></div>

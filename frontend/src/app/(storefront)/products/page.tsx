@@ -1,7 +1,7 @@
-import ProductsPage, { generateMetadata, metadata } from "@/features/products/components/products-page";
+import ProductsPage, { generateMetadata } from "@/features/products/components/products-page";
 
 export const dynamic = "force-dynamic";
-export { generateMetadata, metadata };
+export { generateMetadata };
 
 export default async function Page({
   searchParams,

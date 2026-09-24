@@ -116,7 +116,9 @@ public sealed record CustomerOrderItemDto(
     string Sku,
     decimal UnitPrice,
     int Quantity,
-    decimal LineTotal);
+    decimal LineTotal,
+    PackagingType PackagingType = PackagingType.Standard,
+    decimal PackagingFee = 0);
 
 public sealed record CustomerOrderHistoryDto(OrderStatus Status, DateTime CreatedAt);
 

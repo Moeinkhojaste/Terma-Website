@@ -120,3 +120,12 @@ public sealed class ContactMessageWriteRequestValidator : AbstractValidator<Cont
         RuleFor(x => x.Body).NotEmpty().Length(5, 4000);
     }
 }
+
+public sealed class UpdatePackagingSettingsRequestValidator : AbstractValidator<UpdatePackagingSettingsRequest>
+{
+    public UpdatePackagingSettingsRequestValidator()
+    {
+        RuleFor(x => x.GiftPackagingPrice).GreaterThanOrEqualTo(0);
+    }
+}
+

@@ -21,6 +21,10 @@ public sealed class StoreController(
     public Task<IReadOnlyList<StoreContentDto>> Content([FromQuery] string? page, CancellationToken ct) =>
         service.ContentAsync(page, false, ct);
 
+    [HttpGet("packaging")]
+    public Task<PublicPackagingSettingsDto> Packaging(CancellationToken ct) =>
+        service.GetPublicPackagingSettingsAsync(ct);
+
     [HttpPost("messages")]
     [EnableRateLimiting("contact-message")]
     [ValidateApiAntiforgeryToken(RequireAuthenticatedOnly = false)]

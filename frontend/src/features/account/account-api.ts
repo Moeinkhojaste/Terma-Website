@@ -1,4 +1,5 @@
 import { apiRequest, resetAntiforgeryToken } from "@/lib/api-client";
+import type { PackagingType } from "@/features/cart/cart-provider";
 
 export type CustomerSession = {
   userId: string;
@@ -112,6 +113,8 @@ export type CustomerOrderDetails = Omit<CustomerOrderSummary, "itemCount"> & {
     unitPrice: number;
     quantity: number;
     lineTotal: number;
+    packagingType?: PackagingType;
+    packagingFee?: number;
   }[];
   history: { status: OrderStatus; createdAt: string }[];
 };

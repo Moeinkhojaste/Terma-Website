@@ -1,9 +1,11 @@
 import { apiRequest } from "@/lib/api-client";
+import type { PackagingType } from "@/features/cart/cart-provider";
 
-export type CheckoutItemRequest = { productId: string; variantId?: string | null; quantity: number };
+export type CheckoutItemRequest = { productId: string; variantId?: string | null; quantity: number; packagingType?: PackagingType };
 export type CheckoutRequest = { items: CheckoutItemRequest[]; fullName: string; phone: string; email?: string; province: string; city: string; address: string; postalCode: string; customerNotes?: string; couponCode?: string };
 export type CreatedOrder = { id: string; number: string; total: number; reservationExpiresAtUtc: string };
-export type CheckoutQuote = { subtotal: number; discountTotal: number; shippingTotal: number; total: number };
+export type CheckoutQuoteItem = { productId: string; variantId?: string | null; productName: string; sku: string; unitPrice: number; packagingFee: number; packagingType: PackagingType; quantity: number; availableQuantity: number };
+export type CheckoutQuote = { subtotal: number; packagingTotal: number; discountTotal: number; shippingTotal: number; total: number; items?: CheckoutQuoteItem[]; reservedUntilUtc?: string };
 
 export function createOrder(request: CheckoutRequest) {
   const idempotencyKey = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;

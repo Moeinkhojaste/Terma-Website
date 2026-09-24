@@ -35,3 +35,8 @@ backend/.e2e-media/
 .env
 .env*.local
 *.user
+
+# Agent tooling
+.agents/
+.specify/
+

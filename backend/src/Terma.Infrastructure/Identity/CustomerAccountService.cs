@@ -204,7 +204,7 @@ public sealed class CustomerAccountService(
             .Select(x => new CustomerOrderDetailsDto(
                 x.Id, x.Number, x.Status, x.FullNameSnapshot, x.PhoneSnapshot, x.Province, x.City, x.Address, x.PostalCode,
                 x.Subtotal, x.DiscountTotal, x.ShippingTotal, x.Total, x.CreatedAt, x.PostalTrackingCode,
-                x.Items.OrderBy(i => i.CreatedAt).Select(i => new CustomerOrderItemDto(i.ProductId, i.VariantId, i.ProductName, i.Sku, i.UnitPrice, i.Quantity, i.UnitPrice * i.Quantity)).ToList(),
+                x.Items.OrderBy(i => i.CreatedAt).Select(i => new CustomerOrderItemDto(i.ProductId, i.VariantId, i.ProductName, i.Sku, i.UnitPrice, i.Quantity, i.LineTotal, i.PackagingType, i.PackagingFee)).ToList(),
                 x.History.OrderBy(h => h.CreatedAt).Select(h => new CustomerOrderHistoryDto(h.Status, h.CreatedAt)).ToList()))
             .SingleOrDefaultAsync(cancellationToken);
         return result ?? throw new NotFoundException("Order was not found.");

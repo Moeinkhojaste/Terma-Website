@@ -5,7 +5,7 @@ import { AdminShell } from "@/features/admin/admin-shell";
 import { apiRequest, getApiErrorMessage } from "@/lib/api-client";
 import { formatPrice } from "@/lib/format";
 import { changeMessageStatus, changeOrderStatus, getCustomers, getMessages, getOrders, getPromotions, getShippingRules, type AdminCustomer, type AdminOrder, type ContactMessage, type Promotion, type ShippingRule } from "@/features/admin/store-api";
-import { CheckIcon, DocumentTextIcon, MapPinIcon, PackageIcon, ShoppingCartIcon } from "@/components/ui/icons";
+import { CheckIcon, DocumentTextIcon, GiftIcon, MapPinIcon, PackageIcon, ShoppingCartIcon } from "@/components/ui/icons";
 
 function useEffect(effect: () => void | Promise<void>, dependencies: unknown[]) { reactUseEffect(() => { void effect(); }, dependencies); }
 
@@ -181,6 +181,7 @@ export function AdminOrdersPage() {
                                 <tr>
                                   <th>نام محصول</th>
                                   <th>نسخه (ظرفیت سفره)</th>
+                                  <th>بسته‌بندی</th>
                                   <th>کد محصول (SKU)</th>
                                   <th>قیمت واحد</th>
                                   <th>تعداد</th>
@@ -190,6 +191,7 @@ export function AdminOrdersPage() {
                               <tbody>
                                 {x.items.map((item, idx) => {
                                   const versionLabel = item.variantTitle || (item.tableCapacity ? `${item.tableCapacity} نفره` : "—");
+                                  const itemFee = item.packagingFee || 0;
                                   return (
                                     <tr key={idx}>
                                       <td>
@@ -203,10 +205,24 @@ export function AdminOrdersPage() {
                                       <td>
                                         <strong style={{ color: "#0f766e" }}>{versionLabel}</strong>
                                       </td>
+                                      <td>
+                                        {item.packagingType === "GiftBox" ? (
+                                          <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", padding: "0.2rem 0.55rem", borderRadius: "4px", backgroundColor: "#f0fdfa", color: "#0f766e", border: "1px solid #ccfbf1", fontSize: "0.75rem", fontWeight: 600 }}>
+                                            <GiftIcon className="size-3.5" />
+                                            <span>بسته‌بندی کادویی (جعبه)</span>
+                                            {itemFee > 0 ? ` (${formatPrice(itemFee)})` : ""}
+                                          </span>
+                                        ) : (
+                                          <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", padding: "0.2rem 0.55rem", borderRadius: "4px", backgroundColor: "#f1f5f9", color: "#475569", fontSize: "0.75rem" }}>
+                                            <PackageIcon className="size-3.5" />
+                                            <span>بسته‌بندی معمولی</span>
+                                          </span>
+                                        )}
+                                      </td>
                                       <td dir="ltr">{item.sku}</td>
-                                      <td>{formatPrice(item.unitPrice)}</td>
+                                      <td>{formatPrice(item.unitPrice + itemFee)}</td>
                                       <td>{item.quantity}</td>
-                                      <td><strong>{formatPrice(item.unitPrice * item.quantity)}</strong></td>
+                                      <td><strong>{formatPrice((item.unitPrice + itemFee) * item.quantity)}</strong></td>
                                     </tr>
                                   );
                                 })}

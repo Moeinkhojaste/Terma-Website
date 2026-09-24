@@ -2,14 +2,26 @@
 
 import { useState } from "react";
 import { BagIcon, MinusIcon, PlusIcon } from "@/components/ui/icons";
-import { useCart, type CartItem } from "@/features/cart/cart-provider";
+import { useCart, type CartItem, type PackagingType } from "@/features/cart/cart-provider";
 import { RemoveCartItemDialog } from "@/features/cart/remove-cart-item-dialog";
 import type { Product } from "@/features/products/models";
 
-export function AddToCartButton({ product, compact = false, onOpenCart }: { product: Product; compact?: boolean; onOpenCart?: () => void }) {
+export function AddToCartButton({
+  product,
+  packagingType = "Standard",
+  packagingFee = 0,
+  compact = false,
+  onOpenCart,
+}: {
+  product: Product;
+  packagingType?: PackagingType;
+  packagingFee?: number;
+  compact?: boolean;
+  onOpenCart?: () => void;
+}) {
   const { addItem, items, removeItem, setQuantity, openCart, getLineId } = useCart();
   const [itemToRemove, setItemToRemove] = useState<CartItem | null>(null);
-  const lineId = getLineId(product);
+  const lineId = getLineId(product, packagingType);
   const quantity = items.find((item) => item.lineId === lineId)?.quantity ?? 0;
   const unavailable = !product.isActive || product.stockQuantity === 0;
   const atLimit = !unavailable && quantity >= product.stockQuantity;
@@ -23,7 +35,7 @@ export function AddToCartButton({ product, compact = false, onOpenCart }: { prod
               type="button"
               onClick={() => {
                 if (quantity === 1) {
-                  setItemToRemove({ lineId, product, quantity: 1, productId: product.id });
+                  setItemToRemove({ lineId, product, quantity: 1, productId: product.id, packagingType, packagingFee });
                 } else {
                   setQuantity(lineId, quantity - 1);
                 }
@@ -62,7 +74,7 @@ export function AddToCartButton({ product, compact = false, onOpenCart }: { prod
           className="button button--primary product-order-button"
           type="button"
           disabled={unavailable}
-          onClick={() => { onOpenCart?.(); addItem(product); }}
+          onClick={() => { onOpenCart?.(); addItem(product, packagingType, packagingFee); }}
         >
           <BagIcon className="size-5" />
           <span>{unavailable ? "این محصول ناموجود است" : "افزودن به سبد خرید"}</span>
