@@ -9,7 +9,7 @@ import type { ProductMedia } from "@/features/products/models";
 
 
 
-export function ProductGallery({ media, productName }: { media: ProductMedia[]; productName: string }) {
+export function ProductGallery({ media, productName, isUnavailable = false }: { media: ProductMedia[]; productName: string; isUnavailable?: boolean }) {
   const [index, setIndex] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -46,6 +46,7 @@ export function ProductGallery({ media, productName }: { media: ProductMedia[]; 
           <Image src={current.src} alt={current.alt} fill priority={index === 0} sizes="(max-width: 900px) 94vw, 54vw" unoptimized={isUnoptimizedMedia(current.src)} />
           <span className="product-gallery__zoom-hint"><ZoomInIcon /> برای بزرگ‌نمایی لمس کنید</span>
         </button>
+        {isUnavailable && <span className="gallery-unavailable-badge">ناموجود</span>}
         {media.length > 1 && <>
           <button type="button" className="gallery-nav gallery-nav--previous" onClick={() => move(-1)} aria-label="تصویر قبلی"><ArrowLeftIcon /></button>
           <button type="button" className="gallery-nav gallery-nav--next" onClick={() => move(1)} aria-label="تصویر بعدی"><ArrowLeftIcon /></button>

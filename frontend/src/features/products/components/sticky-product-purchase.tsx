@@ -8,7 +8,7 @@ export function StickyProductPurchase({ product, purchaseAnchor }: { product: Pr
   const [visible, setVisible] = useState(false);
   useEffect(() => {
     const anchor = purchaseAnchor.current;
-    if (!anchor) return;
+    if (!anchor || typeof IntersectionObserver === "undefined") return;
     const update = () => {
       const bounds = anchor.getBoundingClientRect();
       setVisible(bounds.bottom < 0);
@@ -19,5 +19,17 @@ export function StickyProductPurchase({ product, purchaseAnchor }: { product: Pr
     update();
     return () => { observer.disconnect(); window.removeEventListener("scroll", update); };
   }, [purchaseAnchor]);
-  return <div className={`sticky-purchase${visible ? " sticky-purchase--visible" : ""}`} aria-hidden={!visible} inert={!visible}><strong>{product.price}</strong><AddToCartButton product={product} compact /></div>;
+
+  const isUnavailable = !product.isActive || product.stockQuantity <= 0;
+
+  return (
+    <div className={`sticky-purchase${visible ? " sticky-purchase--visible" : ""}`} aria-hidden={!visible} inert={!visible}>
+      {isUnavailable ? (
+        <strong className="sticky-purchase__unavailable">ناموجود</strong>
+      ) : (
+        <strong>{product.price}</strong>
+      )}
+      <AddToCartButton product={product} compact />
+    </div>
+  );
 }

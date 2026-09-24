@@ -32,9 +32,20 @@ export function ProductCapacityDetails({ product, selectedSize, onSelect, purcha
 
   const displayedPriceValue = (selectedOption?.priceValue ?? activeProduct.priceValue) + effectiveFee;
   const displayedPrice = `${new Intl.NumberFormat("fa-IR").format(displayedPriceValue)} تومان`;
+  const isUnavailable = !product.isActive || product.stockQuantity === 0 || !activeProduct.isActive || activeProduct.stockQuantity <= 0 || (selectedOption ? !selectedOption.isAvailable : true);
 
   return <>
-    {selectedOption?.hasDiscount && selectedOption.compareAtPrice ? (
+    {isUnavailable ? (
+      <div className="product-detail__out-of-stock" role="status">
+        <div className="product-detail__out-of-stock-header">
+          <span className="product-detail__out-of-stock-badge">ناموجود</span>
+          <span className="product-detail__out-of-stock-title">این کالا در حال حاضر موجود نیست</span>
+        </div>
+        <p className="product-detail__out-of-stock-desc">
+          در حال حاضر امکان خرید این محصول وجود ندارد. می‌توانید با افزودن آن به علاقه‌مندی‌ها از موجود شدن مجدد آن باخبر شوید.
+        </p>
+      </div>
+    ) : selectedOption?.hasDiscount && selectedOption.compareAtPrice ? (
       <div className="product-detail__price-wrap">
         <s className="price-compare price-compare--lg">
           {effectiveFee > 0 && selectedOption.compareAtPriceValue
@@ -53,12 +64,14 @@ export function ProductCapacityDetails({ product, selectedSize, onSelect, purcha
       })}
     </div></fieldset>
 
-    <ProductPackagingSelector
-      selectedPackaging={selectedPackaging}
-      onChange={setSelectedPackaging}
-      giftPrice={packagingSettings.giftPackagingPrice}
-      isGiftEnabled={packagingSettings.isGiftPackagingEnabled}
-    />
+    {!isUnavailable && (
+      <ProductPackagingSelector
+        selectedPackaging={selectedPackaging}
+        onChange={setSelectedPackaging}
+        giftPrice={packagingSettings.giftPackagingPrice}
+        isGiftEnabled={packagingSettings.isGiftPackagingEnabled}
+      />
+    )}
 
     <dl className="product-quick-specs">
       <div><dt>ابعاد</dt><dd>{activeProduct.dimensions}</dd></div>
