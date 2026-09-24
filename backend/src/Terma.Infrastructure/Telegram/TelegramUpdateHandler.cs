@@ -345,7 +345,7 @@ public sealed partial class TelegramUpdateHandler : ITelegramUpdateHandler
 
     private static string GetPersianStatusText(OrderStatus status) => status switch
     {
-        OrderStatus.PendingConfirmation => "⏳ در انتظار تایید",
+        OrderStatus.PendingConfirmation => "⏳ در انتظار پرداخت",
         OrderStatus.Confirmed => "✅ تایید شده",
         OrderStatus.Preparing => "📦 در حال آماده‌سازی",
         OrderStatus.Shipped => "🚚 ارسال شده",

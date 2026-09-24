@@ -147,11 +147,17 @@ public sealed class PaymentApiTests(TermaApiFactory factory) : IClassFixture<Ter
         Assert.NotNull(redirectLocation);
         Assert.Contains("/order/cancelled", redirectLocation);
 
-        // Verify transaction is marked Cancelled
+        // Verify transaction is marked Cancelled and Order is Cancelled with restored stock
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
         var tx = await db.PaymentTransactions.SingleAsync(x => x.Authority == initiateResult.Authority);
         Assert.Equal(PaymentStatus.Cancelled, tx.Status);
+
+        var cancelledOrder = await db.Orders.Include(x => x.Items).SingleAsync(x => x.Id == order.Id);
+        Assert.Equal(OrderStatus.Cancelled, cancelledOrder.Status);
+
+        var product = await db.Products.SingleAsync(x => x.Id == cancelledOrder.Items.First().ProductId);
+        Assert.Equal(5, product.StockQuantity);
     }
 
     private sealed record PaymentInitiateJsonResult(bool Success, string? PaymentUrl, string? Authority);

@@ -9,12 +9,15 @@ import { CheckIcon, DocumentTextIcon, GiftIcon, MapPinIcon, PackageIcon, Shoppin
 
 function useEffect(effect: () => void | Promise<void>, dependencies: unknown[]) { reactUseEffect(() => { void effect(); }, dependencies); }
 
+type OrderFilterTab = "PAID" | "PENDING_PAYMENT" | "CANCELLED_OR_EXPIRED" | "ALL";
+
 export function AdminOrdersPage() {
   const [items, setItems] = useState<AdminOrder[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string>();
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
   const [trackingSaved, setTrackingSaved] = useState<Record<string, boolean>>({});
+  const [filter, setFilter] = useState<OrderFilterTab>("PAID");
 
   const load = () =>
     getOrders()
@@ -54,9 +57,50 @@ export function AdminOrdersPage() {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
+  const paidCount = items.filter((x) => ["Confirmed", "Preparing", "Shipped", "Delivered"].includes(x.status)).length;
+  const pendingCount = items.filter((x) => x.status === "PendingConfirmation").length;
+  const cancelledCount = items.filter((x) => ["Cancelled", "Expired"].includes(x.status)).length;
+
+  const filteredItems = items.filter((x) => {
+    if (filter === "PAID") return ["Confirmed", "Preparing", "Shipped", "Delivered"].includes(x.status);
+    if (filter === "PENDING_PAYMENT") return x.status === "PendingConfirmation";
+    if (filter === "CANCELLED_OR_EXPIRED") return ["Cancelled", "Expired"].includes(x.status);
+    return true;
+  });
+
   return (
     <AdminShell title="سفارش‌ها">
       <PageError error={error} />
+      <div className="orders-filter-tabs" style={{ marginBottom: "1rem" }}>
+        <button
+          type="button"
+          className={`orders-filter-tab ${filter === "PAID" ? "orders-filter-tab--active" : ""}`}
+          onClick={() => setFilter("PAID")}
+        >
+          سفارش‌های پرداختی و جاری ({paidCount.toLocaleString("fa-IR")})
+        </button>
+        <button
+          type="button"
+          className={`orders-filter-tab ${filter === "PENDING_PAYMENT" ? "orders-filter-tab--active" : ""}`}
+          onClick={() => setFilter("PENDING_PAYMENT")}
+        >
+          در انتظار پرداخت ({pendingCount.toLocaleString("fa-IR")})
+        </button>
+        <button
+          type="button"
+          className={`orders-filter-tab ${filter === "CANCELLED_OR_EXPIRED" ? "orders-filter-tab--active" : ""}`}
+          onClick={() => setFilter("CANCELLED_OR_EXPIRED")}
+        >
+          لغو شده و منقضی ({cancelledCount.toLocaleString("fa-IR")})
+        </button>
+        <button
+          type="button"
+          className={`orders-filter-tab ${filter === "ALL" ? "orders-filter-tab--active" : ""}`}
+          onClick={() => setFilter("ALL")}
+        >
+          همه ({items.length.toLocaleString("fa-IR")})
+        </button>
+      </div>
       <div className="admin-panel admin-table-wrap">
         <table className="admin-table">
           <thead>
@@ -65,14 +109,15 @@ export function AdminOrdersPage() {
               <th>مشتری</th>
               <th>تلفن</th>
               <th>مبلغ</th>
-              <th>وضعیت</th>
+              <th>وضعیت پرداخت</th>
+              <th>وضعیت سفارش</th>
               <th>تاریخ و ساعت ثبت</th>
               <th>کد رهگیری</th>
               <th>جزئیات</th>
             </tr>
           </thead>
           <tbody>
-            {items.map((x) => {
+            {filteredItems.map((x) => {
               const isExpanded = expandedId === x.id;
               const formattedDate = new Intl.DateTimeFormat("fa-IR", {
                 dateStyle: "medium",
@@ -87,12 +132,27 @@ export function AdminOrdersPage() {
                     <td dir="ltr">{x.phone}</td>
                     <td>{formatPrice(x.total)}</td>
                     <td>
+                      {x.paymentStatus === "Paid" || ["Confirmed", "Preparing", "Shipped", "Delivered"].includes(x.status) ? (
+                        <span style={{ display: "inline-block", padding: "0.2rem 0.55rem", borderRadius: "999px", fontSize: "0.75rem", fontWeight: 600, backgroundColor: "#dcfce7", color: "#166534" }}>
+                          پرداخت موفق
+                        </span>
+                      ) : x.status === "PendingConfirmation" ? (
+                        <span style={{ display: "inline-block", padding: "0.2rem 0.55rem", borderRadius: "999px", fontSize: "0.75rem", fontWeight: 600, backgroundColor: "#fef3c7", color: "#92400e" }}>
+                          در انتظار پرداخت
+                        </span>
+                      ) : (
+                        <span style={{ display: "inline-block", padding: "0.2rem 0.55rem", borderRadius: "999px", fontSize: "0.75rem", fontWeight: 600, backgroundColor: "#fee2e2", color: "#991b1b" }}>
+                          {x.status === "Expired" ? "منقضی شده" : "لغو / پرداخت‌نشده"}
+                        </span>
+                      )}
+                    </td>
+                    <td>
                       <select
                         value={x.status}
                         onChange={(e) => update(x.id, e.target.value)}
                         aria-label={`وضعیت سفارش ${x.number}`}
                       >
-                        <option value="PendingConfirmation">در انتظار بررسی</option>
+                        <option value="PendingConfirmation">در انتظار پرداخت</option>
                         <option value="Confirmed">تأیید شده</option>
                         <option value="Preparing">در حال آماده‌سازی</option>
                         <option value="Shipped">ارسال شده</option>
@@ -124,7 +184,7 @@ export function AdminOrdersPage() {
                   </tr>
                   {isExpanded && (
                     <tr>
-                      <td colSpan={8} style={{ padding: 0, backgroundColor: "var(--surface-subtle, #f9fafb)" }}>
+                      <td colSpan={9} style={{ padding: 0, backgroundColor: "var(--surface-subtle, #f9fafb)" }}>
                         <div style={{ padding: "1rem 1.25rem", borderBottom: "2px solid var(--line, #e5e7eb)" }}>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1.25rem", marginBottom: "1rem" }}>
                             <div style={{ background: "#fff", padding: "0.85rem", borderRadius: "8px", border: "1px solid var(--line, #e5e7eb)" }}>
@@ -238,7 +298,7 @@ export function AdminOrdersPage() {
             })}
           </tbody>
         </table>
-        {items.length === 0 && <Empty text="هنوز سفارشی ثبت نشده است." />}
+        {filteredItems.length === 0 && <Empty text={items.length === 0 ? "هنوز سفارشی ثبت نشده است." : "سفارشی در این وضعیت یافت نشد."} />}
       </div>
     </AdminShell>
   );
