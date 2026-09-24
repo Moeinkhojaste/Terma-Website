@@ -25,7 +25,7 @@ public sealed class AuthController(
     IAdminPasswordResetService passwordResetService,
     TimeProvider timeProvider) : ControllerBase
 {
-    private static readonly TimeSpan SessionLifetime = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan SessionLifetime = TimeSpan.FromHours(2);
 
     [AllowAnonymous]
     [HttpGet("antiforgery")]
