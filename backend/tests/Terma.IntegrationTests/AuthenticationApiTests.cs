@@ -80,8 +80,8 @@ public sealed class AuthenticationApiTests(TermaApiFactory factory) : IClassFixt
         Assert.Equal("Admin", session.Role);
         Assert.InRange(
             session.ExpiresAtUtc - factory.Clock.GetUtcNow(),
-            TimeSpan.FromMinutes(29),
-            TimeSpan.FromMinutes(30));
+            TimeSpan.FromMinutes(119),
+            TimeSpan.FromHours(2));
     }
 
     [Fact]
@@ -131,11 +131,15 @@ public sealed class AuthenticationApiTests(TermaApiFactory factory) : IClassFixt
     }
 
     [Fact]
-    public async Task SessionExpiresAfterThirtyMinutes()
+    public async Task SessionExpiresAfterTwoHours()
     {
         using var client = await factory.CreateAdminClientAsync();
 
-        factory.Clock.Advance(TimeSpan.FromMinutes(31));
+        factory.Clock.Advance(TimeSpan.FromMinutes(60));
+        var validResponse = await client.GetAsync("/api/auth/me");
+        Assert.Equal(HttpStatusCode.OK, validResponse.StatusCode);
+
+        factory.Clock.Advance(TimeSpan.FromMinutes(61));
         var response = await client.GetAsync("/api/auth/me");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
