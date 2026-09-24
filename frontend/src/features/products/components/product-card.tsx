@@ -11,7 +11,7 @@ import type { Product } from "@/features/products/models";
 
 export function ProductCard({ product, unavailable = false }: { product: Product; unavailable?: boolean }) {
   const [quickViewOpen, setQuickViewOpen] = useState(false);
-  unavailable = unavailable || product.stockQuantity === 0;
+  unavailable = unavailable || product.stockQuantity === 0 || !product.isActive;
   const productHref = `/products/${product.slug || product.id}`;
   return (
     <article className="product-card" id={`product-${product.id}`}>
@@ -19,6 +19,7 @@ export function ProductCard({ product, unavailable = false }: { product: Product
         <Link className="product-card__image-link" href={productHref} tabIndex={-1} aria-hidden="true">
           <Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 92vw, (max-width: 1100px) 45vw, 31vw" className="product-image" unoptimized={isUnoptimizedMedia(product.image)} />
         </Link>
+        {unavailable && <span className="product-card__stock-badge product-card__stock-badge--unavailable">ناموجود</span>}
         <WishlistButton productId={product.id} productName={product.name} className="product-card__wishlist" />
         <button className="product-card__quick-view" type="button" onClick={() => setQuickViewOpen(true)} aria-label={`مشاهده سریع ${product.name}`}><EyeIcon /><span>مشاهده سریع</span></button>
       </div>
@@ -26,12 +27,18 @@ export function ProductCard({ product, unavailable = false }: { product: Product
         <div className="product-card__body">
           <div className="product-meta">
             <span className={unavailable ? "stock stock--off" : "stock"}>{unavailable ? "ناموجود" : product.stock}</span>
-            {product.hasDiscount && product.discountPercent && <span className="discount-badge">{new Intl.NumberFormat("fa-IR").format(product.discountPercent)}٪ تخفیف</span>}
+            {!unavailable && product.hasDiscount && product.discountPercent && <span className="discount-badge">{new Intl.NumberFormat("fa-IR").format(product.discountPercent)}٪ تخفیف</span>}
           </div>
           <h3>{product.name}</h3>
           <p className="product-description">{product.description}</p>
           <div className="product-card__footer">
-            {product.hasDiscount && product.compareAtPrice ? <div className="product-card__prices"><s className="price-compare">{product.compareAtPrice}</s><strong>{product.price}</strong></div> : <strong>{product.price}</strong>}
+            {unavailable ? (
+              <strong className="product-card__unavailable">ناموجود</strong>
+            ) : product.hasDiscount && product.compareAtPrice ? (
+              <div className="product-card__prices"><s className="price-compare">{product.compareAtPrice}</s><strong>{product.price}</strong></div>
+            ) : (
+              <strong>{product.price}</strong>
+            )}
             <span className="card-action">مشاهده محصول <ArrowLeftIcon /></span>
           </div>
         </div>

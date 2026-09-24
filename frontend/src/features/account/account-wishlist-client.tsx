@@ -129,13 +129,17 @@ export function AccountWishlistClient() {
                   </h3>
 
                   <div className="wishlist-price-row">
-                    {item.compareAtPrice && item.compareAtPrice > item.price ? (
-                      <div className="wishlist-prices">
-                        <s className="price-compare">{formatPrice(item.compareAtPrice)}</s>
+                    {item.inStock ? (
+                      item.compareAtPrice && item.compareAtPrice > item.price ? (
+                        <div className="wishlist-prices">
+                          <s className="price-compare">{formatPrice(item.compareAtPrice)}</s>
+                          <strong>{formatPrice(item.price)}</strong>
+                        </div>
+                      ) : (
                         <strong>{formatPrice(item.price)}</strong>
-                      </div>
+                      )
                     ) : (
-                      <strong>{formatPrice(item.price)}</strong>
+                      <strong className="wishlist-unavailable">ناموجود</strong>
                     )}
                   </div>
 

@@ -90,4 +90,21 @@ describe("ProductCard", () => {
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
+
+  it("renders 'ناموجود' instead of price and hides discount badge when product is unavailable", () => {
+    const unavailableProduct: Product = {
+      ...mockProduct,
+      stockQuantity: 0,
+      stock: "ناموجود",
+      capacities: mockProduct.capacities.map((c) => ({ ...c, isAvailable: false, stockQuantity: 0 })),
+    };
+
+    renderProductCard(unavailableProduct);
+
+    // Should render 'ناموجود'
+    expect(screen.getAllByText("ناموجود").length).toBeGreaterThanOrEqual(1);
+    // Should NOT render price or discount
+    expect(screen.queryByText("۱٬۲۰۰٬۰۰۰ تومان")).not.toBeInTheDocument();
+    expect(screen.queryByText("۲۰٪ تخفیف")).not.toBeInTheDocument();
+  });
 });
