@@ -1001,6 +1001,20 @@ img { max-width: 100%; }
 .price-compare { opacity: 0.65; text-decoration: line-through; text-decoration-thickness: 1.5px; font-size: 0.88em; font-weight: 500; }
 .price-compare--lg { font-size: 1.05rem; }
 .product-card__prices { display: flex; flex-direction: column; align-items: flex-start; gap: 0.05rem; }
+.product-detail__out-of-stock { margin-top: 1.25rem; padding: 1rem 1.25rem; border-radius: var(--radius-md); background: #fdf5f3; border: 1px solid #f6d8d2; display: flex; flex-direction: column; gap: 0.45rem; }
+.product-detail__out-of-stock-header { display: flex; align-items: center; gap: 0.75rem; }
+.product-detail__out-of-stock-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.22rem 0.7rem; border-radius: 999px; background: var(--danger); color: #ffffff; font-size: 0.82rem; font-weight: 700; letter-spacing: -0.01em; }
+.product-detail__out-of-stock-title { font-size: 1.05rem; font-weight: 700; color: #7a2b1e; }
+.product-detail__out-of-stock-desc { margin: 0; font-size: 0.84rem; line-height: 1.6; color: var(--muted); }
+.gallery-unavailable-badge { position: absolute; top: 1rem; right: 1rem; z-index: 10; display: inline-flex; align-items: center; padding: 0.35rem 0.85rem; border-radius: 999px; background: rgba(159, 63, 48, 0.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #ffffff; font-size: 0.82rem; font-weight: 700; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); pointer-events: none; }
+.product-card__stock-badge { position: absolute; top: 0.75rem; right: 0.75rem; z-index: 2; display: inline-flex; align-items: center; padding: 0.22rem 0.6rem; border-radius: 999px; background: rgba(159, 63, 48, 0.9); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: #ffffff; font-size: 0.72rem; font-weight: 700; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); pointer-events: none; }
+.product-card__unavailable { color: var(--danger); font-size: 1rem; font-weight: 700; }
+.quick-view__unavailable-box { display: flex; align-items: center; gap: 0.6rem; margin-block: 0.75rem 0.5rem; padding: 0.65rem 0.9rem; border-radius: var(--radius-sm); background: #fdf5f3; border: 1px solid #f6d8d2; }
+.quick-view__unavailable-badge { display: inline-flex; padding: 0.2rem 0.55rem; border-radius: 999px; background: var(--danger); color: #ffffff; font-size: 0.75rem; font-weight: 700; }
+.quick-view__unavailable-text { font-size: 0.85rem; font-weight: 600; color: #7a2b1e; }
+.sticky-purchase__unavailable { color: var(--danger); font-size: 1.05rem; font-weight: 700; }
+.search-result__unavailable { color: var(--danger) !important; font-size: 0.82rem; font-weight: 700; }
+.wishlist-unavailable { color: var(--danger); font-size: 0.95rem; font-weight: 700; }
 .capacity-selector { margin: 2rem 0 0; padding: 1.4rem 0 0; border: 0; border-top: 1px solid var(--line); }
 .capacity-selector legend { padding: 0; font-weight: 680; }
 .capacity-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 1rem; }
@@ -1097,7 +1111,7 @@ img { max-width: 100%; }
   white-space: pre-line;
 }
 .related-products { background: var(--surface); }
-.products-grid--related { max-width: 58rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.products-grid--related { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
 .commerce-page { min-height: 65vh; padding-bottom: var(--space-section); background: var(--ivory); }
 .commerce-breadcrumbs { padding-top: 1.5rem; }
@@ -1586,8 +1600,8 @@ img { max-width: 100%; }
   .catalog-top-actions { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; }
   .mobile-filter-button { display: inline-flex; width: auto; flex: 1; margin-bottom: 0; }
   .catalog-sort-select--desktop { display: none; }
-  .catalog-sort-select--mobile { display: inline-flex; }
-  .products-grid--catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.85rem; }
+  .products-grid--catalog,
+  .products-grid--related { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.85rem; }
   .capacity-filters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.45rem; }
   .capacity-filters a { padding-inline: 0.45rem; font-size: 0.72rem; }
   .catalog-toolbar { align-items: center; margin-bottom: 1rem; }

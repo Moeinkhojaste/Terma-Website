@@ -15,16 +15,27 @@ export function ProductQuickView({ product, open, onClose }: { product: Product;
   const [capacity, setCapacity] = useState(defaultCapacity?.tableCapacity ?? product.size);
   const selected = product.capacities.find((option) => option.tableCapacity === capacity) ?? defaultCapacity;
   const activeProduct = useMemo(() => selected ? selectProductCapacity(product, selected) : product, [product, selected]);
+  const isUnavailable = !product.isActive || product.stockQuantity === 0 || !activeProduct.isActive || activeProduct.stockQuantity <= 0 || (selected ? !selected.isAvailable : true);
 
   return (
     <AccessibleDialog open={open} onClose={onClose} className="quick-view-dialog sheet-dialog" label={`مشاهده سریع ${product.name}`}>
       <div className="quick-view">
         <button className="dialog-close" type="button" onClick={onClose} aria-label="بستن مشاهده سریع"><XIcon className="size-5" /></button>
-        <div className="quick-view__image"><Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 92vw, 420px" unoptimized={isUnoptimizedMedia(product.image)} /></div>
+        <div className="quick-view__image">
+          <Image src={product.image} alt={product.imageAlt} fill sizes="(max-width: 767px) 92vw, 420px" unoptimized={isUnoptimizedMedia(product.image)} />
+          {isUnavailable && <span className="gallery-unavailable-badge">ناموجود</span>}
+        </div>
         <div className="quick-view__content">
           <span className={activeProduct.stockQuantity > 0 ? "stock" : "stock stock--off"}>{activeProduct.stock}</span>
           <h2>{product.name}</h2>
-          <strong className="quick-view__price">{activeProduct.price}</strong>
+          {isUnavailable ? (
+            <div className="quick-view__unavailable-box">
+              <span className="quick-view__unavailable-badge">ناموجود</span>
+              <span className="quick-view__unavailable-text">این کالا در حال حاضر موجود نیست</span>
+            </div>
+          ) : (
+            <strong className="quick-view__price">{activeProduct.price}</strong>
+          )}
           <fieldset className="quick-view__capacities">
             <legend>ظرفیت میز</legend>
             <div className="capacity-options">

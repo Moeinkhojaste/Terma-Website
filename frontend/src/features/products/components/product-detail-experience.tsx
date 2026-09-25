@@ -18,6 +18,7 @@ export function ProductDetailExperience({ product }: { product: Product }) {
   const activeProduct = useMemo(() => selectedOption ? selectProductCapacity(product, selectedOption) : product, [product, selectedOption]);
   const purchaseAnchor = useRef<HTMLDivElement>(null);
   const select = (option: ProductCapacityOption) => { if (option.isAvailable) setSelectedSize(option.tableCapacity); };
+  const isUnavailable = !product.isActive || product.stockQuantity === 0 || !activeProduct.isActive || activeProduct.stockQuantity <= 0 || (selectedOption ? !selectedOption.isAvailable : true);
 
   return <>
     <ProductViewTracker productId={product.id} />
@@ -26,7 +27,7 @@ export function ProductDetailExperience({ product }: { product: Product }) {
         <div className="product-summary">
           <div className="product-summary__topline">
             <span className={activeProduct.stockQuantity > 0 ? "stock" : "stock stock--off"}>{activeProduct.stock}</span>
-            {activeProduct.hasDiscount && activeProduct.discountPercent && <span className="discount-badge">{new Intl.NumberFormat("fa-IR").format(activeProduct.discountPercent)}٪ تخفیف</span>}
+            {!isUnavailable && activeProduct.hasDiscount && activeProduct.discountPercent && <span className="discount-badge">{new Intl.NumberFormat("fa-IR").format(activeProduct.discountPercent)}٪ تخفیف</span>}
             <span>{product.categoryName}</span>
             <a href="#reviews" className="text-xs text-amber-700 hover:text-amber-800 font-semibold inline-flex items-center gap-1 mr-auto transition-colors">
               ★ مشاهده نظرات
@@ -35,7 +36,7 @@ export function ProductDetailExperience({ product }: { product: Product }) {
           <h1>{product.name}</h1><p>{product.longDescription}</p>
           <ProductCapacityDetails product={product} selectedSize={selectedSize} onSelect={select} purchaseAnchor={purchaseAnchor} />
         </div>
-        <ProductGallery media={product.media} productName={product.name} />
+        <ProductGallery media={product.media} productName={product.name} isUnavailable={isUnavailable} />
       </Container>
     </section>
     <StickyProductPurchase product={activeProduct} purchaseAnchor={purchaseAnchor} />

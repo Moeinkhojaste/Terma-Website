@@ -542,7 +542,6 @@ export function CheckoutPageClient() {
                 <button className="button button--primary checkout-submit" type="submit" disabled={requestState === "submitting"}>
                   ثبت سفارش
                 </button>
-                <p className="checkout-test-note">این نسخه به درگاه بانکی واقعی متصل نیست.</p>
               </form>
 
               <aside className="order-summary checkout-summary" aria-labelledby="checkout-summary-title">
@@ -668,7 +667,6 @@ export function CheckoutPageClient() {
                   )}
                 </dl>
                 <div className="order-summary__total"><span>مبلغ نهایی</span><strong>{formatPrice(Math.max(0, subtotal - discountTotal))}</strong></div>
-                <p>در این مرحله هیچ مبلغی از شما دریافت نمی‌شود.</p>
               </aside>
             </div>
           )}
