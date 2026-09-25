@@ -60,7 +60,7 @@ jobs:
 
   backend:
     name: Backend Quality & Test Suite
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend

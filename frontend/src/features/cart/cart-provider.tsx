@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useFeedback } from "@/components/ui/feedback-provider";
 import type { Product } from "@/features/products/models";
 import { apiRequest } from "@/lib/api-client";
+import { validateCart } from "./cart-api";
 
 export type PackagingType = "Standard" | "GiftBox";
 
@@ -34,6 +35,7 @@ type CartContextValue = {
   clearCart: () => void;
   toggleItemPackaging: (lineId: string, defaultGiftFee?: number) => void;
   getLineId: (product: Pick<Product, "id" | "variantId">, packagingType?: PackagingType) => string;
+  revalidateCart: (force?: boolean) => Promise<boolean>;
 };
 
 const STORAGE_KEY = "terma-cart";
@@ -131,10 +133,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { showFeedback } = useFeedback();
+  const lastRevalidationTimeRef = useRef<number>(0);
+  const isRevalidatingRef = useRef<boolean>(false);
+  const itemsRef = useRef<CartItem[]>(items);
 
-  const openCart = useCallback(() => setIsCartOpen(true), []);
-  const closeCart = useCallback(() => setIsCartOpen(false), []);
-  const toggleCart = useCallback(() => setIsCartOpen((previous) => !previous), []);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -179,6 +184,118 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     return () => window.clearTimeout(timeout);
   }, [hydrated, items]);
+
+  const revalidateCart = useCallback(async (force = false): Promise<boolean> => {
+    const current = itemsRef.current;
+    if (!hydrated || current.length === 0) return false;
+    const now = Date.now();
+    if (!force && now - lastRevalidationTimeRef.current < 10000) {
+      return false;
+    }
+    if (isRevalidatingRef.current) return false;
+
+    isRevalidatingRef.current = true;
+    lastRevalidationTimeRef.current = now;
+
+    try {
+      const validationPayload = current.map((item) => ({
+        productId: item.productId,
+        variantId: item.variantId || null,
+        quantity: item.quantity,
+      }));
+
+      const res = await validateCart(validationPayload);
+      if (res.hasChanges) {
+        setItems((prevItems) => {
+          const resultMap = new Map<string, typeof res.items[number]>();
+          for (const r of res.items) {
+            const key = `${r.productId}:${r.variantId ?? "default"}`;
+            resultMap.set(key, r);
+          }
+
+          const updated: CartItem[] = [];
+          for (const item of prevItems) {
+            const key = `${item.productId}:${item.variantId ?? "default"}`;
+            const check = resultMap.get(key);
+            if (!check) {
+              updated.push(item);
+              continue;
+            }
+
+            if (check.status === "OutOfStock" || check.status === "Inactive") {
+              continue;
+            }
+
+            if (check.status === "QuantityAdjusted") {
+              updated.push({
+                ...item,
+                quantity: Math.min(item.quantity, check.availableQuantity),
+                product: {
+                  ...item.product,
+                  stockQuantity: check.availableQuantity,
+                },
+              });
+              continue;
+            }
+
+            updated.push({
+              ...item,
+              product: {
+                ...item.product,
+                stockQuantity: check.availableQuantity,
+              },
+            });
+          }
+
+          return updated;
+        });
+
+        for (const notification of res.notifications) {
+          showFeedback(notification);
+        }
+
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    } finally {
+      isRevalidatingRef.current = false;
+    }
+  }, [hydrated, showFeedback]);
+
+  const openCart = useCallback(() => {
+    setIsCartOpen(true);
+    void revalidateCart();
+  }, [revalidateCart]);
+
+  const closeCart = useCallback(() => setIsCartOpen(false), []);
+
+  const toggleCart = useCallback(() => {
+    setIsCartOpen((previous) => {
+      if (!previous) {
+        void revalidateCart();
+      }
+      return !previous;
+    });
+  }, [revalidateCart]);
+
+  useEffect(() => {
+    if (!hydrated || items.length === 0) return;
+    const timer = window.setTimeout(() => {
+      void revalidateCart();
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [hydrated, items.length, revalidateCart]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onFocus = () => {
+      void revalidateCart();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [revalidateCart]);
 
   const addItem = useCallback((
     product: Product,
@@ -257,7 +374,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const value = useMemo<CartContextValue>(() => ({
     items, hydrated, itemCount: items.reduce((total, item) => total + item.quantity, 0), isCartOpen,
     openCart, closeCart, toggleCart, addItem, setQuantity, removeItem, clearCart, toggleItemPackaging, getLineId: getCartLineId,
-  }), [items, hydrated, isCartOpen, openCart, closeCart, toggleCart, addItem, setQuantity, removeItem, clearCart, toggleItemPackaging]);
+    revalidateCart,
+  }), [items, hydrated, isCartOpen, openCart, closeCart, toggleCart, addItem, setQuantity, removeItem, clearCart, toggleItemPackaging, revalidateCart]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

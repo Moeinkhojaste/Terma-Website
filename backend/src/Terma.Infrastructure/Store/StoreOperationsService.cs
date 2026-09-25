@@ -388,6 +388,104 @@ public sealed class StoreOperationsService(
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<ValidateCartResponseDto> ValidateCartAsync(ValidateCartRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Items is null || request.Items.Count == 0)
+            return new ValidateCartResponseDto(false, [], []);
+
+        var productIds = request.Items.Select(x => x.ProductId).Distinct().ToList();
+        var products = await db.Products
+            .Include(x => x.Variants)
+            .Where(x => productIds.Contains(x.Id))
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        var productMap = products.ToDictionary(x => x.Id);
+        var results = new List<CartItemValidationResultDto>();
+        var notifications = new List<string>();
+        var hasChanges = false;
+
+        foreach (var item in request.Items)
+        {
+            if (!productMap.TryGetValue(item.ProductId, out var product) || !product.IsActive)
+            {
+                hasChanges = true;
+                var name = product?.Name ?? "یک محصول";
+                results.Add(new CartItemValidationResultDto(
+                    item.ProductId,
+                    item.VariantId,
+                    "Inactive",
+                    0,
+                    0,
+                    product?.Name,
+                    $"محصول «{name}» دیگر در فروشگاه ارائه نمی‌شود و از سبد خرید شما حذف گردید."));
+                notifications.Add($"محصول «{name}» از سبد خرید شما حذف گردید (عدم ارائه).");
+                continue;
+            }
+
+            var variant = item.VariantId.HasValue
+                ? product.Variants.FirstOrDefault(v => v.Id == item.VariantId.Value)
+                : product.Variants.FirstOrDefault(v => v.IsActive);
+
+            if (variant is null || !variant.IsActive)
+            {
+                hasChanges = true;
+                results.Add(new CartItemValidationResultDto(
+                    item.ProductId,
+                    item.VariantId,
+                    "Inactive",
+                    0,
+                    0,
+                    product.Name,
+                    $"تنوع انتخاب‌شده برای «{product.Name}» دیگر در دسترس نیست و از سبد خرید حذف شد."));
+                notifications.Add($"تنوع انتخاب‌شده برای «{product.Name}» از سبد خرید شما حذف شد.");
+                continue;
+            }
+
+            var available = variant.AvailableQuantity;
+            if (available <= 0)
+            {
+                hasChanges = true;
+                results.Add(new CartItemValidationResultDto(
+                    item.ProductId,
+                    variant.Id,
+                    "OutOfStock",
+                    0,
+                    variant.Price,
+                    product.Name,
+                    $"محصول «{product.Name}» به دلیل اتمام موجودی از سبد خرید شما حذف گردید."));
+                notifications.Add($"محصول «{product.Name}» به دلیل اتمام موجودی از سبد خرید شما حذف گردید.");
+                continue;
+            }
+
+            if (available < item.Quantity)
+            {
+                hasChanges = true;
+                results.Add(new CartItemValidationResultDto(
+                    item.ProductId,
+                    variant.Id,
+                    "QuantityAdjusted",
+                    available,
+                    variant.Price,
+                    product.Name,
+                    $"موجودی «{product.Name}» به {available} عدد محدود است و تعداد آن در سبد تنظیم شد."));
+                notifications.Add($"تعداد محصول «{product.Name}» در سبد به {available} عدد تغییر یافت.");
+                continue;
+            }
+
+            results.Add(new CartItemValidationResultDto(
+                item.ProductId,
+                variant.Id,
+                "Available",
+                available,
+                variant.Price,
+                product.Name,
+                null));
+        }
+
+        return new ValidateCartResponseDto(hasChanges, results, notifications);
+    }
+
     public async Task RecordProductViewAsync(Guid productId, string? visitorHash, CancellationToken cancellationToken)
     {
         var productExists = await db.Products.AnyAsync(x => x.Id == productId, cancellationToken);
@@ -911,7 +1009,7 @@ public sealed class StoreOperationsService(
             shipping,
             totalSubtotal - discount + shipping,
             lines.Select(x => new CheckoutQuoteItemDto(x.ProductId, x.VariantId, x.ProductName, x.Sku, x.UnitPrice, x.PackagingFee, x.PackagingType, x.Quantity, x.AvailableQuantity)).ToList(),
-            DateTime.UtcNow.AddHours(24));
+            DateTime.UtcNow.AddMinutes(15));
     }
 
     public async Task<CreatedOrderDto> CreateOrderAsync(CheckoutRequest request, string? idempotencyKey, Guid? userId, string? verifiedPhone, CancellationToken cancellationToken)
@@ -1008,7 +1106,7 @@ public sealed class StoreOperationsService(
             subtotal,
             discount,
             shipping,
-            DateTime.UtcNow.AddMinutes(30),
+            DateTime.UtcNow.AddMinutes(15),
             null,
             request.CustomerNotes);
 

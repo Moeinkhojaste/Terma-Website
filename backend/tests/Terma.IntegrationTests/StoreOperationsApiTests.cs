@@ -258,6 +258,154 @@ public sealed class StoreOperationsApiTests(TermaApiFactory factory) : IClassFix
         }
     }
 
+    [Fact]
+    public async Task CreateOrder_Should_Set_Reservation_Expiry_To_15_Minutes()
+    {
+        using var admin = await factory.CreateAdminClientAsync();
+        var category = await CreateCategory(admin);
+        var productResponse = await admin.PostAsJsonAsync("/api/admin/products", new CreateProductRequest
+        {
+            Name = "تست رزرو ۱۵ دقیقه‌ای",
+            Sku = $"EXP15-{Guid.NewGuid():N}"[..12],
+            Description = "تست زمان انقضای رزرو",
+            Price = 1_000_000,
+            StockQuantity = 3,
+            TableCapacity = 6,
+            Length = 100,
+            Width = 100,
+            FabricType = "ابریشم",
+            LiningType = "ساتن",
+            Color = "آبی",
+            Pattern = "ترنج",
+            CategoryId = category.Id
+        });
+        var product = (await productResponse.Content.ReadFromJsonAsync<ProductDto>())!;
+
+        using var guest = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(guest);
+        guest.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
+
+        var orderRes = await guest.PostAsJsonAsync("/api/orders", new CheckoutRequest
+        {
+            Items = [new CheckoutItemRequest(product.Id, null, 1)],
+            FullName = "مشتری تست",
+            Phone = "09121112233",
+            Province = "یزد",
+            City = "یزد",
+            Address = "میدان امیرچخماق",
+            PostalCode = "1234567890"
+        });
+        orderRes.EnsureSuccessStatusCode();
+        var createdOrder = (await orderRes.Content.ReadFromJsonAsync<CreatedOrderDto>())!;
+
+        var now = DateTime.UtcNow;
+        var diff = createdOrder.ReservationExpiresAtUtc - now;
+        Assert.True(diff <= TimeSpan.FromMinutes(15).Add(TimeSpan.FromSeconds(10)), $"Expiry was too large: {diff}");
+        Assert.True(diff >= TimeSpan.FromMinutes(14), $"Expiry was too small: {diff}");
+    }
+
+    [Fact]
+    public async Task ValidateCart_Should_Detect_OutOfStock_Deactivated_And_Quantity_Adjustments()
+    {
+        using var admin = await factory.CreateAdminClientAsync();
+        var category = await CreateCategory(admin);
+        var productResponse = await admin.PostAsJsonAsync("/api/admin/products", new CreateProductRequest
+        {
+            Name = "ترمه شاه‌عباسی تست اعتبار",
+            Sku = $"VAL-{Guid.NewGuid():N}"[..12],
+            Description = "تست اعتبارسنجی سبد",
+            Price = 2_000_000,
+            StockQuantity = 1,
+            TableCapacity = 6,
+            Length = 100,
+            Width = 100,
+            FabricType = "ابریشم",
+            LiningType = "ساتن",
+            Color = "قرمز",
+            Pattern = "شاه‌عباسی",
+            CategoryId = category.Id
+        });
+        var product = (await productResponse.Content.ReadFromJsonAsync<ProductDto>())!;
+
+        using var client = factory.CreateHttpsClient();
+
+        // 1. Initial check: item is available (1 in stock)
+        var valRes1 = await client.PostAsJsonAsync("/api/store/cart/validate", new ValidateCartRequest
+        {
+            Items = [new CartValidationItemRequest(product.Id, null, 1)]
+        });
+        valRes1.EnsureSuccessStatusCode();
+        var result1 = (await valRes1.Content.ReadFromJsonAsync<ValidateCartResponseDto>())!;
+        Assert.False(result1.HasChanges);
+        Assert.Single(result1.Items);
+        Assert.Equal("Available", result1.Items[0].Status);
+        Assert.Equal(1, result1.Items[0].AvailableQuantity);
+
+        // 2. Admin sets stock to 0 -> OutOfStock
+        var updateRes = await admin.PutAsJsonAsync($"/api/admin/products/{product.Id}", new UpdateProductRequest
+        {
+            Name = product.Name,
+            Sku = product.Sku,
+            Description = product.Description,
+            Price = product.Price,
+            StockQuantity = 0,
+            TableCapacity = product.TableCapacity,
+            Length = product.Length,
+            Width = product.Width,
+            FabricType = product.FabricType,
+            LiningType = product.LiningType,
+            Color = product.Color,
+            Pattern = product.Pattern,
+            CategoryId = product.CategoryId,
+            IsActive = true
+        });
+        updateRes.EnsureSuccessStatusCode();
+
+        var valRes2 = await client.PostAsJsonAsync("/api/store/cart/validate", new ValidateCartRequest
+        {
+            Items = [new CartValidationItemRequest(product.Id, null, 1)]
+        });
+        valRes2.EnsureSuccessStatusCode();
+        var result2 = (await valRes2.Content.ReadFromJsonAsync<ValidateCartResponseDto>())!;
+        Assert.True(result2.HasChanges);
+        Assert.Single(result2.Items);
+        Assert.Equal("OutOfStock", result2.Items[0].Status);
+        Assert.Single(result2.Notifications);
+        Assert.Contains("اتمام موجودی", result2.Notifications[0]);
+
+        // 3. Admin deactivates product -> Inactive
+        var deactRes = await admin.PutAsJsonAsync($"/api/admin/products/{product.Id}", new UpdateProductRequest
+        {
+            Name = product.Name,
+            Sku = product.Sku,
+            Description = product.Description,
+            Price = product.Price,
+            StockQuantity = 5,
+            TableCapacity = product.TableCapacity,
+            Length = product.Length,
+            Width = product.Width,
+            FabricType = product.FabricType,
+            LiningType = product.LiningType,
+            Color = product.Color,
+            Pattern = product.Pattern,
+            CategoryId = product.CategoryId,
+            IsActive = false
+        });
+        deactRes.EnsureSuccessStatusCode();
+
+        var valRes3 = await client.PostAsJsonAsync("/api/store/cart/validate", new ValidateCartRequest
+        {
+            Items = [new CartValidationItemRequest(product.Id, null, 1)]
+        });
+        valRes3.EnsureSuccessStatusCode();
+        var result3 = (await valRes3.Content.ReadFromJsonAsync<ValidateCartResponseDto>())!;
+        Assert.True(result3.HasChanges);
+        Assert.Single(result3.Items);
+        Assert.Equal("Inactive", result3.Items[0].Status);
+        Assert.Single(result3.Notifications);
+        Assert.Contains("حذف گردید", result3.Notifications[0]);
+    }
+
     private static async Task<CategoryDto> CreateCategory(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/admin/categories", new CreateCategoryRequest { Name = $"Checkout {Guid.NewGuid():N}" });

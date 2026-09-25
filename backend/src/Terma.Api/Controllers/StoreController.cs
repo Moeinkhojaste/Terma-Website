@@ -54,6 +54,11 @@ public sealed class StoreController(
         return NoContent();
     }
 
+    [HttpPost("cart/validate")]
+    [ProducesResponseType<ValidateCartResponseDto>(StatusCodes.Status200OK)]
+    public Task<ValidateCartResponseDto> ValidateCart([FromBody] ValidateCartRequest request, CancellationToken ct) =>
+        service.ValidateCartAsync(request, ct);
+
     private string? GetClientIp()
     {
         var forwarded = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();

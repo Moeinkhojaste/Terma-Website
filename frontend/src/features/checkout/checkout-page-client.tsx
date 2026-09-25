@@ -79,7 +79,7 @@ export function CheckoutPageClient() {
   const router = useRouter();
   const submissionLockRef = useRef(false);
   const pendingOrderRef = useRef<{ id: string; number: string } | null>(null);
-  const { items, hydrated, clearCart } = useCart();
+  const { items, hydrated, clearCart, revalidateCart } = useCart();
   const [errors, setErrors] = useState<FormErrors>({});
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [serverError, setServerError] = useState("");
@@ -322,6 +322,7 @@ export function CheckoutPageClient() {
       setServerError(errInfo.message);
       setErrorModal(errInfo);
       setRequestState(caught instanceof ApiError && caught.isNetworkError ? "network-error" : "server-error");
+      void revalidateCart?.(true);
     } finally {
       submissionLockRef.current = false;
     }

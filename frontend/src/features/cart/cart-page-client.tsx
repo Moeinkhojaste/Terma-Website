@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
@@ -13,8 +13,14 @@ import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 
 export function CartPageClient() {
-  const { items, hydrated, setQuantity, removeItem, toggleItemPackaging } = useCart();
+  const { items, hydrated, setQuantity, removeItem, toggleItemPackaging, revalidateCart } = useCart();
   const [itemToRemove, setItemToRemove] = useState<CartItem | null>(null);
+
+  useEffect(() => {
+    if (hydrated) {
+      void revalidateCart?.();
+    }
+  }, [hydrated, revalidateCart]);
   const productSubtotal = items.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
   const packagingTotal = items.reduce((total, item) => total + item.packagingFee * item.quantity, 0);
   const subtotal = productSubtotal + packagingTotal;

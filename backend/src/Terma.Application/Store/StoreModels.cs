@@ -238,4 +238,25 @@ public interface IStoreOperationsService
     Task<PublicPackagingSettingsDto> GetPublicPackagingSettingsAsync(CancellationToken cancellationToken);
     Task<StoreSettingsDto> GetStoreSettingsAsync(CancellationToken cancellationToken);
     Task<StoreSettingsDto> UpdatePackagingSettingsAsync(UpdatePackagingSettingsRequest request, CancellationToken cancellationToken);
+    Task<ValidateCartResponseDto> ValidateCartAsync(ValidateCartRequest request, CancellationToken cancellationToken);
 }
+
+public sealed record CartValidationItemRequest(Guid ProductId, Guid? VariantId, int Quantity);
+public sealed class ValidateCartRequest
+{
+    public IReadOnlyList<CartValidationItemRequest> Items { get; init; } = [];
+}
+public sealed record CartItemValidationResultDto(
+    Guid ProductId,
+    Guid? VariantId,
+    string Status,
+    int AvailableQuantity,
+    decimal CurrentPrice,
+    string? ProductName,
+    string? Message
+);
+public sealed record ValidateCartResponseDto(
+    bool HasChanges,
+    IReadOnlyList<CartItemValidationResultDto> Items,
+    IReadOnlyList<string> Notifications
+);
