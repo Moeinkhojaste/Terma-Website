@@ -136,8 +136,8 @@ export default async function ProductsPage({
       : "سفره‌های اصیل طرح ترمه";
   const heroDesc =
     typeof heroBlock?.data?.text === "string" && heroBlock.data.text.trim()
-      ? heroBlock.data.text
-      : "مجموعه سفره‌های غذاخوری و پذیرایی با نقوش سنتی، دوخت یکپارچه و آستر ساتن هم‌رنگ در اندازه‌های استاندارد ۴ نفره (۱۰۰×۱۰۰ سانتی‌متر)، ۶ نفره (۱۶۰×۱۱۰ سانتی‌متر) و ۸ نفره (۲۴۰×۱۱۰ سانتی‌متر).";
+      ? heroBlock.data.text.trim()
+      : undefined;
 
   const faqBlock = blocks.find((b) => b.type === "faq");
   const faqData = faqBlock?.data;
@@ -197,7 +197,7 @@ export default async function ProductsPage({
                 <p className="section-eyebrow">{heroEyebrow}</p>
                 <h1>{heroTitle}</h1>
               </div>
-              <p className="catalog-hero__desc">{heroDesc}</p>
+              {heroDesc ? <p className="catalog-hero__desc">{heroDesc}</p> : null}
             </div>
           </Container>
         </section>

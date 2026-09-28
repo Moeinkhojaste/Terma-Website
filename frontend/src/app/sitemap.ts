@@ -80,13 +80,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (res.ok) {
       const data: BackendSitemapResponse = await res.json();
       for (const item of data.items) {
-        const fullUrl = item.loc.startsWith("http") ? item.loc : `${siteUrl}${item.loc}`;
+        const fullUrl = item.loc.startsWith("http") ? item.loc : `${siteUrl}${item.loc.startsWith("/") ? "" : "/"}${item.loc}`;
+        const absoluteImages = item.images
+          ?.filter((img): img is string => Boolean(img && img.trim()))
+          .map((img) => (img.startsWith("http") ? img : `${siteUrl}${img.startsWith("/") ? "" : "/"}${img}`));
+
         pushItem({
           url: fullUrl,
           lastModified: new Date(item.lastModifiedUtc),
           changeFrequency: item.changeFreq,
           priority: item.priority,
-          images: item.images,
+          images: absoluteImages && absoluteImages.length > 0 ? absoluteImages : undefined,
         });
       }
     }
