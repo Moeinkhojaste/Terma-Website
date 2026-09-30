@@ -29,6 +29,7 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(x => x.Subtotal).HasPrecision(18, 2);
         builder.Property(x => x.DiscountTotal).HasPrecision(18, 2);
         builder.Property(x => x.ShippingTotal).HasPrecision(18, 2);
+        builder.Property(x => x.ShippingMethod).HasConversion<string>().HasMaxLength(40).HasDefaultValue(ShippingMethod.Pishtaz);
         builder.Property(x => x.Total).HasPrecision(18, 2);
         builder.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(x => x.UserId);

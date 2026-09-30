@@ -309,6 +309,7 @@ public sealed partial class TelegramUpdateHandler : ITelegramUpdateHandler
             📞 <b>شماره:</b> <a href="tel:{order.Phone}">{order.Phone}</a>
             📍 <b>آدرس:</b> {TelegramBotService.Escape(order.Province)} - {TelegramBotService.Escape(order.City)}, {TelegramBotService.Escape(order.Address)}
             📮 <b>کد پستی:</b> <code>{TelegramBotService.Escape(order.PostalCode)}</code>{notes}
+            🚚 <b>روش ارسال:</b> {(order.ShippingMethod == ShippingMethod.Tipax ? "تیپاکس (پس‌کرایه)" : "پست پیشتاز")}
             
             📦 <b>اقلام:</b>
             {itemsSummary}

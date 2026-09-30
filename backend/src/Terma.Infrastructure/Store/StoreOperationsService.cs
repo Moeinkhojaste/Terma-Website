@@ -998,9 +998,18 @@ public sealed class StoreOperationsService(
         var matchingPromotions = promotions.Where(x => x.Applies(request.CouponCode, totalSubtotal, now)).ToList();
         var discount = matchingPromotions.Select(x => x.Calculate(totalSubtotal)).DefaultIfEmpty(0).Max();
 
-        var rules = await db.ShippingRules.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Priority).ToListAsync(cancellationToken);
-        var rule = rules.FirstOrDefault(x => x.Matches(request.Province, request.City));
-        var shipping = rule?.Calculate(totalSubtotal) ?? 0;
+        var shippingSettings = await GetPublicShippingSettingsAsync(cancellationToken);
+        decimal shipping;
+        if (request.ShippingMethod == ShippingMethod.Tipax)
+        {
+            shipping = 0m;
+        }
+        else
+        {
+            var rules = await db.ShippingRules.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Priority).ToListAsync(cancellationToken);
+            var rule = rules.FirstOrDefault(x => x.Matches(request.Province, request.City));
+            shipping = rule?.Calculate(totalSubtotal) ?? shippingSettings.PishtazPrice;
+        }
 
         return new(
             totalSubtotal,
@@ -1009,7 +1018,8 @@ public sealed class StoreOperationsService(
             shipping,
             totalSubtotal - discount + shipping,
             lines.Select(x => new CheckoutQuoteItemDto(x.ProductId, x.VariantId, x.ProductName, x.Sku, x.UnitPrice, x.PackagingFee, x.PackagingType, x.Quantity, x.AvailableQuantity)).ToList(),
-            DateTime.UtcNow.AddMinutes(15));
+            DateTime.UtcNow.AddMinutes(15),
+            request.ShippingMethod);
     }
 
     public async Task<CreatedOrderDto> CreateOrderAsync(CheckoutRequest request, string? idempotencyKey, Guid? userId, string? verifiedPhone, CancellationToken cancellationToken)
@@ -1056,9 +1066,18 @@ public sealed class StoreOperationsService(
             }
         }
 
-        var rules = await db.ShippingRules.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Priority).ToListAsync(cancellationToken);
-        var rule = rules.FirstOrDefault(x => x.Matches(request.Province, request.City));
-        var shipping = rule?.Calculate(subtotal) ?? 0;
+        var shippingSettings = await GetPublicShippingSettingsAsync(cancellationToken);
+        decimal shipping;
+        if (request.ShippingMethod == ShippingMethod.Tipax)
+        {
+            shipping = 0m;
+        }
+        else
+        {
+            var rules = await db.ShippingRules.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Priority).ToListAsync(cancellationToken);
+            var rule = rules.FirstOrDefault(x => x.Matches(request.Province, request.City));
+            shipping = rule?.Calculate(subtotal) ?? shippingSettings.PishtazPrice;
+        }
 
         foreach (var line in lines)
         {
@@ -1108,7 +1127,8 @@ public sealed class StoreOperationsService(
             shipping,
             DateTime.UtcNow.AddMinutes(15),
             null,
-            request.CustomerNotes);
+            request.CustomerNotes,
+            request.ShippingMethod);
 
         order.SetIdempotency(cleanIdempotencyKey, requestFingerprint);
         if (resolvedUserId.HasValue)
@@ -1305,7 +1325,8 @@ public sealed class StoreOperationsService(
             city = request.City.Trim(),
             address = request.Address.Trim(),
             postalCode = new string(request.PostalCode.Select(IranianPhoneNumber.ToEnglishDigit).Where(char.IsDigit).ToArray()),
-            couponCode = request.CouponCode?.Trim().ToUpperInvariant()
+            couponCode = request.CouponCode?.Trim().ToUpperInvariant(),
+            shippingMethod = request.ShippingMethod.ToString()
         };
         var json = JsonSerializer.Serialize(normalized);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)));
@@ -1383,7 +1404,7 @@ public sealed class StoreOperationsService(
                 };
             }
 
-            result.Add(new AdminOrderDto(x.Id, x.Number, x.FullNameSnapshot, x.PhoneSnapshot, x.Status, x.Total, x.CreatedAt, x.ReservationExpiresAtUtc, x.Province, x.City, x.Address, x.PostalCode, x.CustomerNotes, x.PostalTrackingCode, items, paymentStatus));
+            result.Add(new AdminOrderDto(x.Id, x.Number, x.FullNameSnapshot, x.PhoneSnapshot, x.Status, x.Total, x.CreatedAt, x.ReservationExpiresAtUtc, x.Province, x.City, x.Address, x.PostalCode, x.CustomerNotes, x.PostalTrackingCode, items, paymentStatus, x.ShippingMethod));
         }
         return result;
     }
@@ -1400,18 +1421,36 @@ public sealed class StoreOperationsService(
         return new PublicPackagingSettingsDto(price, enabled);
     }
 
+    public async Task<PublicShippingSettingsDto> GetPublicShippingSettingsAsync(CancellationToken cancellationToken)
+    {
+        var settings = await db.StoreSettings.AsNoTracking().ToListAsync(cancellationToken);
+        var priceSetting = settings.FirstOrDefault(s => s.Key == "Shipping:PishtazPrice");
+        var pishtazEnabledSetting = settings.FirstOrDefault(s => s.Key == "Shipping:PishtazEnabled");
+        var tipaxEnabledSetting = settings.FirstOrDefault(s => s.Key == "Shipping:TipaxEnabled");
+
+        var price = priceSetting != null && decimal.TryParse(priceSetting.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var p) ? p : 140000m;
+        var pishtazEnabled = pishtazEnabledSetting == null || !bool.TryParse(pishtazEnabledSetting.Value, out var pe) || pe;
+        var tipaxEnabled = tipaxEnabledSetting == null || !bool.TryParse(tipaxEnabledSetting.Value, out var te) || te;
+
+        return new PublicShippingSettingsDto(price, pishtazEnabled, tipaxEnabled);
+    }
+
     public async Task<StoreSettingsDto> GetStoreSettingsAsync(CancellationToken cancellationToken)
     {
         var reservationHours = configuration?.GetValue("Store:ReservationHours", 24) ?? 24;
         var lowStock = configuration?.GetValue("Store:LowStockDefaultThreshold", 2) ?? 2;
         var publicPackaging = await GetPublicPackagingSettingsAsync(cancellationToken);
+        var publicShipping = await GetPublicShippingSettingsAsync(cancellationToken);
 
         return new StoreSettingsDto(
             reservationHours,
             lowStock,
             "تومان",
             publicPackaging.GiftPackagingPrice,
-            publicPackaging.IsGiftPackagingEnabled);
+            publicPackaging.IsGiftPackagingEnabled,
+            publicShipping.PishtazPrice,
+            publicShipping.IsPishtazEnabled,
+            publicShipping.IsTipaxEnabled);
     }
 
     public async Task<StoreSettingsDto> UpdatePackagingSettingsAsync(UpdatePackagingSettingsRequest request, CancellationToken cancellationToken)
@@ -1439,6 +1478,51 @@ public sealed class StoreOperationsService(
         else
         {
             enabledSetting.UpdateValue(request.IsGiftPackagingEnabled.ToString().ToLowerInvariant());
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return await GetStoreSettingsAsync(cancellationToken);
+    }
+
+    public async Task<StoreSettingsDto> UpdateShippingSettingsAsync(UpdateShippingSettingsRequest request, CancellationToken cancellationToken)
+    {
+        if (request.PishtazPrice < 0)
+            throw new DomainException("Postal shipping price cannot be negative.");
+        if (!request.IsPishtazEnabled && !request.IsTipaxEnabled)
+            throw new DomainException("At least one shipping method must be enabled.");
+
+        var priceSetting = await db.StoreSettings.SingleOrDefaultAsync(s => s.Key == "Shipping:PishtazPrice", cancellationToken);
+        if (priceSetting is null)
+        {
+            priceSetting = new StoreSetting("Shipping:PishtazPrice", request.PishtazPrice.ToString(CultureInfo.InvariantCulture), "هزینه ارسال با پست پیشتاز به تومان");
+            await db.StoreSettings.AddAsync(priceSetting, cancellationToken);
+        }
+        else
+        {
+            priceSetting.UpdateValue(request.PishtazPrice.ToString(CultureInfo.InvariantCulture));
+        }
+
+        var pishtazEnabledSetting = await db.StoreSettings.SingleOrDefaultAsync(s => s.Key == "Shipping:PishtazEnabled", cancellationToken);
+        if (pishtazEnabledSetting is null)
+        {
+            pishtazEnabledSetting = new StoreSetting("Shipping:PishtazEnabled", request.IsPishtazEnabled.ToString().ToLowerInvariant(), "فعال‌بودن ارسال با پست پیشتاز در فروشگاه");
+            await db.StoreSettings.AddAsync(pishtazEnabledSetting, cancellationToken);
+        }
+        else
+        {
+            pishtazEnabledSetting.UpdateValue(request.IsPishtazEnabled.ToString().ToLowerInvariant());
+        }
+
+        var tipaxEnabledSetting = await db.StoreSettings.SingleOrDefaultAsync(s => s.Key == "Shipping:TipaxEnabled", cancellationToken);
+        if (tipaxEnabledSetting is null)
+        {
+            tipaxEnabledSetting = new StoreSetting("Shipping:TipaxEnabled", request.IsTipaxEnabled.ToString().ToLowerInvariant(), "فعال‌بودن ارسال با تیپاکس (پس‌کرایه) در فروشگاه");
+            await db.StoreSettings.AddAsync(tipaxEnabledSetting, cancellationToken);
+        }
+        else
+        {
+            tipaxEnabledSetting.UpdateValue(request.IsTipaxEnabled.ToString().ToLowerInvariant());
         }
 
         await db.SaveChangesAsync(cancellationToken);

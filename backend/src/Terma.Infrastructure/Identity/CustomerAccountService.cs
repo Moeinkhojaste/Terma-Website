@@ -193,7 +193,7 @@ public sealed class CustomerAccountService(
         var query = db.Orders.AsNoTracking().Where(x => x.UserId == userId).OrderByDescending(x => x.CreatedAt);
         var total = await query.CountAsync(cancellationToken);
         var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(x => new CustomerOrderSummaryDto(x.Id, x.Number, x.Status, x.Total, x.CreatedAt, x.Items.Sum(i => i.Quantity), x.PostalTrackingCode))
+            .Select(x => new CustomerOrderSummaryDto(x.Id, x.Number, x.Status, x.Total, x.CreatedAt, x.Items.Sum(i => i.Quantity), x.PostalTrackingCode, x.ShippingMethod))
             .ToListAsync(cancellationToken);
         return new(items, page, pageSize, total);
     }
@@ -205,7 +205,8 @@ public sealed class CustomerAccountService(
                 x.Id, x.Number, x.Status, x.FullNameSnapshot, x.PhoneSnapshot, x.Province, x.City, x.Address, x.PostalCode,
                 x.Subtotal, x.DiscountTotal, x.ShippingTotal, x.Total, x.CreatedAt, x.PostalTrackingCode,
                 x.Items.OrderBy(i => i.CreatedAt).Select(i => new CustomerOrderItemDto(i.ProductId, i.VariantId, i.ProductName, i.Sku, i.UnitPrice, i.Quantity, i.LineTotal, i.PackagingType, i.PackagingFee)).ToList(),
-                x.History.OrderBy(h => h.CreatedAt).Select(h => new CustomerOrderHistoryDto(h.Status, h.CreatedAt)).ToList()))
+                x.History.OrderBy(h => h.CreatedAt).Select(h => new CustomerOrderHistoryDto(h.Status, h.CreatedAt)).ToList(),
+                x.ShippingMethod))
             .SingleOrDefaultAsync(cancellationToken);
         return result ?? throw new NotFoundException("Order was not found.");
     }
@@ -270,7 +271,7 @@ public sealed class CustomerAccountService(
         var profile = await GetProfileAsync(userId, cancellationToken);
         var recentOrdersQuery = db.Orders.AsNoTracking().Where(x => x.UserId == userId).OrderByDescending(x => x.CreatedAt);
         var recentOrders = await recentOrdersQuery.Take(5)
-            .Select(x => new CustomerOrderSummaryDto(x.Id, x.Number, x.Status, x.Total, x.CreatedAt, x.Items.Sum(i => i.Quantity), x.PostalTrackingCode))
+            .Select(x => new CustomerOrderSummaryDto(x.Id, x.Number, x.Status, x.Total, x.CreatedAt, x.Items.Sum(i => i.Quantity), x.PostalTrackingCode, x.ShippingMethod))
             .ToListAsync(cancellationToken);
 
         var defaultAddress = await db.CustomerAddresses.AsNoTracking()

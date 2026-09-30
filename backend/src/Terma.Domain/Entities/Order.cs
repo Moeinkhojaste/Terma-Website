@@ -28,6 +28,7 @@ public sealed class Order : BaseEntity
     public decimal Subtotal { get; private set; }
     public decimal DiscountTotal { get; private set; }
     public decimal ShippingTotal { get; private set; }
+    public ShippingMethod ShippingMethod { get; private set; } = ShippingMethod.Pishtaz;
     public decimal Total { get; private set; }
     public decimal PackagingTotal => _items.Sum(i => i.PackagingFee * i.Quantity);
     public DateTime ReservationExpiresAtUtc { get; private set; }
@@ -43,7 +44,8 @@ public sealed class Order : BaseEntity
 
     public Order(string number, Customer customer, string province, string city, string address,
         string postalCode, decimal subtotal, decimal discountTotal, decimal shippingTotal,
-        DateTime reservationExpiresAtUtc, string? trackingTokenHash = null, string? customerNotes = null)
+        DateTime reservationExpiresAtUtc, string? trackingTokenHash = null, string? customerNotes = null,
+        ShippingMethod shippingMethod = ShippingMethod.Pishtaz)
     {
         Number = number.Trim();
         Customer = customer;
@@ -59,6 +61,7 @@ public sealed class Order : BaseEntity
         Subtotal = subtotal;
         DiscountTotal = discountTotal;
         ShippingTotal = shippingTotal;
+        ShippingMethod = shippingMethod;
         Total = subtotal - discountTotal + shippingTotal;
         ReservationExpiresAtUtc = reservationExpiresAtUtc;
         TrackingTokenHash = trackingTokenHash;

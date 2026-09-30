@@ -107,7 +107,7 @@ export function AccountOrderClient({ id }: { id: string }) {
             </span>
           </div>
 
-          {/* Postal Tracking Highlight Box */}
+          {/* Postal / Courier Tracking Highlight Box */}
           {(order.status === "Shipped" || order.postalTrackingCode) && (
             <div className="postal-tracking-highlight-box">
               <div className="postal-tracking-content">
@@ -115,13 +115,15 @@ export function AccountOrderClient({ id }: { id: string }) {
                   <TruckIcon className="size-8" />
                 </div>
                 <div className="postal-tracking-info">
-                  <h3>کد رهگیری مرسوله پستی</h3>
+                  <h3>{order.shippingMethod === "Tipax" ? "کد رهگیری مرسوله تیپاکس" : "کد رهگیری مرسوله پستی"}</h3>
                   <p>
-                    سفارش شما تحویل شرکت ملی پست گردیده است. با استفاده از کد رهگیری زیر می‌توانید مسیر ارسال بسته را پیگیری کنید:
+                    {order.shippingMethod === "Tipax"
+                      ? "سفارش شما تحویل شرکت تیپاکس گردیده است. با استفاده از کد رهگیری زیر می‌توانید مسیر ارسال بسته را پیگیری کنید:"
+                      : "سفارش شما تحویل شرکت ملی پست گردیده است. با استفاده از کد رهگیری زیر می‌توانید مسیر ارسال بسته را پیگیری کنید:"}
                   </p>
                   <div className="postal-tracking-code-row">
                     <strong dir="ltr" className="postal-code-value">
-                      {order.postalTrackingCode || "در انتظار درج توسط اداره پست"}
+                      {order.postalTrackingCode || (order.shippingMethod === "Tipax" ? "در انتظار درج توسط تیپاکس" : "در انتظار درج توسط اداره پست")}
                     </strong>
                     {order.postalTrackingCode && (
                       <button
@@ -138,12 +140,12 @@ export function AccountOrderClient({ id }: { id: string }) {
               </div>
               <div className="postal-tracking-footer">
                 <a
-                  href="https://tracking.post.ir/"
+                  href={order.shippingMethod === "Tipax" ? "https://tipaxco.com/tracking" : "https://tracking.post.ir/"}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="button button--primary button--sm"
                 >
-                  <span>ورود به سامانه پیگیری پست</span>
+                  <span>{order.shippingMethod === "Tipax" ? "ورود به سامانه پیگیری تیپاکس" : "ورود به سامانه پیگیری پست"}</span>
                   <ExternalLinkIcon className="size-4" />
                 </a>
               </div>
@@ -248,8 +250,12 @@ export function AccountOrderClient({ id }: { id: string }) {
                     </div>
                   )}
                   <div>
+                    <dt>روش ارسال</dt>
+                    <dd>{order.shippingMethod === "Tipax" ? "تیپاکس (ارسال اکسپرس)" : "پست پیشتاز"}</dd>
+                  </div>
+                  <div>
                     <dt>هزینه ارسال</dt>
-                    <dd>{order.shippingTotal === 0 ? "رایگان" : formatPrice(order.shippingTotal)}</dd>
+                    <dd>{order.shippingMethod === "Tipax" ? "پس‌کرایه (پرداخت در مقصد)" : order.shippingTotal === 0 ? "رایگان" : formatPrice(order.shippingTotal)}</dd>
                   </div>
                   <div className="order-total-final">
                     <dt>مبلغ نهایی پرداختی</dt>

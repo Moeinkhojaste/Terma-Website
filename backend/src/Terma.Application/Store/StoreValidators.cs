@@ -26,6 +26,7 @@ public sealed class CheckoutRequestValidator : AbstractValidator<CheckoutRequest
         RuleFor(x => x.PostalCode).NotEmpty().Matches(@"^[\d\u06F0-\u06F9\u0660-\u0669]{10}$").WithMessage("A valid 10-digit postal code is required.");
         RuleFor(x => x.CustomerNotes).MaximumLength(1000);
         RuleFor(x => x.CouponCode).MaximumLength(50);
+        RuleFor(x => x.ShippingMethod).IsInEnum();
     }
 }
 
@@ -126,6 +127,15 @@ public sealed class UpdatePackagingSettingsRequestValidator : AbstractValidator<
     public UpdatePackagingSettingsRequestValidator()
     {
         RuleFor(x => x.GiftPackagingPrice).GreaterThanOrEqualTo(0);
+    }
+}
+
+public sealed class UpdateShippingSettingsRequestValidator : AbstractValidator<UpdateShippingSettingsRequest>
+{
+    public UpdateShippingSettingsRequestValidator()
+    {
+        RuleFor(x => x.PishtazPrice).GreaterThanOrEqualTo(0).WithMessage("Postal shipping price cannot be negative.");
+        RuleFor(x => x).Must(x => x.IsPishtazEnabled || x.IsTipaxEnabled).WithMessage("At least one shipping method must be enabled.");
     }
 }
 

@@ -1047,6 +1047,41 @@ img { max-width: 100%; }
 .add-to-cart__view-btn { width: 100%; min-height: 3.25rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 0.95rem; font-weight: 680; border-radius: 999px; box-shadow: 0 4px 14px rgb(20 90 85 / 0.18); cursor: pointer; }
 .add-to-cart__limit-notice { font-size: 0.8rem; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; padding: 0.55rem 0.85rem; border-radius: 0.5rem; text-align: center; font-weight: 550; }
 
+/* Product Trust Badges / Reassurance */
+.product-trust-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding: 0.95rem 1.15rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.product-trust-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #4b5563;
+  font-size: 0.85rem;
+  font-weight: 550;
+  line-height: 1.35;
+  user-select: none;
+}
+
+.product-trust-badge__icon {
+  width: 1.55rem;
+  height: 1.55rem;
+  flex-shrink: 0;
+  color: #6b7280;
+}
+
+.product-trust-badge span {
+  letter-spacing: -0.01em;
+}
+
+
 /* Instant Cart Drawer */
 .cart-drawer-wrapper { position: fixed; inset: 0; z-index: 1000; display: flex; justify-content: flex-end; }
 .cart-drawer-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(3px); animation: fadeIn 0.2s ease forwards; }
@@ -5510,6 +5545,124 @@ body.dialog-open { overflow: hidden; }
 
 .checkout-page .shipping-option span small {
   font-size: 0.74rem;
+}
+
+/* Shipping Methods Selector Cards */
+.checkout-shipping-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.checkout-shipping-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  user-select: none;
+}
+
+.checkout-shipping-option:hover {
+  border-color: var(--teal);
+  background: rgba(20, 90, 85, 0.02);
+}
+
+.checkout-shipping-option input[type="radio"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--teal);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.checkout-shipping-option--selected {
+  border-color: var(--teal);
+  background: var(--teal-soft);
+  box-shadow: 0 0 0 1px var(--teal);
+}
+
+.checkout-shipping-option__content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.checkout-shipping-option__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.checkout-shipping-option__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.checkout-shipping-option__title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--charcoal);
+}
+
+.checkout-shipping-option__price {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--teal-deep);
+}
+
+.checkout-shipping-option__badge-cod {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.5rem;
+  border-radius: 9999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.checkout-shipping-option__desc {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.checkout-shipping-option__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0.35rem 0.65rem;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  min-width: 5.5rem;
+  height: 3rem;
+}
+
+.checkout-shipping-option__logo img,
+.checkout-shipping-option__logo svg {
+  max-height: 2.25rem;
+  width: auto;
+  max-width: 5.25rem;
+  display: block;
+  object-fit: contain;
 }
 
 .checkout-page .order-summary {

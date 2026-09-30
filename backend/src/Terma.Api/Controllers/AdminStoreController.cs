@@ -55,6 +55,15 @@ public sealed class AdminStoreController(
         return result;
     }
 
+    [HttpPut("settings/shipping")]
+    [ValidateApiAntiforgeryToken]
+    public async Task<StoreSettingsDto> UpdateShippingSettings([FromBody] UpdateShippingSettingsRequest request, CancellationToken ct)
+    {
+        var result = await service.UpdateShippingSettingsAsync(request, ct);
+        await auditService.LogAsync(GetActor(), "UpdateShippingSettings", $"PishtazPrice: {request.PishtazPrice}, PishtazEnabled: {request.IsPishtazEnabled}, TipaxEnabled: {request.IsTipaxEnabled}", "Success", HttpContext.TraceIdentifier, GetClientIp(), ct);
+        return result;
+    }
+
     [HttpGet("reports/sales")]
     public Task<SalesReportDto> SalesReport([FromQuery] DateTime? fromUtc, [FromQuery] DateTime? toUtc, CancellationToken ct) =>
         service.SalesReportAsync(fromUtc, toUtc, ct);
