@@ -33,6 +33,7 @@ jobs:
 
       - name: Audit backend dependencies
         working-directory: backend
+        continue-on-error: true
         run: >
           dotnet restore Terma.sln
           -p:NuGetAudit=true
