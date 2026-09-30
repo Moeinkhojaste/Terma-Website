@@ -107,7 +107,8 @@ public sealed record CustomerOrderSummaryDto(
     decimal Total,
     DateTime CreatedAt,
     int ItemCount,
-    string? PostalTrackingCode = null);
+    string? PostalTrackingCode = null,
+    ShippingMethod ShippingMethod = ShippingMethod.Pishtaz);
 
 public sealed record CustomerOrderItemDto(
     Guid ProductId,
@@ -139,7 +140,8 @@ public sealed record CustomerOrderDetailsDto(
     DateTime CreatedAt,
     string? PostalTrackingCode,
     IReadOnlyList<CustomerOrderItemDto> Items,
-    IReadOnlyList<CustomerOrderHistoryDto> History);
+    IReadOnlyList<CustomerOrderHistoryDto> History,
+    ShippingMethod ShippingMethod = ShippingMethod.Pishtaz);
 
 public enum VerifyOtpFailure { None, Invalid, Expired, Consumed, AttemptsExceeded, NotFound }
 public sealed record VerifyOtpServiceResult(Guid? UserId, string? Phone, int ClaimedOrderCount, VerifyOtpFailure Failure);

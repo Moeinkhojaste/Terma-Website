@@ -9,6 +9,7 @@ import { getDefaultCapacity, selectProductCapacity } from "@/features/products/p
 import type { Product, ProductCapacityOption } from "@/features/products/models";
 
 import { WishlistButton } from "@/features/account/components/wishlist-button";
+import { ProductTrustBadges } from "@/features/products/components/product-trust-badges";
 
 export function ProductCapacityDetails({ product, selectedSize, onSelect, purchaseAnchor }: { product: Product; selectedSize: number; onSelect: (option: ProductCapacityOption) => void; purchaseAnchor: RefObject<HTMLDivElement | null> }) {
   const capacities = [...product.capacities].sort((first, second) => first.tableCapacity - second.tableCapacity);
@@ -56,6 +57,7 @@ export function ProductCapacityDetails({ product, selectedSize, onSelect, purcha
         {selectedOption.discountPercent && <span className="discount-badge">{new Intl.NumberFormat("fa-IR").format(selectedOption.discountPercent)}٪ تخفیف</span>}
       </div>
     ) : <strong className="product-detail__price">{displayedPrice}</strong>}
+    <ProductTrustBadges />
 
     <fieldset className="capacity-selector"><legend>انتخاب ظرفیت</legend><div className="capacity-options">
       {capacities.map((option) => {

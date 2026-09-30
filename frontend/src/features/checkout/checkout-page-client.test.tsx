@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   createOrder: vi.fn(),
   initiatePayment: vi.fn(),
   getQuote: vi.fn(),
+  getShippingSettings: vi.fn(),
   getCustomerSession: vi.fn(),
   getCustomerAddresses: vi.fn(),
   logoutCustomer: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock("@/features/checkout/checkout-api", () => ({
   createOrder: mocks.createOrder,
   initiatePayment: mocks.initiatePayment,
   getQuote: mocks.getQuote,
+  getShippingSettings: mocks.getShippingSettings,
 }));
 vi.mock("@/features/account/account-api", () => ({
   getCustomerSession: mocks.getCustomerSession,
@@ -64,6 +66,11 @@ describe("checkout order review", () => {
     mocks.getCustomerSession.mockRejectedValue(new Error("guest"));
     mocks.getCustomerAddresses.mockResolvedValue([]);
     mocks.logoutCustomer.mockResolvedValue(undefined);
+    mocks.getShippingSettings.mockResolvedValue({
+      pishtazPrice: 140000,
+      isPishtazEnabled: true,
+      isTipaxEnabled: true,
+    });
     const product = createProduct();
     mocks.useCart.mockReturnValue({
       hydrated: true,
@@ -355,7 +362,46 @@ describe("checkout order review", () => {
       });
     }
   });
+
+  it("renders both shipping methods and allows switching between Pishtaz and Tipax with price update", async () => {
+    render(<CheckoutPageClient />);
+
+    expect(screen.getByText("روش ارسال")).toBeInTheDocument();
+    const pishtazRadio = screen.getByRole("radio", { name: /پست پیشتاز/ });
+    const tipaxRadio = screen.getByRole("radio", { name: /تیپاکس/ });
+
+    expect(pishtazRadio).toBeChecked();
+    expect(tipaxRadio).not.toBeChecked();
+
+    // Default with Pishtaz: product price 2,000,000 * 2 = 4,000,000 + 140,000 = 4,140,000
+    expect(screen.getByText("۴٬۱۴۰٬۰۰۰ تومان")).toBeInTheDocument();
+
+    // Switch to Tipax
+    fireEvent.click(tipaxRadio);
+    expect(tipaxRadio).toBeChecked();
+    expect(pishtazRadio).not.toBeChecked();
+
+    // With Tipax: shipping fee is 0 (COD), total is 4,000,000
+    expect(screen.getAllByText("۴٬۰۰۰٬۰۰۰ تومان").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("پس‌کرایه (در مقصد)")).toBeInTheDocument();
+
+    // Complete form and open review
+    fillValidCheckout();
+    fireEvent.click(screen.getByRole("button", { name: "ثبت سفارش" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "بازبینی و تأیید سفارش" });
+    expect(within(dialog).getByText(/تیپاکس اکسپرس \(پس‌کرایه/)).toBeInTheDocument();
+
+    const confirm = within(dialog).getByRole("button", { name: "تأیید و ثبت سفارش" });
+    mocks.createOrder.mockResolvedValue({ number: "TRM-TIPAX-001" });
+    fireEvent.click(confirm);
+
+    expect(mocks.createOrder).toHaveBeenCalledWith(expect.objectContaining({
+      shippingMethod: "Tipax",
+    }));
+  });
 });
+
 
 
 

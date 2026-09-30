@@ -12,6 +12,9 @@ type StoreSettings = {
   currency: string;
   giftPackagingPrice: number;
   isGiftPackagingEnabled: boolean;
+  pishtazShippingPrice: number;
+  isPishtazShippingEnabled: boolean;
+  isTipaxShippingEnabled: boolean;
 };
 
 export function AdminSettingsPage() {
@@ -26,6 +29,13 @@ export function AdminSettingsPage() {
   const [packagingSavedMessage, setPackagingSavedMessage] = useState<string | null>(null);
   const [packagingError, setPackagingError] = useState<string | null>(null);
 
+  const [pishtazPriceInput, setPishtazPriceInput] = useState<number>(140000);
+  const [pishtazEnabledInput, setPishtazEnabledInput] = useState<boolean>(true);
+  const [tipaxEnabledInput, setTipaxEnabledInput] = useState<boolean>(true);
+  const [savingShipping, setSavingShipping] = useState(false);
+  const [shippingSavedMessage, setShippingSavedMessage] = useState<string | null>(null);
+  const [shippingError, setShippingError] = useState<string | null>(null);
+
   useEffect(() => {
     Promise.all([getAdminSession(), apiRequest<StoreSettings>("/api/admin/settings", { cache: "no-store" })])
       .then(([account, store]) => {
@@ -34,6 +44,9 @@ export function AdminSettingsPage() {
         if (store) {
           setGiftPriceInput(store.giftPackagingPrice ?? 200000);
           setGiftEnabledInput(store.isGiftPackagingEnabled ?? true);
+          setPishtazPriceInput(store.pishtazShippingPrice ?? 140000);
+          setPishtazEnabledInput(store.isPishtazShippingEnabled ?? true);
+          setTipaxEnabledInput(store.isTipaxShippingEnabled ?? true);
         }
       })
       .catch((caught) => {
@@ -69,16 +82,95 @@ export function AdminSettingsPage() {
     }
   }
 
+  async function handleSaveShipping(e: FormEvent) {
+    e.preventDefault();
+    setSavingShipping(true);
+    setShippingSavedMessage(null);
+    setShippingError(null);
+    try {
+      const updated = await apiRequest<StoreSettings>("/api/admin/settings/shipping", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pishtazPrice: Number(pishtazPriceInput),
+          isPishtazEnabled: pishtazEnabledInput,
+          isTipaxEnabled: tipaxEnabledInput,
+        }),
+      });
+      setSettings(updated);
+      setPishtazPriceInput(updated.pishtazShippingPrice);
+      setPishtazEnabledInput(updated.isPishtazShippingEnabled);
+      setTipaxEnabledInput(updated.isTipaxShippingEnabled);
+      setShippingSavedMessage("تنظیمات روش‌های ارسال با موفقیت ذخیره شد.");
+    } catch (caught) {
+      setShippingError(getApiErrorMessage(caught));
+    } finally {
+      setSavingShipping(false);
+    }
+  }
+
   return (
     <AdminShell title="تنظیمات">
       {error && <div className="admin-alert admin-alert--error" role="alert">{error}</div>}
       <div className="admin-settings-grid">
         <section className="admin-panel">
+          <p className="section-eyebrow">حمل و نقل و تحویل</p>
+          <h2>تنظیمات روش‌های ارسال مرسولات</h2>
+          {shippingSavedMessage && (
+            <div className="p-3 mb-4 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm font-medium" role="status">
+              {shippingSavedMessage}
+            </div>
+          )}
+          {shippingError && (
+            <div className="admin-alert admin-alert--error" role="alert">
+              {shippingError}
+            </div>
+          )}
+          <form onSubmit={handleSaveShipping} className="admin-form" style={{ marginTop: "1rem" }}>
+            <label className="form-field">
+              <span>هزینه ارسال با پست پیشتاز (تومان)</span>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                value={pishtazPriceInput}
+                onChange={(e) => setPishtazPriceInput(Number(e.target.value))}
+                required
+              />
+            </label>
+            <label className="form-field" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.75rem", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={pishtazEnabledInput}
+                onChange={(e) => setPishtazEnabledInput(e.target.checked)}
+                style={{ width: "1.25rem", height: "1.25rem", accentColor: "var(--teal)" }}
+              />
+              <span style={{ fontWeight: 600 }}>فعال‌بودن ارسال با پست پیشتاز</span>
+            </label>
+            <label className="form-field" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.75rem", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={tipaxEnabledInput}
+                onChange={(e) => setTipaxEnabledInput(e.target.checked)}
+                style={{ width: "1.25rem", height: "1.25rem", accentColor: "var(--teal)" }}
+              />
+              <span style={{ fontWeight: 600 }}>فعال‌بودن ارسال با تیپاکس (پس‌کرایه)</span>
+            </label>
+            <p className="admin-muted" style={{ fontSize: "0.8rem", margin: "0.25rem 0 1rem 0" }}>
+              در ارسال با تیپاکس، هزینه ارسال به فاکتور آنلاین اضافه نمی‌شود و به صورت پس‌کرایه توسط خریدار در مقصد پرداخت خواهد شد.
+            </p>
+            <button className="button button--primary" type="submit" disabled={savingShipping}>
+              {savingShipping ? "در حال ذخیره…" : "ذخیره تنظیمات ارسال"}
+            </button>
+          </form>
+        </section>
+
+        <section className="admin-panel">
           <p className="section-eyebrow">سفارشی‌سازی و خدمات</p>
           <h2>تنظیمات بسته‌بندی کادویی</h2>
           {packagingSavedMessage && (
             <div className="p-3 mb-4 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm font-medium" role="status">
-              ✓ {packagingSavedMessage}
+              {packagingSavedMessage}
             </div>
           )}
           {packagingError && (
@@ -124,6 +216,8 @@ export function AdminSettingsPage() {
               <div><dt>واحد پول</dt><dd>{settings.currency}</dd></div>
               <div><dt>مدت رزرو موجودی</dt><dd>{settings.reservationHours} ساعت</dd></div>
               <div><dt>آستانه هشدار کمبود</dt><dd>{settings.lowStockDefaultThreshold} عدد</dd></div>
+              <div><dt>هزینه پست پیشتاز</dt><dd>{new Intl.NumberFormat("fa-IR").format(settings.pishtazShippingPrice)} تومان ({settings.isPishtazShippingEnabled ? "فعال" : "غیرفعال"})</dd></div>
+              <div><dt>وضعیت ارسال تیپاکس</dt><dd>{settings.isTipaxShippingEnabled ? "فعال (پس‌کرایه)" : "غیرفعال"}</dd></div>
               <div><dt>هزینه کادویی جاری</dt><dd>{new Intl.NumberFormat("fa-IR").format(settings.giftPackagingPrice)} تومان</dd></div>
               <div><dt>وضعیت بسته‌بندی کادویی</dt><dd>{settings.isGiftPackagingEnabled ? "فعال" : "غیرفعال"}</dd></div>
             </dl>

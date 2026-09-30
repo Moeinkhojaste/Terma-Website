@@ -85,6 +85,7 @@ export type CustomerOrderSummary = {
   createdAt: string;
   itemCount: number;
   postalTrackingCode?: string | null;
+  shippingMethod?: "Pishtaz" | "Tipax" | string;
 };
 
 export type PagedOrders = {

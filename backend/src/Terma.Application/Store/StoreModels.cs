@@ -5,7 +5,7 @@ namespace Terma.Application.Store;
 public sealed record DashboardDto(int ProductCount, int CategoryCount, int LowStockCount, int PendingOrderCount, int UnreadMessageCount, int CustomerCount, decimal OrderValue);
 public sealed record SalesReportDto(DateTime FromUtc, DateTime ToUtc, int OrderCount, decimal GrossSales, decimal CancelledSales, IReadOnlyList<ReportBucketDto> ByStatus);
 public sealed record ReportBucketDto(string Status, int Count, decimal Total);
-public sealed record AdminOrderDto(Guid Id, string Number, string CustomerName, string Phone, OrderStatus Status, decimal Total, DateTime CreatedAt, DateTime ReservationExpiresAtUtc, string Province, string City, string Address, string PostalCode, string? CustomerNotes, string? PostalTrackingCode, IReadOnlyList<AdminOrderItemDto> Items, string? PaymentStatus = null);
+public sealed record AdminOrderDto(Guid Id, string Number, string CustomerName, string Phone, OrderStatus Status, decimal Total, DateTime CreatedAt, DateTime ReservationExpiresAtUtc, string Province, string City, string Address, string PostalCode, string? CustomerNotes, string? PostalTrackingCode, IReadOnlyList<AdminOrderItemDto> Items, string? PaymentStatus = null, ShippingMethod ShippingMethod = ShippingMethod.Pishtaz);
 public sealed record AdminOrderItemDto(Guid ProductId, Guid? VariantId, string ProductName, string? VariantTitle, int? TableCapacity, string Sku, decimal UnitPrice, decimal PackagingFee, PackagingType PackagingType, int Quantity);
 public sealed record AdminCustomerDto(Guid Id, string FullName, string Phone, string? Email, int OrderCount, decimal TotalOrderValue, DateTime CreatedAt);
 public sealed record PromotionDto(Guid Id, string Name, string? Code, PromotionType Type, DiscountType DiscountType, decimal Value, decimal? MinimumSubtotal, decimal? MaximumDiscount, int? UsageLimit, int UsageCount, DateTime StartsAtUtc, DateTime? EndsAtUtc, bool IsActive);
@@ -13,8 +13,10 @@ public sealed record ShippingRuleDto(Guid Id, string Name, string? Province, str
 public sealed record StoreContentDto(Guid Id, string PageKey, string SectionKey, string Title, string Body, string? LinkUrl, string? ImageUrl, string? SeoTitle, string? SeoDescription, bool IsPublished);
 public sealed record ContactMessageDto(Guid Id, string Name, string Phone, string? Email, string Topic, string Body, ContactMessageStatus Status, DateTime CreatedAt);
 public sealed record PublicPackagingSettingsDto(decimal GiftPackagingPrice, bool IsGiftPackagingEnabled);
-public sealed record StoreSettingsDto(int ReservationHours, int LowStockDefaultThreshold, string Currency, decimal GiftPackagingPrice, bool IsGiftPackagingEnabled);
+public sealed record PublicShippingSettingsDto(decimal PishtazPrice, bool IsPishtazEnabled, bool IsTipaxEnabled);
+public sealed record StoreSettingsDto(int ReservationHours, int LowStockDefaultThreshold, string Currency, decimal GiftPackagingPrice, bool IsGiftPackagingEnabled, decimal PishtazShippingPrice = 140000m, bool IsPishtazShippingEnabled = true, bool IsTipaxShippingEnabled = true);
 public sealed record UpdatePackagingSettingsRequest(decimal GiftPackagingPrice, bool IsGiftPackagingEnabled);
+public sealed record UpdateShippingSettingsRequest(decimal PishtazPrice, bool IsPishtazEnabled, bool IsTipaxEnabled);
 public sealed record CheckoutItemRequest(Guid ProductId, Guid? VariantId, int Quantity, PackagingType PackagingType = PackagingType.Standard);
 public sealed class CheckoutRequest
 {
@@ -28,8 +30,9 @@ public sealed class CheckoutRequest
     public string PostalCode { get; init; } = string.Empty;
     public string? CustomerNotes { get; init; }
     public string? CouponCode { get; init; }
+    public ShippingMethod ShippingMethod { get; init; } = ShippingMethod.Pishtaz;
 }
-public sealed record CheckoutQuoteDto(decimal Subtotal, decimal PackagingTotal, decimal DiscountTotal, decimal ShippingTotal, decimal Total, IReadOnlyList<CheckoutQuoteItemDto> Items, DateTime ReservedUntilUtc);
+public sealed record CheckoutQuoteDto(decimal Subtotal, decimal PackagingTotal, decimal DiscountTotal, decimal ShippingTotal, decimal Total, IReadOnlyList<CheckoutQuoteItemDto> Items, DateTime ReservedUntilUtc, ShippingMethod ShippingMethod = ShippingMethod.Pishtaz);
 public sealed record CheckoutQuoteItemDto(Guid ProductId, Guid? VariantId, string ProductName, string Sku, decimal UnitPrice, decimal PackagingFee, PackagingType PackagingType, int Quantity, int AvailableQuantity);
 public sealed record CreatedOrderDto(Guid Id, string Number, decimal Total, DateTime ReservationExpiresAtUtc);
 public sealed record ProductVariantDto(Guid Id, Guid ProductId, string Title, string Sku, string Color, int TableCapacity, decimal Length, decimal Width, decimal Price, decimal? CompareAtPrice, int StockQuantity, int ReservedQuantity, int AvailableQuantity, int LowStockThreshold, bool IsActive);
@@ -236,8 +239,10 @@ public interface IStoreOperationsService
     Task<ProductMediaDto> UpdateMediaAsync(Guid id, ProductMediaWriteRequest request, CancellationToken cancellationToken);
     Task DeleteMediaAsync(Guid id, CancellationToken cancellationToken);
     Task<PublicPackagingSettingsDto> GetPublicPackagingSettingsAsync(CancellationToken cancellationToken);
+    Task<PublicShippingSettingsDto> GetPublicShippingSettingsAsync(CancellationToken cancellationToken);
     Task<StoreSettingsDto> GetStoreSettingsAsync(CancellationToken cancellationToken);
     Task<StoreSettingsDto> UpdatePackagingSettingsAsync(UpdatePackagingSettingsRequest request, CancellationToken cancellationToken);
+    Task<StoreSettingsDto> UpdateShippingSettingsAsync(UpdateShippingSettingsRequest request, CancellationToken cancellationToken);
     Task<ValidateCartResponseDto> ValidateCartAsync(ValidateCartRequest request, CancellationToken cancellationToken);
 }
 

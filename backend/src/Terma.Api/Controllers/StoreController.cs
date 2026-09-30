@@ -25,6 +25,10 @@ public sealed class StoreController(
     public Task<PublicPackagingSettingsDto> Packaging(CancellationToken ct) =>
         service.GetPublicPackagingSettingsAsync(ct);
 
+    [HttpGet("shipping")]
+    public Task<PublicShippingSettingsDto> Shipping(CancellationToken ct) =>
+        service.GetPublicShippingSettingsAsync(ct);
+
     [HttpPost("messages")]
     [EnableRateLimiting("contact-message")]
     [ValidateApiAntiforgeryToken(RequireAuthenticatedOnly = false)]

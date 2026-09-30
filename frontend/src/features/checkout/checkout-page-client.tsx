@@ -9,11 +9,11 @@ import { Container } from "@/components/layout/container";
 import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { formatPrice } from "@/lib/format";
 import { ApiError, sanitizeErrorMessage } from "@/lib/api-client";
-import { MapPinIcon, UserIcon, TruckIcon, AlertTriangleIcon, XIcon, CreditCardIcon, OnlinePaymentIcon, SnappPayLogo, GiftIcon, PackageIcon } from "@/components/ui/icons";
+import { MapPinIcon, UserIcon, TruckIcon, AlertTriangleIcon, XIcon, CreditCardIcon, OnlinePaymentIcon, SnappPayLogo, GiftIcon, PackageIcon, IranPostLogo, TipaxLogo } from "@/components/ui/icons";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 import { isUnoptimizedMedia } from "@/lib/media";
-import { createOrder, getQuote, initiatePayment, type CheckoutRequest } from "@/features/checkout/checkout-api";
+import { createOrder, getQuote, initiatePayment, getShippingSettings, type CheckoutRequest, type PublicShippingSettings, type ShippingMethod } from "@/features/checkout/checkout-api";
 import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
 import { IRAN_PROVINCES, getIranCities } from "@/lib/iran-locations";
 import { getCustomerSession, getCustomerProfile, getCustomerAddresses, logoutCustomer, type CustomerAddress } from "@/features/account/account-api";
@@ -28,6 +28,8 @@ export type CheckoutReviewSnapshot = {
   packagingTotal: number;
   subtotal: number;
   discountTotal: number;
+  shippingFee: number;
+  shippingMethod: ShippingMethod;
   total: number;
   paymentMethod?: "online" | "snapppay";
 };
@@ -165,9 +167,31 @@ export function CheckoutPageClient() {
   const [couponLoading, setCouponLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"online" | "snapppay">("online");
 
+  const [shippingSettings, setShippingSettings] = useState<PublicShippingSettings>({
+    pishtazPrice: 140000,
+    isPishtazEnabled: true,
+    isTipaxEnabled: true,
+  });
+  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("Pishtaz");
+
+  useEffect(() => {
+    getShippingSettings()
+      .then((settings) => {
+        setShippingSettings(settings);
+        if (!settings.isPishtazEnabled && settings.isTipaxEnabled) {
+          setShippingMethod("Tipax");
+        } else if (settings.isPishtazEnabled) {
+          setShippingMethod("Pishtaz");
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
   const productSubtotal = items.reduce((total, item) => total + item.product.priceValue * item.quantity, 0);
-  const packagingTotal = items.reduce((total, item) => total + item.packagingFee * item.quantity, 0);
+  const packagingTotal = items.reduce((total, item) => total + (item.packagingFee || 0) * item.quantity, 0);
   const subtotal = productSubtotal + packagingTotal;
+  const shippingFee = shippingMethod === "Pishtaz" ? shippingSettings.pishtazPrice : 0;
+  const finalTotal = Math.max(0, subtotal - discountTotal + shippingFee);
 
   function handleBlur(event: FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const name = event.currentTarget.name as FieldName;
@@ -208,6 +232,7 @@ export function CheckoutPageClient() {
       const quote = await getQuote({
         items: items.map(({ productId, variantId, quantity, packagingType }) => ({ productId, variantId, quantity, packagingType })),
         couponCode: code,
+        shippingMethod,
       });
       if (quote.discountTotal > 0) {
         setAppliedCoupon(code.toUpperCase());
@@ -256,6 +281,7 @@ export function CheckoutPageClient() {
       postalCode: normalizeNumericText(String(form.get("postalCode") ?? "")),
       customerNotes: String(form.get("customerNotes") ?? "").trim() || undefined,
       couponCode: appliedCoupon ?? undefined,
+      shippingMethod,
     };
 
     setReview({
@@ -267,14 +293,16 @@ export function CheckoutPageClient() {
         image: product.image,
         quantity,
         packagingType,
-        packagingFee,
-        lineTotal: (product.priceValue + packagingFee) * quantity,
+        packagingFee: packagingFee || 0,
+        lineTotal: (product.priceValue + (packagingFee || 0)) * quantity,
       })),
       productSubtotal,
       packagingTotal,
       subtotal,
       discountTotal,
-      total: Math.max(0, subtotal - discountTotal),
+      shippingFee,
+      shippingMethod,
+      total: finalTotal,
       paymentMethod,
     });
     pendingOrderRef.current = null;
@@ -533,10 +561,63 @@ export function CheckoutPageClient() {
                     <span aria-hidden="true"><TruckIcon className="size-4" /></span>
                     <div>
                       <h2 id="shipping-title">روش ارسال</h2>
-                      <p>هزینه و زمان ارسال پس از بررسی آدرس اعلام می‌شود.</p>
+                      <p>روش ارسال مورد نظر خود را برای تحویل مرسوله انتخاب کنید.</p>
                     </div>
                   </div>
-                  <label className="shipping-option"><input type="radio" name="shipping" defaultChecked /><span><strong>ارسال پس از هماهنگی</strong><small>هماهنگی هزینه و زمان تحویل با شما</small></span></label>
+
+                  <div className="checkout-shipping-options" role="radiogroup" aria-label="انتخاب روش ارسال">
+                    {shippingSettings.isPishtazEnabled && (
+                      <label
+                        className={`checkout-shipping-option ${shippingMethod === "Pishtaz" ? "checkout-shipping-option--selected" : ""}`}
+                      >
+                        <input
+                          type="radio"
+                          name="shippingMethodSelection"
+                          value="Pishtaz"
+                          checked={shippingMethod === "Pishtaz"}
+                          onChange={() => setShippingMethod("Pishtaz")}
+                        />
+                        <div className="checkout-shipping-option__content">
+                          <div className="checkout-shipping-option__main">
+                            <div className="checkout-shipping-option__title-row">
+                              <span className="checkout-shipping-option__title">پست پیشتاز</span>
+                              <span className="checkout-shipping-option__price">{formatPrice(shippingSettings.pishtazPrice)}</span>
+                            </div>
+                            <span className="checkout-shipping-option__desc">تحویل ۱ تا ۳ روز کاری در سراسر کشور</span>
+                          </div>
+                          <div className="checkout-shipping-option__logo">
+                            <IranPostLogo className="h-8 w-auto" />
+                          </div>
+                        </div>
+                      </label>
+                    )}
+
+                    {shippingSettings.isTipaxEnabled && (
+                      <label
+                        className={`checkout-shipping-option ${shippingMethod === "Tipax" ? "checkout-shipping-option--selected" : ""}`}
+                      >
+                        <input
+                          type="radio"
+                          name="shippingMethodSelection"
+                          value="Tipax"
+                          checked={shippingMethod === "Tipax"}
+                          onChange={() => setShippingMethod("Tipax")}
+                        />
+                        <div className="checkout-shipping-option__content">
+                          <div className="checkout-shipping-option__main">
+                            <div className="checkout-shipping-option__title-row">
+                              <span className="checkout-shipping-option__title">تیپاکس (ارسال اکسپرس)</span>
+                              <span className="checkout-shipping-option__badge-cod">پس‌کرایه (پرداخت در مقصد)</span>
+                            </div>
+                            <span className="checkout-shipping-option__desc">ارسال سریع اکسپرس درب محل · هزینه ارسال هنگام تحویل بسته دریافت می‌شود (پس‌کرایه)</span>
+                          </div>
+                          <div className="checkout-shipping-option__logo">
+                            <TipaxLogo className="h-8 w-auto" />
+                          </div>
+                        </div>
+                      </label>
+                    )}
+                  </div>
                 </section>
 
                 <button className="button button--primary checkout-submit" type="submit" disabled={requestState === "submitting"}>
@@ -569,7 +650,7 @@ export function CheckoutPageClient() {
                           )}
                         </span>
                       </div>
-                      <b>{formatPrice((product.priceValue + packagingFee) * quantity)}</b>
+                      <b>{formatPrice((product.priceValue + (packagingFee || 0)) * quantity)}</b>
                     </div>
                   ))}
                 </div>
@@ -665,8 +746,12 @@ export function CheckoutPageClient() {
                   {discountTotal > 0 && (
                     <div><dt style={{ color: "var(--teal-deep)" }}>تخفیف کد ({appliedCoupon})</dt><dd style={{ color: "var(--teal-deep)", fontWeight: 700 }}>{formatPrice(discountTotal)}-</dd></div>
                   )}
+                  <div>
+                    <dt>هزینه ارسال ({shippingMethod === "Pishtaz" ? "پست پیشتاز" : "تیپاکس"})</dt>
+                    <dd>{shippingMethod === "Pishtaz" ? formatPrice(shippingFee) : "پس‌کرایه (در مقصد)"}</dd>
+                  </div>
                 </dl>
-                <div className="order-summary__total"><span>مبلغ نهایی</span><strong>{formatPrice(Math.max(0, subtotal - discountTotal))}</strong></div>
+                <div className="order-summary__total"><span>مبلغ پرداختی آنلاین</span><strong>{formatPrice(finalTotal)}</strong></div>
               </aside>
             </div>
           )}
@@ -727,7 +812,14 @@ export function CheckoutReviewDialog({
                 <div className="checkout-review__details-full"><dt>آدرس کامل</dt><dd>{review.request.address}</dd></div>
                 <div><dt>کد پستی</dt><dd dir="ltr">{review.request.postalCode}</dd></div>
                 <div className="checkout-review__details-full"><dt>توضیحات سفارش</dt><dd>{review.request.customerNotes || "ثبت نشده"}</dd></div>
-                <div className="checkout-review__details-full"><dt>روش ارسال</dt><dd>ارسال پس از هماهنگی</dd></div>
+                <div className="checkout-review__details-full">
+                  <dt>روش ارسال</dt>
+                  <dd>
+                    {review.shippingMethod === "Tipax"
+                      ? "تیپاکس اکسپرس (پس‌کرایه - پرداخت کرایه در مقصد)"
+                      : `پست پیشتاز (${formatPrice(review.shippingFee)})`}
+                  </dd>
+                </div>
                 <div className="checkout-review__details-full"><dt>روش پرداخت</dt><dd>{review.paymentMethod === "snapppay" ? "اسنپ‌پی (پرداخت اقساطی)" : "پرداخت آنلاین از درگاه پرداخت"}</dd></div>
               </dl>
             </section>
@@ -767,8 +859,11 @@ export function CheckoutReviewDialog({
                   <div><dt>هزینه بسته‌بندی کادویی</dt><dd>{formatPrice(review.packagingTotal)}</dd></div>
                 )}
                 {review.discountTotal > 0 && <div className="checkout-review__discount"><dt>تخفیف</dt><dd>{formatPrice(review.discountTotal)}-</dd></div>}
-                <div><dt>هزینه ارسال</dt><dd>پس از بررسی آدرس</dd></div>
-                <div className="checkout-review__total"><dt>مبلغ نهایی</dt><dd>{formatPrice(review.total)}</dd></div>
+                <div>
+                  <dt>هزینه ارسال ({review.shippingMethod === "Pishtaz" ? "پست پیشتاز" : "تیپاکس"})</dt>
+                  <dd>{review.shippingMethod === "Pishtaz" ? formatPrice(review.shippingFee) : "پس‌کرایه (در مقصد)"}</dd>
+                </div>
+                <div className="checkout-review__total"><dt>مبلغ قابل پرداخت آنلاین</dt><dd>{formatPrice(review.total)}</dd></div>
               </dl>
             </section>
 

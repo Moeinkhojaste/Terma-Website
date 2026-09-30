@@ -152,4 +152,12 @@ describe("ProductDetailExperience out of stock handling", () => {
       screen.getByText(/در حال حاضر امکان خرید این محصول وجود ندارد/i)
     ).toBeInTheDocument();
   });
+
+  it("renders store trust badges (delivery, authenticity, replacement guarantee)", () => {
+    renderExperience(mockAvailableProduct);
+
+    expect(screen.getByText("ارسال توسط فروشگاه")).toBeInTheDocument();
+    expect(screen.getByText("گارانتی اصالت و سلامت فیزیکی کالا")).toBeInTheDocument();
+    expect(screen.getByText("ضمانت تعویض کالا")).toBeInTheDocument();
+  });
 });
