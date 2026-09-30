@@ -65,12 +65,7 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
 
             if (IsSqlServer)
             {
-                services.AddDbContext<TermaDbContext>(options =>
-                    options.UseSqlServer(_sqlServerConnectionString, sql =>
-                        sql.EnableRetryOnFailure(
-                            maxRetryCount: 5,
-                            maxRetryDelay: TimeSpan.FromSeconds(10),
-                            errorNumbersToAdd: null)));
+                services.AddDbContext<TermaDbContext>(options => options.UseSqlServer(_sqlServerConnectionString));
             }
             else
             {
