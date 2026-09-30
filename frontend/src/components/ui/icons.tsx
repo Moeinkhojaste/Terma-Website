@@ -584,6 +584,7 @@ export function ReplacementGuaranteeIcon({ className = "size-5" }: IconProps) {
 
 export function IranPostLogo({ className = "h-8 w-auto" }: IconProps) {
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src="/images/iran-post-logo.png"
       alt="شرکت ملی پست"

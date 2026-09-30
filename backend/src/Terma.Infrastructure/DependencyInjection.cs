@@ -39,7 +39,12 @@ public static class DependencyInjection
 
         if (!string.IsNullOrWhiteSpace(connectionString))
         {
-            services.AddDbContext<TermaDbContext>(options => options.UseSqlServer(connectionString));
+            services.AddDbContext<TermaDbContext>(options =>
+                options.UseSqlServer(connectionString, sql =>
+                    sql.EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(10),
+                        errorNumbersToAdd: null)));
         }
 
         services.AddIdentityCore<ApplicationUser>(options =>

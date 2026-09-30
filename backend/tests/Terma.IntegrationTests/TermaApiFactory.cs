@@ -21,6 +21,8 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
     private readonly string? _sqlServerConnectionString = Environment.GetEnvironmentVariable("TEST_SQLSERVER_CONNECTION_STRING");
     private readonly SqliteConnection? _connection;
     private static int _clientCounter;
+    private static readonly object _sqlServerInitLock = new();
+    private static bool _sqlServerInitialized;
     public AdjustableTimeProvider Clock { get; } = new();
     public bool IsSqlServer => !string.IsNullOrWhiteSpace(_sqlServerConnectionString);
 
@@ -63,7 +65,12 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
 
             if (IsSqlServer)
             {
-                services.AddDbContext<TermaDbContext>(options => options.UseSqlServer(_sqlServerConnectionString));
+                services.AddDbContext<TermaDbContext>(options =>
+                    options.UseSqlServer(_sqlServerConnectionString, sql =>
+                        sql.EnableRetryOnFailure(
+                            maxRetryCount: 5,
+                            maxRetryDelay: TimeSpan.FromSeconds(10),
+                            errorNumbersToAdd: null)));
             }
             else
             {
@@ -78,14 +85,21 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
 
             if (IsSqlServer)
             {
-                db.Database.Migrate();
+                lock (_sqlServerInitLock)
+                {
+                    if (!_sqlServerInitialized)
+                    {
+                        db.Database.Migrate();
+                        SeedIdentityAsync(scope.ServiceProvider).GetAwaiter().GetResult();
+                        _sqlServerInitialized = true;
+                    }
+                }
             }
             else
             {
                 db.Database.EnsureCreated();
+                SeedIdentityAsync(scope.ServiceProvider).GetAwaiter().GetResult();
             }
-
-            SeedIdentityAsync(scope.ServiceProvider).GetAwaiter().GetResult();
         });
     }
 
@@ -166,7 +180,17 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
     {
         base.Dispose(disposing);
         if (disposing)
-            _connection?.Dispose();
+        {
+            try
+            {
+                _connection?.Close();
+                _connection?.Dispose();
+            }
+            catch
+            {
+                // Ignore disposal errors on SQLite in-memory connection
+            }
+        }
     }
 }
 
