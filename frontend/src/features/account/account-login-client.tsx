@@ -8,7 +8,7 @@ import { ApiError, getApiErrorMessage } from "@/lib/api-client";
 import { requestOtp, verifyOtp, type OtpChallenge } from "./account-api";
 import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
 import {
-  PhoneIcon,
+  UserIcon,
   ShieldCheckIcon,
   EditIcon,
   ArrowLeftIcon,
@@ -187,9 +187,9 @@ export function AccountLoginClient() {
               <div className="account-auth-brand-badge">
                 <div className="account-auth-icon-wrap">
                   {!challenge ? (
-                    <PhoneIcon className="size-6 text-teal-700" />
+                    <UserIcon className="size-7 text-teal-800" />
                   ) : (
-                    <LockIcon className="size-6 text-teal-700" />
+                    <LockIcon className="size-7 text-teal-800" />
                   )}
                 </div>
               </div>

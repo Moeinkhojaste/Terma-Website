@@ -329,6 +329,10 @@ END
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Products]') AND name = 'DiscountPercent')
 BEGIN
     ALTER TABLE [Products] ADD [DiscountPercent] int NULL;
+END
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Orders]') AND name = 'ShippingMethod')
+BEGIN
+    ALTER TABLE [Orders] ADD [ShippingMethod] nvarchar(40) NOT NULL CONSTRAINT [DF_Orders_ShippingMethod] DEFAULT 'Pishtaz';
 END");
         }
         catch

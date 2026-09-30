@@ -74,6 +74,15 @@ export function PhoneIcon({ className = "size-6" }: IconProps) {
   return <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M8.2 3.8 10 8.2 7.7 10a15.2 15.2 0 0 0 6.3 6.3l1.8-2.3 4.4 1.8-.8 4a2 2 0 0 1-2 1.6A14.8 14.8 0 0 1 2.6 6.6a2 2 0 0 1 1.6-2l4-.8Z" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
 
+export function SmartphoneIcon({ className = "size-6" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="5" y="2" width="14" height="20" rx="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 18h.01" strokeLinecap="round" strokeWidth="2.5" />
+    </svg>
+  );
+}
+
 export function MessageIcon({ className = "size-6" }: IconProps) {
   return <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M5 18.5 3.5 21l4.4-1.2c1.2.5 2.6.7 4.1.7 5.2 0 9.5-3.8 9.5-8.5S17.2 3.5 12 3.5 2.5 7.3 2.5 12c0 2.5.9 4.7 2.5 6.5Z" strokeLinecap="round" strokeLinejoin="round" /><path d="M7.5 12h9" strokeLinecap="round" /></svg>;
 }
@@ -575,6 +584,7 @@ export function ReplacementGuaranteeIcon({ className = "size-5" }: IconProps) {
 
 export function IranPostLogo({ className = "h-8 w-auto" }: IconProps) {
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src="/images/iran-post-logo.png"
       alt="شرکت ملی پست"

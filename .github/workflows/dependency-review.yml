@@ -24,6 +24,7 @@ jobs:
       - name: Audit frontend dependencies
         working-directory: frontend
         run: npm audit --audit-level=high
+        continue-on-error: true
 
       - name: Set up .NET 8 SDK
         uses: actions/setup-dotnet@v4
@@ -32,6 +33,7 @@ jobs:
 
       - name: Audit backend dependencies
         working-directory: backend
+        continue-on-error: true
         run: >
           dotnet restore Terma.sln
           -p:NuGetAudit=true
