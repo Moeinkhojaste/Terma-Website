@@ -8,7 +8,7 @@ import {
   type CustomerProfile,
 } from "./account-api";
 import { formatPersianDate } from "@/lib/format";
-import { ShieldCheckIcon, PhoneIcon, UserIcon, CheckIcon, LightbulbIcon } from "@/components/ui/icons";
+import { ShieldCheckIcon, SmartphoneIcon, UserIcon, CheckIcon, LightbulbIcon } from "@/components/ui/icons";
 
 export function AccountProfileClient() {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
@@ -130,7 +130,7 @@ export function AccountProfileClient() {
             {/* Mobile Phone Verification Box */}
             <div className="profile-section-card">
               <div className="profile-section-header">
-                <PhoneIcon className="size-5 text-amber-800" />
+                <SmartphoneIcon className="size-5 text-amber-800" />
                 <div>
                   <h3>شماره موبایل حساب کاربری</h3>
                   <p>شماره موبایل به عنوان شناسه یکتای ورود به حساب و دریافت پیامک‌های سفارش استفاده می‌شود.</p>
