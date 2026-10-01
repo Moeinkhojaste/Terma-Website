@@ -103,6 +103,67 @@ describe("AdminOperationsPages", () => {
     expect(screen.queryByText("TRM-PAID-01")).not.toBeInTheDocument();
   });
 
+  it("AdminOrdersPage displays shipping method badges and allows filtering by shipping method", async () => {
+    vi.spyOn(storeApi, "getOrders").mockResolvedValue([
+      {
+        id: "ord-pishtaz",
+        number: "TRM-PISHTAZ-01",
+        customerName: "سارا حسینی",
+        phone: "09121112233",
+        province: "تهران",
+        city: "تهران",
+        address: "خیابان ولیعصر",
+        postalCode: "1912345678",
+        customerNotes: null,
+        total: 1_200_000,
+        status: "Confirmed",
+        paymentStatus: "Paid",
+        shippingMethod: "Pishtaz",
+        createdAt: new Date().toISOString(),
+        reservationExpiresAtUtc: new Date().toISOString(),
+        items: [],
+      },
+      {
+        id: "ord-tipax",
+        number: "TRM-TIPAX-02",
+        customerName: "محمد کمالی",
+        phone: "09124445566",
+        province: "اصفهان",
+        city: "اصفهان",
+        address: "خیابان چهارباغ",
+        postalCode: "8123456789",
+        customerNotes: null,
+        total: 800_000,
+        status: "Confirmed",
+        paymentStatus: "Paid",
+        shippingMethod: "Tipax",
+        createdAt: new Date().toISOString(),
+        reservationExpiresAtUtc: new Date().toISOString(),
+        items: [],
+      },
+    ]);
+
+    render(<AdminOrdersPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("TRM-PISHTAZ-01")).toBeInTheDocument();
+      expect(screen.getByText("TRM-TIPAX-02")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("پست پیشتاز")).toBeInTheDocument();
+    expect(screen.getByText("تیپاکس (پس‌کرایه)")).toBeInTheDocument();
+
+    const shippingSelect = screen.getByLabelText("فیلتر روش ارسال");
+    fireEvent.change(shippingSelect, { target: { value: "Tipax" } });
+
+    expect(screen.getByText("TRM-TIPAX-02")).toBeInTheDocument();
+    expect(screen.queryByText("TRM-PISHTAZ-01")).not.toBeInTheDocument();
+
+    fireEvent.change(shippingSelect, { target: { value: "Pishtaz" } });
+    expect(screen.getByText("TRM-PISHTAZ-01")).toBeInTheDocument();
+    expect(screen.queryByText("TRM-TIPAX-02")).not.toBeInTheDocument();
+  });
+
   it("AdminPromotionsPage renders promotion list and creation form", async () => {
     vi.spyOn(storeApi, "getPromotions").mockResolvedValue([
       {
