@@ -18,6 +18,7 @@ export function AdminOrdersPage() {
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
   const [trackingSaved, setTrackingSaved] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState<OrderFilterTab>("PAID");
+  const [shippingFilter, setShippingFilter] = useState<"ALL" | "Pishtaz" | "Tipax">("ALL");
 
   const load = () =>
     getOrders()
@@ -60,46 +61,68 @@ export function AdminOrdersPage() {
   const paidCount = items.filter((x) => ["Confirmed", "Preparing", "Shipped", "Delivered"].includes(x.status)).length;
   const pendingCount = items.filter((x) => x.status === "PendingConfirmation").length;
   const cancelledCount = items.filter((x) => ["Cancelled", "Expired"].includes(x.status)).length;
+  const pishtazCount = items.filter((x) => (x.shippingMethod || "Pishtaz") === "Pishtaz").length;
+  const tipaxCount = items.filter((x) => x.shippingMethod === "Tipax").length;
 
   const filteredItems = items.filter((x) => {
-    if (filter === "PAID") return ["Confirmed", "Preparing", "Shipped", "Delivered"].includes(x.status);
-    if (filter === "PENDING_PAYMENT") return x.status === "PendingConfirmation";
-    if (filter === "CANCELLED_OR_EXPIRED") return ["Cancelled", "Expired"].includes(x.status);
+    if (filter === "PAID" && !["Confirmed", "Preparing", "Shipped", "Delivered"].includes(x.status)) return false;
+    if (filter === "PENDING_PAYMENT" && x.status !== "PendingConfirmation") return false;
+    if (filter === "CANCELLED_OR_EXPIRED" && !["Cancelled", "Expired"].includes(x.status)) return false;
+
+    if (shippingFilter === "Tipax" && x.shippingMethod !== "Tipax") return false;
+    if (shippingFilter === "Pishtaz" && (x.shippingMethod || "Pishtaz") !== "Pishtaz") return false;
+
     return true;
   });
 
   return (
     <AdminShell title="سفارش‌ها">
       <PageError error={error} />
-      <div className="orders-filter-tabs" style={{ marginBottom: "1rem" }}>
-        <button
-          type="button"
-          className={`orders-filter-tab ${filter === "PAID" ? "orders-filter-tab--active" : ""}`}
-          onClick={() => setFilter("PAID")}
-        >
-          سفارش‌های پرداختی و جاری ({paidCount.toLocaleString("fa-IR")})
-        </button>
-        <button
-          type="button"
-          className={`orders-filter-tab ${filter === "PENDING_PAYMENT" ? "orders-filter-tab--active" : ""}`}
-          onClick={() => setFilter("PENDING_PAYMENT")}
-        >
-          در انتظار پرداخت ({pendingCount.toLocaleString("fa-IR")})
-        </button>
-        <button
-          type="button"
-          className={`orders-filter-tab ${filter === "CANCELLED_OR_EXPIRED" ? "orders-filter-tab--active" : ""}`}
-          onClick={() => setFilter("CANCELLED_OR_EXPIRED")}
-        >
-          لغو شده و منقضی ({cancelledCount.toLocaleString("fa-IR")})
-        </button>
-        <button
-          type="button"
-          className={`orders-filter-tab ${filter === "ALL" ? "orders-filter-tab--active" : ""}`}
-          onClick={() => setFilter("ALL")}
-        >
-          همه ({items.length.toLocaleString("fa-IR")})
-        </button>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
+        <div className="orders-filter-tabs" style={{ marginBottom: 0 }}>
+          <button
+            type="button"
+            className={`orders-filter-tab ${filter === "PAID" ? "orders-filter-tab--active" : ""}`}
+            onClick={() => setFilter("PAID")}
+          >
+            سفارش‌های پرداختی و جاری ({paidCount.toLocaleString("fa-IR")})
+          </button>
+          <button
+            type="button"
+            className={`orders-filter-tab ${filter === "PENDING_PAYMENT" ? "orders-filter-tab--active" : ""}`}
+            onClick={() => setFilter("PENDING_PAYMENT")}
+          >
+            در انتظار پرداخت ({pendingCount.toLocaleString("fa-IR")})
+          </button>
+          <button
+            type="button"
+            className={`orders-filter-tab ${filter === "CANCELLED_OR_EXPIRED" ? "orders-filter-tab--active" : ""}`}
+            onClick={() => setFilter("CANCELLED_OR_EXPIRED")}
+          >
+            لغو شده و منقضی ({cancelledCount.toLocaleString("fa-IR")})
+          </button>
+          <button
+            type="button"
+            className={`orders-filter-tab ${filter === "ALL" ? "orders-filter-tab--active" : ""}`}
+            onClick={() => setFilter("ALL")}
+          >
+            همه ({items.length.toLocaleString("fa-IR")})
+          </button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem" }}>
+          <label htmlFor="shipping-filter-select" style={{ fontWeight: 600, color: "#475569" }}>روش ارسال:</label>
+          <select
+            id="shipping-filter-select"
+            value={shippingFilter}
+            onChange={(e) => setShippingFilter(e.target.value as "ALL" | "Pishtaz" | "Tipax")}
+            aria-label="فیلتر روش ارسال"
+            style={{ padding: "0.35rem 0.65rem", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.85rem", backgroundColor: "#fff" }}
+          >
+            <option value="ALL">همه روش‌ها ({items.length.toLocaleString("fa-IR")})</option>
+            <option value="Pishtaz">پست پیشتاز ({pishtazCount.toLocaleString("fa-IR")})</option>
+            <option value="Tipax">تیپاکس ({tipaxCount.toLocaleString("fa-IR")})</option>
+          </select>
+        </div>
       </div>
       <div className="admin-panel admin-table-wrap">
         <table className="admin-table">
@@ -111,6 +134,7 @@ export function AdminOrdersPage() {
               <th>مبلغ</th>
               <th>وضعیت پرداخت</th>
               <th>وضعیت سفارش</th>
+              <th>روش ارسال</th>
               <th>تاریخ و ساعت ثبت</th>
               <th>کد رهگیری</th>
               <th>جزئیات</th>
@@ -161,6 +185,17 @@ export function AdminOrdersPage() {
                         <option value="Expired">منقضی شده</option>
                       </select>
                     </td>
+                    <td>
+                      {x.shippingMethod === "Tipax" ? (
+                        <span style={{ display: "inline-block", padding: "0.2rem 0.55rem", borderRadius: "999px", fontSize: "0.75rem", fontWeight: 600, backgroundColor: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" }}>
+                          تیپاکس (پس‌کرایه)
+                        </span>
+                      ) : (
+                        <span style={{ display: "inline-block", padding: "0.2rem 0.55rem", borderRadius: "999px", fontSize: "0.75rem", fontWeight: 600, backgroundColor: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe" }}>
+                          پست پیشتاز
+                        </span>
+                      )}
+                    </td>
                     <td dir="rtl">{formattedDate}</td>
                     <td>
                       {x.postalTrackingCode ? (
@@ -184,18 +219,26 @@ export function AdminOrdersPage() {
                   </tr>
                   {isExpanded && (
                     <tr>
-                      <td colSpan={9} style={{ padding: 0, backgroundColor: "var(--surface-subtle, #f9fafb)" }}>
+                      <td colSpan={10} style={{ padding: 0, backgroundColor: "var(--surface-subtle, #f9fafb)" }}>
                         <div style={{ padding: "1rem 1.25rem", borderBottom: "2px solid var(--line, #e5e7eb)" }}>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1.25rem", marginBottom: "1rem" }}>
                             <div style={{ background: "#fff", padding: "0.85rem", borderRadius: "8px", border: "1px solid var(--line, #e5e7eb)" }}>
                               <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                                <MapPinIcon className="size-4" /> آدرس ارسال
+                                <MapPinIcon className="size-4" /> آدرس و روش ارسال
                               </h4>
                               <p style={{ margin: 0, fontSize: "0.9rem", lineHeight: "1.6", color: "#334155" }}>
                                 <strong>استان:</strong> {x.province} | <strong>شهر:</strong> {x.city}<br />
                                 <strong>نشانی دقیق:</strong> {x.address}<br />
                                 <strong>کد پستی:</strong> <span dir="ltr">{x.postalCode}</span>
                               </p>
+                              <div style={{ marginTop: "0.6rem", paddingTop: "0.6rem", borderTop: "1px dashed #e2e8f0", fontSize: "0.85rem" }}>
+                                <strong>روش ارسال:</strong>{" "}
+                                {x.shippingMethod === "Tipax" ? (
+                                  <span style={{ fontWeight: 600, color: "#166534" }}>تیپاکس (کرایه در مقصد / پس‌کرایه)</span>
+                                ) : (
+                                  <span style={{ fontWeight: 600, color: "#1e40af" }}>پست پیشتاز (هزینه با سفارش پرداخت شده)</span>
+                                )}
+                              </div>
                             </div>
                             <div style={{ background: "#fff", padding: "0.85rem", borderRadius: "8px", border: "1px solid var(--line, #e5e7eb)" }}>
                               <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
@@ -207,13 +250,13 @@ export function AdminOrdersPage() {
                             </div>
                             <div style={{ background: "#fff", padding: "0.85rem", borderRadius: "8px", border: "1px solid var(--line, #e5e7eb)" }}>
                               <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                                <PackageIcon className="size-4" /> کد رهگیری مرسوله پستی
+                                <PackageIcon className="size-4" /> {x.shippingMethod === "Tipax" ? "کد رهگیری تیپاکس" : "کد رهگیری مرسوله پستی"}
                               </h4>
                               <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
                                 <input
                                   type="text"
                                   dir="ltr"
-                                  placeholder="کد ۲۴ رقمی پست..."
+                                  placeholder={x.shippingMethod === "Tipax" ? "بارکد رهگیری تیپاکس..." : "کد ۲۴ رقمی پست..."}
                                   value={trackingInputs[x.id] ?? x.postalTrackingCode ?? ""}
                                   onChange={(e) => setTrackingInputs((prev) => ({ ...prev, [x.id]: e.target.value }))}
                                   style={{ flex: 1, padding: "0.4rem 0.6rem", fontSize: "0.85rem", borderRadius: "6px", border: "1px solid #cbd5e1" }}
