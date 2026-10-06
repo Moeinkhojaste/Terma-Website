@@ -5,6 +5,7 @@ import { createProduct } from "@/test/product-fixture";
 const mocks = vi.hoisted(() => ({
   createOrder: vi.fn(),
   initiatePayment: vi.fn(),
+  checkTorobEligibility: vi.fn(),
   getQuote: vi.fn(),
   getShippingSettings: vi.fn(),
   getCustomerSession: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock("@/features/cart/cart-provider", () => ({ useCart: mocks.useCart }));
 vi.mock("@/features/checkout/checkout-api", () => ({
   createOrder: mocks.createOrder,
   initiatePayment: mocks.initiatePayment,
+  checkTorobEligibility: mocks.checkTorobEligibility,
   getQuote: mocks.getQuote,
   getShippingSettings: mocks.getShippingSettings,
 }));
@@ -70,6 +72,11 @@ describe("checkout order review", () => {
       pishtazPrice: 140000,
       isPishtazEnabled: true,
       isTipaxEnabled: true,
+    });
+    mocks.checkTorobEligibility.mockResolvedValue({
+      eligible: true,
+      titleMessage: "پرداخت اقساطی با ترب‌پی",
+      description: "دریافت اعتبار و خرید در ۴ قسط",
     });
     const product = createProduct();
     mocks.useCart.mockReturnValue({
@@ -351,9 +358,61 @@ describe("checkout order review", () => {
       fireEvent.click(confirm);
 
       await waitFor(() => {
-        expect(mocks.initiatePayment).toHaveBeenCalledWith("order-guid-123");
+        expect(mocks.initiatePayment).toHaveBeenCalledWith("order-guid-123", "ZarinPal");
         expect(mocks.clearCart).not.toHaveBeenCalled();
         expect(locationMock.href).toBe("https://sandbox.zarinpal.com/pg/StartPay/S0000000001");
+      });
+    } finally {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
+  });
+
+  it("initiates torobpay payment and redirects to torobpay paymentUrl when torobpay is selected", async () => {
+    const originalLocation = window.location;
+    const locationMock = {
+      ...originalLocation,
+      href: "http://localhost:3000/checkout",
+      assign: vi.fn(),
+      replace: vi.fn(),
+    };
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: locationMock,
+    });
+
+    try {
+      mocks.createOrder.mockResolvedValue({
+        id: "order-guid-456",
+        number: "TRM-12345678-654321",
+        total: 1000,
+        reservationExpiresAtUtc: new Date().toISOString(),
+      });
+      mocks.initiatePayment.mockResolvedValue({
+        success: true,
+        paymentUrl: "https://cpg.torobpay.com/payment/brief-details?payment_token=tp-test",
+        authority: "tp-test",
+      });
+
+      render(<CheckoutPageClient />);
+
+      const torobRadio = await screen.findByRole("radio", { name: /پرداخت اقساطی با ترب‌پی/ });
+      fireEvent.click(torobRadio);
+
+      fillValidCheckout();
+      fireEvent.click(screen.getByRole("button", { name: "ثبت سفارش" }));
+
+      const dialog = await screen.findByRole("dialog", { name: "بازبینی و تأیید سفارش" });
+      expect(within(dialog).getByText("پرداخت اقساطی با ترب‌پی")).toBeInTheDocument();
+
+      const confirm = within(dialog).getByRole("button", { name: "تأیید و ثبت سفارش" });
+      fireEvent.click(confirm);
+
+      await waitFor(() => {
+        expect(mocks.initiatePayment).toHaveBeenCalledWith("order-guid-456", "TorobPay");
+        expect(locationMock.href).toBe("https://cpg.torobpay.com/payment/brief-details?payment_token=tp-test");
       });
     } finally {
       Object.defineProperty(window, "location", {

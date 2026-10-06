@@ -1,6 +1,11 @@
 namespace Terma.Application.Payments;
 
-public sealed record PaymentInitiateRequest(Guid OrderId);
+public sealed record PaymentInitiateRequest(Guid OrderId, string? Gateway = "ZarinPal");
+
+public sealed record TorobEligibilityDto(
+    bool Eligible,
+    string? TitleMessage,
+    string? Description);
 
 public sealed record PaymentInitiateResponse(
     bool Success,

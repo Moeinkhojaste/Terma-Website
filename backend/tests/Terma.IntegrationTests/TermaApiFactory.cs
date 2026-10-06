@@ -62,6 +62,8 @@ public sealed class TermaApiFactory : WebApplicationFactory<Program>
             services.AddScoped<IPhoneOtpSender, DevelopmentPhoneOtpSender>();
             services.RemoveAll<IPaymentGatewayService>();
             services.AddScoped<IPaymentGatewayService, TestPaymentGatewayService>();
+            services.RemoveAll<ITorobPayGatewayService>();
+            services.AddScoped<ITorobPayGatewayService, TestTorobPayGatewayService>();
 
             if (IsSqlServer)
             {
@@ -216,5 +218,44 @@ public sealed class TestPaymentGatewayService : IPaymentGatewayService
         }
 
         return Task.FromResult(new PaymentVerificationResult(true, 123456789012, "502229******1234", "hash-xyz", 100, null));
+    }
+}
+
+public sealed class TestTorobPayGatewayService : ITorobPayGatewayService
+{
+    public Task<TorobEligibilityDto> CheckEligibilityAsync(decimal amountInTomans, CancellationToken cancellationToken = default)
+    {
+        if (amountInTomans < 20_000)
+        {
+            return Task.FromResult(new TorobEligibilityDto(false, "حداقل مبلغ خرید اعتباری ترب‌پی ۲۰٬۰۰۰ تومان است.", null));
+        }
+
+        return Task.FromResult(new TorobEligibilityDto(true, "پرداخت اقساطی با ترب‌پی", "دریافت اعتبار و خرید در ۴ قسط"));
+    }
+
+    public Task<PaymentInitiateResponse> RequestPaymentAsync(Order order, string callbackUrl, CancellationToken cancellationToken = default)
+    {
+        var token = $"torob_{Guid.NewGuid():N}";
+        return Task.FromResult(new PaymentInitiateResponse(true, $"https://cpg.torobpay.com/payment/brief-details?payment_token={token}", token, null));
+    }
+
+    public Task<PaymentVerificationResult> VerifyPaymentAsync(string paymentToken, CancellationToken cancellationToken = default)
+    {
+        if (paymentToken.Contains("fail", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(new PaymentVerificationResult(false, null, null, null, 400, "پرداخت ناموفق بود."));
+        }
+
+        return Task.FromResult(new PaymentVerificationResult(true, 987654321012, null, null, 200, null));
+    }
+
+    public Task<bool> SettlePaymentAsync(string paymentToken, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> RevertPaymentAsync(string paymentToken, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(true);
     }
 }

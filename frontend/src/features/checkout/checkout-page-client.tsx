@@ -9,11 +9,11 @@ import { Container } from "@/components/layout/container";
 import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { formatPrice } from "@/lib/format";
 import { ApiError, sanitizeErrorMessage } from "@/lib/api-client";
-import { MapPinIcon, UserIcon, TruckIcon, AlertTriangleIcon, XIcon, CreditCardIcon, OnlinePaymentIcon, SnappPayLogo, GiftIcon, PackageIcon, IranPostLogo, TipaxLogo } from "@/components/ui/icons";
+import { MapPinIcon, UserIcon, TruckIcon, AlertTriangleIcon, XIcon, CreditCardIcon, OnlinePaymentIcon, TorobPayLogo, SnappPayLogo, GiftIcon, PackageIcon, IranPostLogo, TipaxLogo } from "@/components/ui/icons";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
 import { isUnoptimizedMedia } from "@/lib/media";
-import { createOrder, getQuote, initiatePayment, getShippingSettings, type CheckoutRequest, type PublicShippingSettings, type ShippingMethod } from "@/features/checkout/checkout-api";
+import { createOrder, getQuote, initiatePayment, checkTorobEligibility, getShippingSettings, type CheckoutRequest, type PublicShippingSettings, type ShippingMethod } from "@/features/checkout/checkout-api";
 import { normalizeIranianMobile, normalizeNumericText } from "@/lib/iranian-phone";
 import { IRAN_PROVINCES, getIranCities } from "@/lib/iran-locations";
 import { getCustomerSession, getCustomerProfile, getCustomerAddresses, logoutCustomer, type CustomerAddress } from "@/features/account/account-api";
@@ -31,7 +31,7 @@ export type CheckoutReviewSnapshot = {
   shippingFee: number;
   shippingMethod: ShippingMethod;
   total: number;
-  paymentMethod?: "online" | "snapppay";
+  paymentMethod?: "online" | "torobpay" | "snapppay";
 };
 
 export type CheckoutErrorInfo = {
@@ -165,7 +165,8 @@ export function CheckoutPageClient() {
   const [discountTotal, setDiscountTotal] = useState<number>(0);
   const [couponMessage, setCouponMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"online" | "snapppay">("online");
+  const [paymentMethod, setPaymentMethod] = useState<"online" | "torobpay" | "snapppay">("online");
+  const [torobEligibility, setTorobEligibility] = useState<{ eligible: boolean; titleMessage?: string | null; description?: string | null } | null>(null);
 
   const [shippingSettings, setShippingSettings] = useState<PublicShippingSettings>({
     pishtazPrice: 140000,
@@ -192,6 +193,20 @@ export function CheckoutPageClient() {
   const subtotal = productSubtotal + packagingTotal;
   const shippingFee = shippingMethod === "Pishtaz" ? shippingSettings.pishtazPrice : 0;
   const finalTotal = Math.max(0, subtotal - discountTotal + shippingFee);
+
+  useEffect(() => {
+    if (finalTotal <= 0) return;
+    checkTorobEligibility(finalTotal)
+      .then((res) => {
+        setTorobEligibility(res);
+        if (!res.eligible && paymentMethod === "torobpay") {
+          setPaymentMethod("online");
+        }
+      })
+      .catch(() => {
+        setTorobEligibility(null);
+      });
+  }, [finalTotal, paymentMethod]);
 
   function handleBlur(event: FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const name = event.currentTarget.name as FieldName;
@@ -334,8 +349,9 @@ export function CheckoutPageClient() {
         pendingOrderRef.current = currentOrder;
       }
 
-      if (targetReview.paymentMethod === "online" && currentOrder?.id) {
-        const payment = await initiatePayment(currentOrder.id);
+      if ((targetReview.paymentMethod === "online" || targetReview.paymentMethod === "torobpay") && currentOrder?.id) {
+        const gateway = targetReview.paymentMethod === "torobpay" ? "TorobPay" : "ZarinPal";
+        const payment = await initiatePayment(currentOrder.id, gateway);
         pendingOrderRef.current = null;
         if (payment?.paymentUrl) {
           window.location.href = payment.paymentUrl;
@@ -710,6 +726,34 @@ export function CheckoutPageClient() {
                       </div>
                     </label>
 
+                    {torobEligibility?.eligible !== false && (
+                      <label
+                        className={`checkout-payment-option ${paymentMethod === "torobpay" ? "checkout-payment-option--selected" : ""}`}
+                      >
+                        <input
+                          type="radio"
+                          name="checkoutPaymentMethod"
+                          value="torobpay"
+                          checked={paymentMethod === "torobpay"}
+                          onChange={() => setPaymentMethod("torobpay")}
+                        />
+                        <div className="checkout-payment-option__content">
+                          <div className="checkout-payment-option__main">
+                            <div className="checkout-shipping-option__title-row">
+                              <span className="checkout-payment-option__title">{torobEligibility?.titleMessage || "پرداخت اقساطی با ترب‌پی"}</span>
+                              <span className="bg-emerald-50 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                                ۴ قسط بدون ضامن
+                              </span>
+                            </div>
+                            <span className="checkout-payment-option__desc">{torobEligibility?.description || "دریافت اعتبار و خرید در ۴ قسط بدون کارمزد"}</span>
+                          </div>
+                          <div className="checkout-payment-option__logos">
+                            <TorobPayLogo />
+                          </div>
+                        </div>
+                      </label>
+                    )}
+
                     <label
                       className="checkout-payment-option checkout-payment-option--disabled"
                       title="پرداخت اقساطی اسنپ‌پی به‌زودی فعال خواهد شد"
@@ -820,7 +864,7 @@ export function CheckoutReviewDialog({
                       : `پست پیشتاز (${formatPrice(review.shippingFee)})`}
                   </dd>
                 </div>
-                <div className="checkout-review__details-full"><dt>روش پرداخت</dt><dd>{review.paymentMethod === "snapppay" ? "اسنپ‌پی (پرداخت اقساطی)" : "پرداخت آنلاین از درگاه پرداخت"}</dd></div>
+                <div className="checkout-review__details-full"><dt>روش پرداخت</dt><dd>{review.paymentMethod === "torobpay" ? "پرداخت اقساطی با ترب‌پی" : review.paymentMethod === "snapppay" ? "اسنپ‌پی (پرداخت اقساطی)" : "پرداخت آنلاین از درگاه پرداخت"}</dd></div>
               </dl>
             </section>
 

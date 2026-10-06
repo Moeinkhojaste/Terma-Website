@@ -108,6 +108,14 @@ public static class DependencyInjection
             client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
         });
 
+        services.Configure<TorobPayOptions>(configuration.GetSection(TorobPayOptions.SectionName));
+        services.AddHttpClient<ITorobPayGatewayService, TorobPayGatewayService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        });
+
         return services;
     }
 }

@@ -533,6 +533,22 @@ export function SnappPayLogo({ className = "h-7 w-auto" }: IconProps) {
   );
 }
 
+export function TorobPayLogo({ className = "h-7 w-auto" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 76 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="76" height="32" rx="16" fill="#16A34A" />
+      <g transform="translate(10, 6)">
+        <circle cx="5" cy="5" r="2.2" fill="#FFFFFF" fillOpacity="0.9" />
+        <circle cx="11" cy="5" r="2.2" fill="#FFFFFF" fillOpacity="0.9" />
+        <circle cx="5" cy="11" r="2.2" fill="#FFFFFF" fillOpacity="0.9" />
+        <circle cx="11" cy="11" r="2.2" fill="#FFFFFF" fillOpacity="0.9" />
+        <path d="M5 5L11 11M11 5L5 11" stroke="#16A34A" strokeWidth="1" />
+        <text x="22" y="14" fill="#FFFFFF" fontSize="13" fontWeight="bold" fontFamily="system-ui, -apple-system, sans-serif" letterSpacing="0.5">Pay</text>
+      </g>
+    </svg>
+  );
+}
+
 export function GiftIcon({ className = "size-5" }: IconProps) {
   return (
     <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

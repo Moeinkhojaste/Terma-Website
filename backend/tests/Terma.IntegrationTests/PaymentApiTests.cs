@@ -160,5 +160,114 @@ public sealed class PaymentApiTests(TermaApiFactory factory) : IClassFixture<Ter
         Assert.Equal(5, product.StockQuantity);
     }
 
+    [Fact]
+    public async Task TorobEligibility_ValidAmount_ReturnsEligible()
+    {
+        using var client = factory.CreateHttpsClient();
+        var response = await client.GetAsync("/api/payment/torob/eligibility?amount=1200000");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var content = await response.Content.ReadFromJsonAsync<TorobEligibilityDto>();
+        Assert.NotNull(content);
+        Assert.True(content.Eligible);
+        Assert.Equal("پرداخت اقساطی با ترب‌پی", content.TitleMessage);
+    }
+
+    [Fact]
+    public async Task PaymentInitiate_TorobPay_ReturnsTorobPaymentUrlAndCreatesTransaction()
+    {
+        var order = await CreateTestOrderAsync();
+
+        using var client = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/payment/initiate", new PaymentInitiateRequest(order.Id, "TorobPay"));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var content = await response.Content.ReadFromJsonAsync<PaymentInitiateJsonResult>();
+        Assert.NotNull(content);
+        Assert.True(content.Success);
+        Assert.NotNull(content.Authority);
+        Assert.StartsWith("https://cpg.torobpay.com/", content.PaymentUrl);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
+        var tx = await db.PaymentTransactions.SingleOrDefaultAsync(x => x.Authority == content.Authority);
+        Assert.NotNull(tx);
+        Assert.Equal(order.Id, tx.OrderId);
+        Assert.Equal("TorobPay", tx.Gateway);
+        Assert.Equal(PaymentStatus.Initiated, tx.Status);
+    }
+
+    [Fact]
+    public async Task TorobPayCallback_Success_ConfirmsOrderAndRedirectsToSuccess()
+    {
+        var order = await CreateTestOrderAsync();
+
+        using var client = factory.CreateHttpsClient(allowAutoRedirect: false);
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
+
+        var initiateResponse = await client.PostAsJsonAsync("/api/payment/initiate", new PaymentInitiateRequest(order.Id, "TorobPay"));
+        var initiateResult = (await initiateResponse.Content.ReadFromJsonAsync<PaymentInitiateJsonResult>())!;
+
+        var formData = new Dictionary<string, string>
+        {
+            ["transactionId"] = order.Id.ToString("N"),
+            ["state"] = "OK",
+            ["amount"] = (order.Total * 10).ToString()
+        };
+
+        var callbackResponse = await client.PostAsync("/api/payment/torob/callback", new FormUrlEncodedContent(formData));
+        Assert.Equal(HttpStatusCode.Redirect, callbackResponse.StatusCode);
+
+        var redirectLocation = callbackResponse.Headers.Location?.ToString();
+        Assert.NotNull(redirectLocation);
+        Assert.Contains("/order/success", redirectLocation);
+        Assert.Contains($"order={order.Number}", redirectLocation);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
+        var updatedOrder = await db.Orders.Include(x => x.Payments).SingleAsync(x => x.Id == order.Id);
+        Assert.Equal(OrderStatus.Confirmed, updatedOrder.Status);
+
+        var tx = updatedOrder.Payments.Single(x => x.Authority == initiateResult.Authority);
+        Assert.Equal(PaymentStatus.Verified, tx.Status);
+        Assert.Equal("TorobPay", tx.Gateway);
+    }
+
+    [Fact]
+    public async Task TorobPayCallback_FailedState_CancelsOrderAndRedirectsToCancelled()
+    {
+        var order = await CreateTestOrderAsync();
+
+        using var client = factory.CreateHttpsClient(allowAutoRedirect: false);
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
+
+        var initiateResponse = await client.PostAsJsonAsync("/api/payment/initiate", new PaymentInitiateRequest(order.Id, "TorobPay"));
+        var initiateResult = (await initiateResponse.Content.ReadFromJsonAsync<PaymentInitiateJsonResult>())!;
+
+        var formData = new Dictionary<string, string>
+        {
+            ["transactionId"] = order.Id.ToString("N"),
+            ["state"] = "FAILED",
+            ["amount"] = (order.Total * 10).ToString()
+        };
+
+        var callbackResponse = await client.PostAsync("/api/payment/torob/callback", new FormUrlEncodedContent(formData));
+        Assert.Equal(HttpStatusCode.Redirect, callbackResponse.StatusCode);
+
+        var redirectLocation = callbackResponse.Headers.Location?.ToString();
+        Assert.NotNull(redirectLocation);
+        Assert.Contains("/order/cancelled", redirectLocation);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
+        var tx = await db.PaymentTransactions.SingleAsync(x => x.Authority == initiateResult.Authority);
+        Assert.Equal(PaymentStatus.Cancelled, tx.Status);
+
+        var cancelledOrder = await db.Orders.SingleAsync(x => x.Id == order.Id);
+        Assert.Equal(OrderStatus.Cancelled, cancelledOrder.Status);
+    }
+
     private sealed record PaymentInitiateJsonResult(bool Success, string? PaymentUrl, string? Authority);
 }

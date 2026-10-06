@@ -17,7 +17,9 @@ namespace Terma.Api.Controllers;
 public sealed class PaymentController(
     TermaDbContext db,
     IPaymentGatewayService paymentGatewayService,
+    ITorobPayGatewayService torobPayGatewayService,
     IOptions<ZarinPalOptions> zarinPalOptions,
+    IOptions<TorobPayOptions> torobPayOptions,
     ISecurityAuditService auditService,
     IConfiguration configuration,
     ILogger<PaymentController> logger,
@@ -31,7 +33,9 @@ public sealed class PaymentController(
         if (request.OrderId == Guid.Empty)
             return BadRequest(new { error = "شناسه سفارش معتبر نیست." });
 
-        var order = await db.Orders.SingleOrDefaultAsync(x => x.Id == request.OrderId, ct);
+        var order = await db.Orders
+            .Include(x => x.Items)
+            .SingleOrDefaultAsync(x => x.Id == request.OrderId, ct);
         if (order is null)
             return NotFound(new { error = "سفارش مورد نظر یافت نشد." });
 
@@ -46,12 +50,17 @@ public sealed class PaymentController(
             return BadRequest(new { error = "مهلت پرداخت این سفارش به پایان رسیده یا لغو شده است." });
         }
 
-        var callbackUrl = ResolveCallbackUrl();
+        var isTorob = string.Equals(request.Gateway, "TorobPay", StringComparison.OrdinalIgnoreCase);
+        var callbackUrl = isTorob ? ResolveTorobCallbackUrl() : ResolveCallbackUrl();
 
-        var initiateResult = await paymentGatewayService.RequestPaymentAsync(order, callbackUrl, ct);
+        var initiateResult = isTorob
+            ? await torobPayGatewayService.RequestPaymentAsync(order, callbackUrl, ct)
+            : await paymentGatewayService.RequestPaymentAsync(order, callbackUrl, ct);
+
         if (!initiateResult.Success || string.IsNullOrWhiteSpace(initiateResult.Authority))
         {
-            logger.LogWarning("Failed to initiate payment for Order {OrderNumber}: {Error}", order.Number, initiateResult.ErrorMessage);
+            logger.LogWarning("Failed to initiate payment for Order {OrderNumber} via {Gateway}: {Error}",
+                order.Number, isTorob ? "TorobPay" : "ZarinPal", initiateResult.ErrorMessage);
             return BadRequest(new { error = initiateResult.ErrorMessage ?? "خطا در اتصال به درگاه پرداخت." });
         }
 
@@ -59,8 +68,8 @@ public sealed class PaymentController(
             orderId: order.Id,
             amount: order.Total,
             authority: initiateResult.Authority,
-            gateway: "ZarinPal",
-            currency: zarinPalOptions.Value.Currency
+            gateway: isTorob ? "TorobPay" : "ZarinPal",
+            currency: isTorob ? "IRT" : zarinPalOptions.Value.Currency
         );
 
         order.AddPayment(transaction);
@@ -82,6 +91,16 @@ public sealed class PaymentController(
             paymentUrl = initiateResult.PaymentUrl,
             authority = initiateResult.Authority
         });
+    }
+
+    [HttpGet("torob/eligibility")]
+    public async Task<IActionResult> TorobEligibility([FromQuery] decimal amount, CancellationToken ct)
+    {
+        if (amount <= 0)
+            return BadRequest(new { error = "مبلغ نامعتبر است." });
+
+        var result = await torobPayGatewayService.CheckEligibilityAsync(amount, ct);
+        return Ok(result);
     }
 
     [HttpGet("zarinpal/callback")]
@@ -173,6 +192,170 @@ public sealed class PaymentController(
         var failureMsg = verifyResult.ErrorMessage ?? "پرداخت توسط بانک تایید نشد.";
         logger.LogWarning("Payment verification failed for Order {OrderNumber}, Authority {Authority}: {Error}",
             order.Number, cleanAuthority, failureMsg);
+
+        transaction.MarkFailed(failureMsg);
+        if (order.Status == OrderStatus.PendingConfirmation)
+        {
+            order.ChangeStatus(OrderStatus.Cancelled);
+            await db.OrderStatusHistories.AddAsync(new OrderStatusHistory(order.Id, OrderStatus.Cancelled, DateTime.UtcNow), ct);
+            await ReleaseOrderStockAsync(order, ct);
+        }
+        await db.SaveChangesAsync(ct);
+
+        await auditService.LogAsync(
+            order.PhoneSnapshot,
+            "PaymentVerifyFailed",
+            order.Number,
+            "Failed",
+            HttpContext.TraceIdentifier,
+            GetClientIp(),
+            ct);
+
+        return Redirect(BuildStorefrontUrl("/order/failed", [
+            ("order", order.Number),
+            ("message", failureMsg)
+        ]));
+    }
+
+    [HttpPost("torob/callback")]
+    [HttpGet("torob/callback")]
+    [IgnoreAntiforgeryToken]
+    public async Task<IActionResult> TorobPayCallback(CancellationToken ct)
+    {
+        string? transactionId = null;
+        string? state = null;
+        long? amount = null;
+
+        if (Request.HasFormContentType)
+        {
+            var form = await Request.ReadFormAsync(ct);
+            transactionId = form["transactionId"].ToString();
+            state = form["state"].ToString();
+            if (long.TryParse(form["amount"].ToString(), out var parsedAmount))
+            {
+                amount = parsedAmount;
+            }
+        }
+        else
+        {
+            transactionId = Request.Query["transactionId"].ToString();
+            state = Request.Query["state"].ToString();
+            if (long.TryParse(Request.Query["amount"].ToString(), out var parsedAmount))
+            {
+                amount = parsedAmount;
+            }
+        }
+
+        return await HandleTorobCallbackInternal(transactionId, state, amount, ct);
+    }
+
+    private async Task<IActionResult> HandleTorobCallbackInternal(
+        string? transactionId,
+        string? state,
+        long? amount,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(transactionId))
+        {
+            logger.LogWarning("TorobPay callback invoked without transactionId.");
+            return Redirect(BuildStorefrontUrl("/order/failed", [("message", "شناسه تراکنش دریافت نشد.")]));
+        }
+
+        var cleanTxId = transactionId.Trim();
+        Guid? parsedOrderId = Guid.TryParse(cleanTxId, out var gid) ? gid : null;
+
+        var transaction = await db.PaymentTransactions
+            .Include(x => x.Order)
+                .ThenInclude(o => o.Items)
+            .Where(x => x.Gateway == "TorobPay")
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(x =>
+                (parsedOrderId.HasValue && x.OrderId == parsedOrderId.Value) ||
+                x.Authority == cleanTxId ||
+                x.Order.Number == cleanTxId, ct);
+
+        if (transaction is null)
+        {
+            logger.LogWarning("TorobPay payment transaction with transactionId {TransactionId} not found.", cleanTxId);
+            return Redirect(BuildStorefrontUrl("/order/failed", [("message", "اطلاعات تراکنش ترب‌پی در سامانه یافت نشد.")]));
+        }
+
+        var order = transaction.Order;
+
+        if (string.Equals(state, "FAILED", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(state, "OK", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogInformation("TorobPay payment was cancelled or failed for Order {OrderNumber}, TransactionId {TransactionId}",
+                order.Number, cleanTxId);
+
+            transaction.MarkCancelled();
+            if (order.Status == OrderStatus.PendingConfirmation)
+            {
+                order.ChangeStatus(OrderStatus.Cancelled);
+                await db.OrderStatusHistories.AddAsync(new OrderStatusHistory(order.Id, OrderStatus.Cancelled, DateTime.UtcNow), ct);
+                await ReleaseOrderStockAsync(order, ct);
+            }
+            await db.SaveChangesAsync(ct);
+
+            await auditService.LogAsync(
+                order.PhoneSnapshot,
+                "PaymentCancelled",
+                order.Number,
+                "Failed",
+                HttpContext.TraceIdentifier,
+                GetClientIp(),
+                ct);
+
+            return Redirect(BuildStorefrontUrl("/order/cancelled", [("order", order.Number)]));
+        }
+
+        var verifyResult = await torobPayGatewayService.VerifyPaymentAsync(transaction.Authority, ct);
+
+        if (verifyResult.Success)
+        {
+            var refId = verifyResult.RefId ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            logger.LogInformation("TorobPay payment verified successfully for Order {OrderNumber}, RefId: {RefId}",
+                order.Number, refId);
+
+            transaction.MarkVerified(refId, null, null);
+            order.ConfirmPayment(refId);
+            await db.OrderStatusHistories.AddAsync(new OrderStatusHistory(order.Id, OrderStatus.Confirmed, DateTime.UtcNow), ct);
+            await CommitOrderStockAsync(order, ct);
+            await db.SaveChangesAsync(ct);
+
+            // Settle order with TorobPay in the background or immediately
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await torobPayGatewayService.SettlePaymentAsync(transaction.Authority, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to settle TorobPay order {OrderNumber}", order.Number);
+                }
+            });
+
+            await auditService.LogAsync(
+                order.PhoneSnapshot,
+                "PaymentVerify",
+                order.Number,
+                "Success",
+                HttpContext.TraceIdentifier,
+                GetClientIp(),
+                ct);
+
+            SendOrderTelegramNotification(order);
+
+            return Redirect(BuildStorefrontUrl("/order/success", [
+                ("order", order.Number),
+                ("refId", refId.ToString())
+            ]));
+        }
+
+        var failureMsg = verifyResult.ErrorMessage ?? "پرداخت اقساطی توسط درگاه ترب‌پی تأیید نشد.";
+        logger.LogWarning("TorobPay payment verification failed for Order {OrderNumber}: {Error}",
+            order.Number, failureMsg);
 
         transaction.MarkFailed(failureMsg);
         if (order.Status == OrderStatus.PendingConfirmation)
@@ -323,6 +506,19 @@ public sealed class PaymentController(
         var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
         var host = Request.Headers["X-Forwarded-Host"].FirstOrDefault() ?? Request.Host.Value;
         return $"{scheme}://{host}/api/payment/zarinpal/callback";
+    }
+
+    private string ResolveTorobCallbackUrl()
+    {
+        var configured = torobPayOptions.Value.CallbackUrl?.Trim();
+        if (!string.IsNullOrWhiteSpace(configured) && configured.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+        {
+            return configured;
+        }
+
+        var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
+        var host = Request.Headers["X-Forwarded-Host"].FirstOrDefault() ?? Request.Host.Value;
+        return $"{scheme}://{host}/api/payment/torob/callback";
     }
 
     private string BuildStorefrontUrl(string path, IEnumerable<(string Key, string Value)>? queryParams = null)

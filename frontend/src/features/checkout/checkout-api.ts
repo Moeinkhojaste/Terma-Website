@@ -44,12 +44,25 @@ export type PaymentInitiateResponse = {
   authority: string;
 };
 
-export function initiatePayment(orderId: string) {
+export function initiatePayment(orderId: string, gateway: "ZarinPal" | "TorobPay" = "ZarinPal") {
   return apiRequest<PaymentInitiateResponse>("/api/payment/initiate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orderId }),
+    body: JSON.stringify({ orderId, gateway }),
     cache: "no-store",
   });
 }
+
+export type TorobEligibilityResponse = {
+  eligible: boolean;
+  titleMessage: string | null;
+  description: string | null;
+};
+
+export function checkTorobEligibility(amount: number) {
+  return apiRequest<TorobEligibilityResponse>(`/api/payment/torob/eligibility?amount=${encodeURIComponent(amount)}`, {
+    cache: "no-store",
+  });
+}
+
 
