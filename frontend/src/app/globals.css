@@ -997,6 +997,86 @@ img { max-width: 100%; }
 .product-summary > p { color: var(--muted); }
 .product-detail__price { display: block; margin-top: 1.5rem; color: var(--teal-deep); font-size: 1.35rem; }
 .product-detail__price-wrap { display: flex; align-items: baseline; gap: 0.75rem; margin-top: 1.25rem; }
+.product-detail__price-container { margin-top: 1.25rem; }
+.product-detail__price-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.85rem; }
+.product-detail__price-row .product-detail__price { margin-top: 0; }
+.product-detail__price-row .product-detail__price-wrap { margin-top: 0; }
+
+.product-detail__torob-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.45rem 0.85rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-md);
+  color: #14532d;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.product-detail__torob-badge-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.product-detail__torob-badge-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.product-detail__torob-badge-title {
+  color: #166534;
+  font-size: 0.82rem;
+}
+.product-detail__torob-badge-title strong {
+  color: #14532d;
+  font-weight: 750;
+}
+.product-detail__torob-badge-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: #15803d;
+}
+.product-detail__torob-brand {
+  font-weight: 700;
+}
+.product-detail__torob-pill {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.12);
+  font-weight: 600;
+  font-size: 0.68rem;
+}
+
+.quick-view__price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.quick-view__price-row .quick-view__price {
+  margin-top: 0;
+}
+.quick-view__torob-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-sm);
+  font-size: 0.76rem;
+  color: #14532d;
+}
+.quick-view__torob-badge strong {
+  font-weight: 700;
+}
 .discount-badge { display: inline-flex; align-items: center; padding: 0.2rem 0.55rem; border-radius: 999px; background: var(--danger); color: #ffffff; font-size: 0.72rem; font-weight: 700; }
 .price-compare { opacity: 0.65; text-decoration: line-through; text-decoration-thickness: 1.5px; font-size: 0.88em; font-weight: 500; }
 .price-compare--lg { font-size: 1.05rem; }

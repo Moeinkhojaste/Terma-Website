@@ -10,6 +10,7 @@ import type { Product, ProductCapacityOption } from "@/features/products/models"
 
 import { WishlistButton } from "@/features/account/components/wishlist-button";
 import { ProductTrustBadges } from "@/features/products/components/product-trust-badges";
+import { TorobPayMark } from "@/components/ui/icons";
 
 export function ProductCapacityDetails({ product, selectedSize, onSelect, purchaseAnchor }: { product: Product; selectedSize: number; onSelect: (option: ProductCapacityOption) => void; purchaseAnchor: RefObject<HTMLDivElement | null> }) {
   const capacities = [...product.capacities].sort((first, second) => first.tableCapacity - second.tableCapacity);
@@ -33,6 +34,8 @@ export function ProductCapacityDetails({ product, selectedSize, onSelect, purcha
 
   const displayedPriceValue = (selectedOption?.priceValue ?? activeProduct.priceValue) + effectiveFee;
   const displayedPrice = `${new Intl.NumberFormat("fa-IR").format(displayedPriceValue)} تومان`;
+  const installmentPriceValue = Math.round(displayedPriceValue / 4);
+  const installmentFormatted = `${new Intl.NumberFormat("fa-IR").format(installmentPriceValue)} تومان`;
   const isUnavailable = !product.isActive || product.stockQuantity === 0 || !activeProduct.isActive || activeProduct.stockQuantity <= 0 || (selectedOption ? !selectedOption.isAvailable : true);
 
   return <>
@@ -46,17 +49,45 @@ export function ProductCapacityDetails({ product, selectedSize, onSelect, purcha
           در حال حاضر امکان خرید این محصول وجود ندارد. می‌توانید با افزودن آن به علاقه‌مندی‌ها از موجود شدن مجدد آن باخبر شوید.
         </p>
       </div>
-    ) : selectedOption?.hasDiscount && selectedOption.compareAtPrice ? (
-      <div className="product-detail__price-wrap">
-        <s className="price-compare price-compare--lg">
-          {effectiveFee > 0 && selectedOption.compareAtPriceValue
-            ? `${new Intl.NumberFormat("fa-IR").format(selectedOption.compareAtPriceValue + effectiveFee)} تومان`
-            : selectedOption.compareAtPrice}
-        </s>
-        <strong className="product-detail__price">{displayedPrice}</strong>
-        {selectedOption.discountPercent && <span className="discount-badge">{new Intl.NumberFormat("fa-IR").format(selectedOption.discountPercent)}٪ تخفیف</span>}
+    ) : (
+      <div className="product-detail__price-container">
+        <div className="product-detail__price-row">
+          <div className="product-detail__main-price">
+            {selectedOption?.hasDiscount && selectedOption.compareAtPrice ? (
+              <div className="product-detail__price-wrap">
+                <s className="price-compare price-compare--lg">
+                  {effectiveFee > 0 && selectedOption.compareAtPriceValue
+                    ? `${new Intl.NumberFormat("fa-IR").format(selectedOption.compareAtPriceValue + effectiveFee)} تومان`
+                    : selectedOption.compareAtPrice}
+                </s>
+                <strong className="product-detail__price">{displayedPrice}</strong>
+                {selectedOption.discountPercent && <span className="discount-badge">{new Intl.NumberFormat("fa-IR").format(selectedOption.discountPercent)}٪ تخفیف</span>}
+              </div>
+            ) : <strong className="product-detail__price">{displayedPrice}</strong>}
+          </div>
+
+          <div
+            className="product-detail__torob-badge"
+            role="note"
+            aria-label={`امکان خرید در ۴ قسط ${installmentFormatted} با ترب‌پی`}
+            title="خرید اقساطی در ۴ قسط بدون سود و کارمزد با ترب‌پی"
+          >
+            <div className="product-detail__torob-badge-icon">
+              <TorobPayMark className="size-6" />
+            </div>
+            <div className="product-detail__torob-badge-content">
+              <div className="product-detail__torob-badge-title">
+                در ۴ قسط <strong>{installmentFormatted}</strong>
+              </div>
+              <div className="product-detail__torob-badge-sub">
+                <span className="product-detail__torob-brand">با ترب‌پی</span>
+                <span className="product-detail__torob-pill">بدون کارمزد</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    ) : <strong className="product-detail__price">{displayedPrice}</strong>}
+    )}
     <ProductTrustBadges />
 
     <fieldset className="capacity-selector"><legend>انتخاب ظرفیت</legend><div className="capacity-options">

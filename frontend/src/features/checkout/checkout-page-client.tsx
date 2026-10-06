@@ -199,14 +199,11 @@ export function CheckoutPageClient() {
     checkTorobEligibility(finalTotal)
       .then((res) => {
         setTorobEligibility(res);
-        if (!res.eligible && paymentMethod === "torobpay") {
-          setPaymentMethod("online");
-        }
       })
       .catch(() => {
         setTorobEligibility(null);
       });
-  }, [finalTotal, paymentMethod]);
+  }, [finalTotal]);
 
   function handleBlur(event: FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const name = event.currentTarget.name as FieldName;
@@ -726,33 +723,35 @@ export function CheckoutPageClient() {
                       </div>
                     </label>
 
-                    {torobEligibility?.eligible !== false && (
-                      <label
-                        className={`checkout-payment-option ${paymentMethod === "torobpay" ? "checkout-payment-option--selected" : ""}`}
-                      >
-                        <input
-                          type="radio"
-                          name="checkoutPaymentMethod"
-                          value="torobpay"
-                          checked={paymentMethod === "torobpay"}
-                          onChange={() => setPaymentMethod("torobpay")}
-                        />
-                        <div className="checkout-payment-option__content">
-                          <div className="checkout-payment-option__main">
-                            <div className="checkout-shipping-option__title-row">
-                              <span className="checkout-payment-option__title">{torobEligibility?.titleMessage || "پرداخت اقساطی با ترب‌پی"}</span>
-                              <span className="bg-emerald-50 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
-                                ۴ قسط بدون ضامن
-                              </span>
-                            </div>
-                            <span className="checkout-payment-option__desc">{torobEligibility?.description || "دریافت اعتبار و خرید در ۴ قسط بدون کارمزد"}</span>
+                    <label
+                      className={`checkout-payment-option ${paymentMethod === "torobpay" ? "checkout-payment-option--selected" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="checkoutPaymentMethod"
+                        value="torobpay"
+                        checked={paymentMethod === "torobpay"}
+                        onChange={() => setPaymentMethod("torobpay")}
+                      />
+                      <div className="checkout-payment-option__content">
+                        <div className="checkout-payment-option__main">
+                          <div className="checkout-shipping-option__title-row">
+                            <span className="checkout-payment-option__title">{torobEligibility?.titleMessage || "پرداخت اقساطی با ترب‌پی"}</span>
+                            <span className="bg-emerald-50 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                              ۴ قسط بدون ضامن
+                            </span>
                           </div>
-                          <div className="checkout-payment-option__logos">
-                            <TorobPayLogo />
-                          </div>
+                          <span className="checkout-payment-option__desc">
+                            {finalTotal > 0
+                              ? `خرید در ۴ قسط ماهانه ${new Intl.NumberFormat("fa-IR").format(Math.round(finalTotal / 4))} تومانی بدون کارمزد`
+                              : torobEligibility?.description || "دریافت اعتبار و خرید در ۴ قسط بدون کارمزد"}
+                          </span>
                         </div>
-                      </label>
-                    )}
+                        <div className="checkout-payment-option__logos">
+                          <TorobPayLogo />
+                        </div>
+                      </div>
+                    </label>
 
                     <label
                       className="checkout-payment-option checkout-payment-option--disabled"

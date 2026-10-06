@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AccessibleDialog } from "@/components/ui/accessible-dialog";
-import { XIcon } from "@/components/ui/icons";
+import { XIcon, TorobPayMark } from "@/components/ui/icons";
 import { AddToCartButton } from "@/features/cart/add-to-cart-button";
 import { getDefaultCapacity, selectProductCapacity } from "@/features/products/product-selection";
 import { isUnoptimizedMedia } from "@/lib/media";
@@ -34,7 +34,20 @@ export function ProductQuickView({ product, open, onClose }: { product: Product;
               <span className="quick-view__unavailable-text">این کالا در حال حاضر موجود نیست</span>
             </div>
           ) : (
-            <strong className="quick-view__price">{activeProduct.price}</strong>
+            <div className="quick-view__price-row">
+              <strong className="quick-view__price">{activeProduct.price}</strong>
+              {activeProduct.priceValue > 0 && (
+                <div
+                  className="quick-view__torob-badge"
+                  title="خرید در ۴ قسط بدون کارمزد با ترب‌پی"
+                >
+                  <TorobPayMark className="size-4 shrink-0" />
+                  <span>
+                    ۴ قسط <strong>{new Intl.NumberFormat("fa-IR").format(Math.round(activeProduct.priceValue / 4))} تومان</strong> با ترب‌پی
+                  </span>
+                </div>
+              )}
+            </div>
           )}
           <fieldset className="quick-view__capacities">
             <legend>ظرفیت میز</legend>
