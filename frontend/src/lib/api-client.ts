@@ -110,9 +110,23 @@ export function resetAntiforgeryToken() {
   antiforgeryTokenPromise = undefined;
 }
 
-const TECHNICAL_ERROR_PATTERN = /(?:Microsoft\.Data\.SqlClient|Microsoft\.EntityFrameworkCore|Microsoft\.AspNetCore|System\.[a-zA-Z]|SqlException|SocketException|GetHostAddresses|TCP Provider|Name or service not known|SQL Server|SqlClient|Network-related|instance-specific|Invalid column name|ClientConnectionId|Error Number:\s*\d+|stack trace|at\s+[a-zA-Z0-9_.]+\(|<!DOCTYPE|<html|<\/html>|502 Bad Gateway|503 Service Unavailable|504 Gateway Timeout|ECONNREFUSED|ETIMEDOUT|fetch failed|Failed to fetch)/i;
+// Internal wording that must never be shown to a customer. The Persian entries below are payment
+// gateway and merchant-panel phrasings (credentials, acquirers, gateway error payloads) that would
+// otherwise pass the Persian-text check and surface in storefront dialogs.
+const TECHNICAL_ERROR_PATTERN = /(?:Microsoft\.Data\.SqlClient|Microsoft\.EntityFrameworkCore|Microsoft\.AspNetCore|System\.[a-zA-Z]|SqlException|SocketException|GetHostAddresses|TCP Provider|Name or service not known|SQL Server|SqlClient|Network-related|instance-specific|Invalid column name|ClientConnectionId|Error Number:\s*\d+|stack trace|at\s+[a-zA-Z0-9_.]+\(|<!DOCTYPE|<html|<\/html>|502 Bad Gateway|503 Service Unavailable|504 Gateway Timeout|ECONNREFUSED|ETIMEDOUT|fetch failed|Failed to fetch|errorData|errorCode|paymentToken|merchant|احراز هویت با سرویس|خطا در احراز هویت|تنظیمات اتصال به درگاه|پذیرنده درگاه|مرچنت)/i;
 
 const PERSIAN_CHAR_PATTERN = /[\u0600-\u06FF]/;
+
+/**
+ * True when a raw gateway/server message must not be shown to a customer - either it carries
+ * technical tokens, or it is empty, in which case the caller cannot know what happened.
+ */
+export function isTechnicalErrorMessage(rawMessage?: string | null): boolean {
+  if (!rawMessage || typeof rawMessage !== "string") return true;
+
+  const trimmed = rawMessage.trim();
+  return !trimmed || TECHNICAL_ERROR_PATTERN.test(trimmed);
+}
 
 export function sanitizeErrorMessage(rawMessage?: string | null, status?: number): string {
   if (!rawMessage || typeof rawMessage !== "string") {

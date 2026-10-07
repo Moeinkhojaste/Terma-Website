@@ -8,7 +8,7 @@ import { useCart } from "@/features/cart/cart-provider";
 import { Container } from "@/components/layout/container";
 import { AccessibleDialog } from "@/components/ui/accessible-dialog";
 import { formatPrice } from "@/lib/format";
-import { ApiError, sanitizeErrorMessage } from "@/lib/api-client";
+import { ApiError, isTechnicalErrorMessage, sanitizeErrorMessage } from "@/lib/api-client";
 import { MapPinIcon, UserIcon, TruckIcon, AlertTriangleIcon, XIcon, CreditCardIcon, OnlinePaymentIcon, TorobPayLogo, SnappPayLogo, GiftIcon, PackageIcon, IranPostLogo, TipaxLogo } from "@/components/ui/icons";
 import { CheckoutProgress } from "@/features/checkout/checkout-progress";
 import { RecentlyViewedProducts } from "@/features/products/components/recently-viewed-products";
@@ -338,6 +338,7 @@ export function CheckoutPageClient() {
     setRequestState("submitting");
     setServerError("");
     setErrorModal(null);
+    let stage: "order" | "payment" = "order";
     try {
       let currentOrder = pendingOrderRef.current;
       if (!currentOrder) {
@@ -348,6 +349,7 @@ export function CheckoutPageClient() {
 
       if ((targetReview.paymentMethod === "online" || targetReview.paymentMethod === "torobpay") && currentOrder?.id) {
         const gateway = targetReview.paymentMethod === "torobpay" ? "TorobPay" : "ZarinPal";
+        stage = "payment";
         const payment = await initiatePayment(currentOrder.id, gateway);
         pendingOrderRef.current = null;
         if (payment?.paymentUrl) {
@@ -360,7 +362,7 @@ export function CheckoutPageClient() {
       router.replace(`/order/success?order=${encodeURIComponent(currentOrder.number)}`);
     } catch (caught) {
       pendingOrderRef.current = null;
-      const errInfo = parseCheckoutError(caught);
+      const errInfo = parseCheckoutError(caught, stage);
       setServerError(errInfo.message);
       setErrorModal(errInfo);
       setRequestState(caught instanceof ApiError && caught.isNetworkError ? "network-error" : "server-error");
@@ -1029,7 +1031,12 @@ export function CheckoutErrorDialog({
   );
 }
 
-export function parseCheckoutError(error: unknown): CheckoutErrorInfo {
+// Shown when a payment step fails without a usable explanation from the server. Mirrors the
+// wording the API sends, so the customer always gets the same reassurance and next step.
+const PAYMENT_FAILURE_MESSAGE =
+  "اتصال به درگاه پرداخت برقرار نشد و مبلغی از حساب شما کسر نشده است. لطفاً چند لحظه بعد دوباره تلاش کنید. می‌توانید همین سفارش را با «پرداخت آنلاین از درگاه پرداخت» نهایی کنید.";
+
+export function parseCheckoutError(error: unknown, stage: "order" | "payment" = "order"): CheckoutErrorInfo {
   if (typeof window !== "undefined" && !window.navigator.onLine) {
     return {
       title: "عدم دسترسی به اینترنت",
@@ -1082,6 +1089,18 @@ export function parseCheckoutError(error: unknown): CheckoutErrorInfo {
     return {
       title: "محدودیت تعداد درخواست",
       message: error.problem?.detail || "تعداد درخواست‌های ارسالی بیش از حد مجاز است. لطفاً کمی بعد مجدداً تلاش فرمایید.",
+    };
+  }
+
+  // A failure inside the payment step is never an "order" problem: report it as a gateway issue and
+  // fall back to wording that tells the customer what to do next when the server text is unusable.
+  if (stage === "payment") {
+    const rawDetail = error.problem?.detail ?? error.message;
+    return {
+      title: "خطا در اتصال به درگاه پرداخت",
+      message: isTechnicalErrorMessage(rawDetail)
+        ? PAYMENT_FAILURE_MESSAGE
+        : sanitizeErrorMessage(rawDetail, error.status),
     };
   }
 

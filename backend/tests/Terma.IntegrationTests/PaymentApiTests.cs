@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Terma.Application.Categories;
@@ -13,7 +14,7 @@ namespace Terma.IntegrationTests;
 
 public sealed class PaymentApiTests(TermaApiFactory factory) : IClassFixture<TermaApiFactory>
 {
-    private async Task<CreatedOrderDto> CreateTestOrderAsync()
+    private async Task<CreatedOrderDto> CreateTestOrderAsync(string phone = "09129876543")
     {
         using var admin = await factory.CreateAdminClientAsync();
         var categoryResponse = await admin.PostAsJsonAsync("/api/admin/categories", new CreateCategoryRequest
@@ -48,7 +49,7 @@ public sealed class PaymentApiTests(TermaApiFactory factory) : IClassFixture<Ter
         {
             Items = [new CheckoutItemRequest(product.Id, null, 1)],
             FullName = "مشتری درگاه",
-            Phone = "09129876543",
+            Phone = phone,
             Province = "تهران",
             City = "تهران",
             Address = "خیابان ولیعصر پلاک ۱۰",
@@ -318,6 +319,13 @@ public sealed class PaymentApiTests(TermaApiFactory factory) : IClassFixture<Ter
         var initiateResponse = await guest.PostAsJsonAsync("/api/payment/initiate", new PaymentInitiateRequest(order.Id, "TorobPay"));
         Assert.Equal(HttpStatusCode.BadRequest, initiateResponse.StatusCode);
 
+        // The customer only receives the safe wording, never the gateway's technical reason
+        var problem = await initiateResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var detail = problem.GetProperty("detail").GetString();
+        Assert.Equal(PaymentCustomerMessages.TorobUnavailable, detail);
+        Assert.DoesNotContain("احراز هویت", detail);
+        Assert.DoesNotContain("رمز عبور", detail);
+
         // Verify order is now Cancelled and stock reservation is released
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
@@ -327,6 +335,25 @@ public sealed class PaymentApiTests(TermaApiFactory factory) : IClassFixture<Ter
         var dbProduct = await db.Products.Include(p => p.Variants).SingleAsync(p => p.Id == product.Id);
         Assert.Equal(10, dbProduct.StockQuantity);
         Assert.Equal(0, dbProduct.Variants.Sum(v => v.ReservedQuantity));
+    }
+
+    [Fact]
+    public async Task PaymentInitiate_GatewayWithoutCustomerWording_ReturnsGenericCustomerSafeDetail()
+    {
+        var order = await CreateTestOrderAsync("09120000001");
+
+        using var client = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/payment/initiate", new PaymentInitiateRequest(order.Id, "TorobPay"));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var detail = problem.GetProperty("detail").GetString();
+
+        Assert.Equal(PaymentCustomerMessages.GatewayUnavailable, detail);
+        Assert.DoesNotContain("merchant", detail);
+        Assert.DoesNotContain("authenticated", detail);
     }
 
     private sealed record PaymentInitiateJsonResult(bool Success, string? PaymentUrl, string? Authority);
