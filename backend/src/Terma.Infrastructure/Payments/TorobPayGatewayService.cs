@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
@@ -28,10 +29,16 @@ public sealed class TorobPayGatewayService(
 
     private async Task<(string? Token, string? ErrorMessage)> GetAccessTokenAsync(CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(_options.ClientId) || string.IsNullOrWhiteSpace(_options.ClientSecret))
+        var clientId = _options.ResolvedClientId;
+        var clientSecret = _options.ResolvedClientSecret;
+        var username = _options.ResolvedUsername;
+        var password = _options.ResolvedPassword;
+
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret) ||
+            string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
         {
             const string error = "تنظیمات اتصال به درگاه ترب‌پی (شناسه یا کلید دسترسی) در سرور مقداردهی نشده است.";
-            logger.LogWarning("TorobPay ClientId or ClientSecret is not configured in settings.");
+            logger.LogWarning("TorobPay ClientId, ClientSecret, Username, or Password is not configured in settings.");
             return (null, error);
         }
 
@@ -49,28 +56,66 @@ public sealed class TorobPayGatewayService(
             }
 
             var tokenUrl = _options.GetTokenUrl();
-            var clientId = _options.ClientId?.Trim() ?? string.Empty;
-            var clientSecret = _options.ClientSecret?.Trim() ?? string.Empty;
-            var username = _options.Username?.Trim() ?? string.Empty;
-            var password = _options.Password?.Trim() ?? string.Empty;
             var basicAuth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
 
-            using var req = new HttpRequestMessage(HttpMethod.Post, tokenUrl);
-            req.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
-            req.Content = JsonContent.Create(new
-            {
-                username,
-                password
-            });
+            logger.LogInformation("Requesting TorobPay OAuth token for ClientId: {ClientId}, Username: {Username} at {Url}",
+                clientId, username, tokenUrl);
 
-            logger.LogInformation("Requesting TorobPay OAuth token for ClientId: {ClientId}", clientId);
-            var res = await httpClient.SendAsync(req, cancellationToken);
-            var content = await res.Content.ReadAsStringAsync(cancellationToken);
+            // Attempt 1: Standard OAuth 2.0 Password Grant (RFC 6749) with application/x-www-form-urlencoded
+            HttpResponseMessage res;
+            string content;
+
+            using (var formReq = new HttpRequestMessage(HttpMethod.Post, tokenUrl))
+            {
+                formReq.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
+                formReq.Headers.Accept.Clear();
+                formReq.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                formReq.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["grant_type"] = "password",
+                    ["username"] = username,
+                    ["password"] = password,
+                    ["client_id"] = clientId,
+                    ["client_secret"] = clientSecret
+                });
+
+                res = await httpClient.SendAsync(formReq, cancellationToken);
+                content = await res.Content.ReadAsStringAsync(cancellationToken);
+            }
+
+            // Attempt 2: If form request returns failure (other than 401 Unauthorized), fallback to JSON payload
+            if (!res.IsSuccessStatusCode && res.StatusCode != HttpStatusCode.Unauthorized)
+            {
+                logger.LogInformation("TorobPay form-urlencoded OAuth request returned {StatusCode}. Retrying with JSON payload...", res.StatusCode);
+
+                using var jsonReq = new HttpRequestMessage(HttpMethod.Post, tokenUrl);
+                jsonReq.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
+                jsonReq.Headers.Accept.Clear();
+                jsonReq.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                jsonReq.Content = JsonContent.Create(new
+                {
+                    grant_type = "password",
+                    username,
+                    password
+                });
+
+                var jsonRes = await httpClient.SendAsync(jsonReq, cancellationToken);
+                var jsonContent = await jsonRes.Content.ReadAsStringAsync(cancellationToken);
+
+                if (jsonRes.IsSuccessStatusCode)
+                {
+                    res = jsonRes;
+                    content = jsonContent;
+                }
+            }
 
             if (!res.IsSuccessStatusCode)
             {
                 logger.LogWarning("Failed to retrieve TorobPay OAuth token. Status: {StatusCode}, Response: {Response}", res.StatusCode, content);
-                var error = $"خطا در احراز هویت با سرویس ترب‌پی (کد {(int)res.StatusCode}).";
+                var error = (int)res.StatusCode == 403
+                    ? "خطا در احراز هویت با سرویس ترب‌پی (کد 403): دسترسی به درگاه پرداخت رد شد. لطفاً نام کاربری و شناسه فروشگاه را بررسی فرمایید."
+                    : $"خطا در احراز هویت با سرویس ترب‌پی (کد {(int)res.StatusCode}).";
+
                 try
                 {
                     using var docErr = JsonDocument.Parse(content);
@@ -143,6 +188,8 @@ public sealed class TorobPayGatewayService(
             var url = _options.GetEligibleUrl(amountInRials);
             using var req = new HttpRequestMessage(HttpMethod.Get, url);
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            req.Headers.Accept.Clear();
+            req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
             var res = await httpClient.SendAsync(req, cancellationToken);
             var content = await res.Content.ReadAsStringAsync(cancellationToken);
@@ -235,6 +282,8 @@ public sealed class TorobPayGatewayService(
             var url = _options.GetPaymentTokenUrl();
             using var req = new HttpRequestMessage(HttpMethod.Post, url);
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            req.Headers.Accept.Clear();
+            req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             req.Content = JsonContent.Create(payload, options: JsonOpts);
 
             logger.LogInformation("Sending TorobPay payment token request for Order {OrderNumber}, Amount: {Amount} Rials",
@@ -243,7 +292,7 @@ public sealed class TorobPayGatewayService(
             var res = await httpClient.SendAsync(req, cancellationToken);
             var content = await res.Content.ReadAsStringAsync(cancellationToken);
 
-            if (res.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            if (res.StatusCode == HttpStatusCode.Unauthorized)
             {
                 logger.LogWarning("TorobPay payment token request returned 401. Refreshing access token and retrying...");
                 _cachedAccessToken = null;
@@ -255,6 +304,8 @@ public sealed class TorobPayGatewayService(
 
                 using var retryReq = new HttpRequestMessage(HttpMethod.Post, url);
                 retryReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", freshToken);
+                retryReq.Headers.Accept.Clear();
+                retryReq.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 retryReq.Content = JsonContent.Create(payload, options: JsonOpts);
 
                 res = await httpClient.SendAsync(retryReq, cancellationToken);
@@ -304,6 +355,8 @@ public sealed class TorobPayGatewayService(
             var url = _options.GetVerifyUrl();
             using var req = new HttpRequestMessage(HttpMethod.Post, url);
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            req.Headers.Accept.Clear();
+            req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             req.Content = JsonContent.Create(new { paymentToken }, options: JsonOpts);
 
             logger.LogInformation("Sending TorobPay verify request for PaymentToken: {PaymentToken}", paymentToken);
@@ -311,7 +364,7 @@ public sealed class TorobPayGatewayService(
             var res = await httpClient.SendAsync(req, cancellationToken);
             var content = await res.Content.ReadAsStringAsync(cancellationToken);
 
-            if (res.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            if (res.StatusCode == HttpStatusCode.Unauthorized)
             {
                 logger.LogWarning("TorobPay verify returned 401. Refreshing access token and retrying...");
                 _cachedAccessToken = null;
@@ -323,6 +376,8 @@ public sealed class TorobPayGatewayService(
 
                 using var retryReq = new HttpRequestMessage(HttpMethod.Post, url);
                 retryReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", freshToken);
+                retryReq.Headers.Accept.Clear();
+                retryReq.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 retryReq.Content = JsonContent.Create(new { paymentToken }, options: JsonOpts);
 
                 res = await httpClient.SendAsync(retryReq, cancellationToken);
@@ -335,7 +390,6 @@ public sealed class TorobPayGatewayService(
             var successful = root.TryGetProperty("successful", out var succProp) && succProp.GetBoolean();
             if (successful)
             {
-                // Generate tracking ref id from current timestamp
                 var refId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 logger.LogInformation("TorobPay verify succeeded for PaymentToken: {PaymentToken}, RefId: {RefId}",
                     paymentToken, refId);
@@ -377,6 +431,8 @@ public sealed class TorobPayGatewayService(
             var url = _options.GetSettleUrl();
             using var req = new HttpRequestMessage(HttpMethod.Post, url);
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            req.Headers.Accept.Clear();
+            req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             req.Content = JsonContent.Create(new { paymentToken }, options: JsonOpts);
 
             logger.LogInformation("Sending TorobPay settle request for PaymentToken: {PaymentToken}", paymentToken);
@@ -418,6 +474,8 @@ public sealed class TorobPayGatewayService(
             var url = _options.GetRevertUrl();
             using var req = new HttpRequestMessage(HttpMethod.Post, url);
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            req.Headers.Accept.Clear();
+            req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             req.Content = JsonContent.Create(new { paymentToken }, options: JsonOpts);
 
             logger.LogInformation("Sending TorobPay revert request for PaymentToken: {PaymentToken}", paymentToken);
@@ -440,39 +498,131 @@ public sealed class TorobPayGatewayService(
 
     private static string? ExtractErrorMessage(JsonElement root)
     {
-        if (root.TryGetProperty("error", out var errProp) && errProp.ValueKind == JsonValueKind.Object)
+        // 1. Check "errorData" (returned by TorobPay OAuth and payment endpoints)
+        if (root.TryGetProperty("errorData", out var errData) && errData.ValueKind == JsonValueKind.Object)
         {
-            if (errProp.TryGetProperty("user_message", out var userMsg) && !string.IsNullOrWhiteSpace(userMsg.GetString()))
+            var msg = ExtractMessageFromObject(errData);
+            if (!string.IsNullOrWhiteSpace(msg))
             {
-                return userMsg.GetString();
+                return msg;
             }
+        }
 
-            if (errProp.TryGetProperty("message", out var msg) && !string.IsNullOrWhiteSpace(msg.GetString()))
+        // 2. Check "error" (standard object or string)
+        if (root.TryGetProperty("error", out var errProp))
+        {
+            if (errProp.ValueKind == JsonValueKind.Object)
             {
-                var m = msg.GetString()!;
-                return MapFriendlyMessage(m);
+                var msg = ExtractMessageFromObject(errProp);
+                if (!string.IsNullOrWhiteSpace(msg))
+                {
+                    return msg;
+                }
             }
-
-            if (errProp.TryGetProperty("code", out var codeProp) && codeProp.TryGetInt32(out var code))
+            else if (errProp.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(errProp.GetString()))
             {
-                return MapCodeToFriendlyMessage(code);
+                return MapFriendlyMessage(errProp.GetString()!);
+            }
+        }
+
+        // 3. Check root-level user_message
+        if (root.TryGetProperty("user_message", out var rootUserMsg) &&
+            rootUserMsg.ValueKind == JsonValueKind.String &&
+            !string.IsNullOrWhiteSpace(rootUserMsg.GetString()))
+        {
+            return rootUserMsg.GetString();
+        }
+
+        // 4. Check root-level message
+        if (root.TryGetProperty("message", out var rootMsg) &&
+            rootMsg.ValueKind == JsonValueKind.String &&
+            !string.IsNullOrWhiteSpace(rootMsg.GetString()))
+        {
+            return MapFriendlyMessage(rootMsg.GetString()!);
+        }
+
+        // 5. Check root-level detail (e.g. Django/DRF style errors)
+        if (root.TryGetProperty("detail", out var rootDetail) &&
+            rootDetail.ValueKind == JsonValueKind.String &&
+            !string.IsNullOrWhiteSpace(rootDetail.GetString()))
+        {
+            return MapFriendlyMessage(rootDetail.GetString()!);
+        }
+
+        return null;
+    }
+
+    private static string? ExtractMessageFromObject(JsonElement obj)
+    {
+        if (obj.TryGetProperty("user_message", out var userMsg) &&
+            userMsg.ValueKind == JsonValueKind.String &&
+            !string.IsNullOrWhiteSpace(userMsg.GetString()))
+        {
+            return userMsg.GetString();
+        }
+
+        if (obj.TryGetProperty("message", out var msg) &&
+            msg.ValueKind == JsonValueKind.String &&
+            !string.IsNullOrWhiteSpace(msg.GetString()))
+        {
+            var m = msg.GetString()!;
+            var friendly = MapFriendlyMessage(m);
+            if (!string.IsNullOrWhiteSpace(friendly))
+            {
+                return friendly;
+            }
+        }
+
+        if (obj.TryGetProperty("errorCode", out var errCodeProp))
+        {
+            if (errCodeProp.ValueKind == JsonValueKind.String && int.TryParse(errCodeProp.GetString(), out var codeStr))
+            {
+                return MapCodeToFriendlyMessage(codeStr);
+            }
+            if (errCodeProp.ValueKind == JsonValueKind.Number && errCodeProp.TryGetInt32(out var codeNum))
+            {
+                return MapCodeToFriendlyMessage(codeNum);
+            }
+        }
+
+        if (obj.TryGetProperty("code", out var codeProp))
+        {
+            if (codeProp.ValueKind == JsonValueKind.Number && codeProp.TryGetInt32(out var codeNum))
+            {
+                return MapCodeToFriendlyMessage(codeNum);
+            }
+            if (codeProp.ValueKind == JsonValueKind.String && int.TryParse(codeProp.GetString(), out var codeStr))
+            {
+                return MapCodeToFriendlyMessage(codeStr);
             }
         }
 
         return null;
     }
 
-    private static string MapFriendlyMessage(string rawMessage) => rawMessage.ToLowerInvariant() switch
+    private static string MapFriendlyMessage(string rawMessage)
     {
-        "merchant is not authenticated" => "احراز هویت فروشگاه انجام نشد.",
-        "merchant inactive" => "پذیرنده درگاه ترب‌پی غیرفعال است.",
-        "invalid token" => "توکن پرداخت نامعتبر است.",
-        "no order" => "سفارشی برای این تراکنش یافت نشد.",
-        "invalid order state" => "وضعیت سفارش برای این عملیات معتبر نیست.",
-        "not matching token and order" => "توکن پرداخت با سفارش همخوانی ندارد.",
-        "invalid amount" => "مبلغ تراکنش خارج از محدوده مجاز درگاه است.",
-        _ => rawMessage
-    };
+        var normalized = rawMessage.Trim().TrimEnd('.').ToLowerInvariant();
+        return normalized switch
+        {
+            "merchant is not authenticated" => "احراز هویت فروشگاه انجام نشد.",
+            "merchant inactive" => "پذیرنده درگاه ترب‌پی غیرفعال است.",
+            "invalid token" => "توکن پرداخت نامعتبر است.",
+            "no order" => "سفارشی برای این تراکنش یافت نشد.",
+            "invalid order state" => "وضعیت سفارش برای این عملیات معتبر نیست.",
+            "not matching token and order" => "توکن پرداخت با سفارش همخوانی ندارد.",
+            "invalid amount" => "مبلغ تراکنش خارج از محدوده مجاز درگاه است.",
+            "invalid basic header" => "اطلاعات هدر احراز هویت ترب‌پی معتبر نیست.",
+            "invalid basic header format" => "فرمت اطلاعات هدر احراز هویت ترب‌پی اشتباه است.",
+            "invalid basic header, no merchant" => "فروشگاهی با این مشخصات در ترب‌پی یافت نشد.",
+            "no username or password" => "نام کاربری یا رمز عبور ترب‌پی ارسال نشده است.",
+            "invalid username or password" => "نام کاربری یا رمز عبور درگاه ترب‌پی اشتباه است.",
+            "too late for revert" => "مهلت ۳۰ دقیقه‌ای لغو سفارش به پایان رسیده است.",
+            "invalid input" => "اطلاعات ورودی سفارش معتبر نیستند.",
+            "can't create order" => "امکان ایجاد سفارش در درگاه پرداخت وجود ندارد.",
+            _ => rawMessage
+        };
+    }
 
     private static string MapCodeToFriendlyMessage(int code) => code switch
     {
@@ -480,7 +630,10 @@ public sealed class TorobPayGatewayService(
         1003 => "داده‌های ورودی سفارش معتبر نیستند.",
         1005 => "توکن ارائه شده معتبر نیست.",
         1007 => "سفارشی با این توکن یافت نشد.",
-        1011 => "مبلغ تراکنش نامعتبر است.",
+        1011 => "مبلغ تراکنش نامعتبر است یا فرمت اطلاعات ارسالی صحیح نیست.",
+        1017 => "فروشگاهی با این مشخصات در ترب‌پی یافت نشد.",
+        1023 => "نام کاربری یا رمز عبور ترب‌پی ارسال نشده است.",
+        1024 => "نام کاربری یا رمز عبور درگاه ترب‌پی اشتباه است.",
         1048 => "توکن به سفارش مربوط به این پذیرنده تعلق ندارد.",
         1053 => "وضعیت سفارش نامعتبر است.",
         1065 => "مهلت ۳۰ دقیقه‌ای لغو سفارش به پایان رسیده است.",

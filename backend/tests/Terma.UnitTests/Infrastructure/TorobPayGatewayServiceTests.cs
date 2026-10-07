@@ -301,6 +301,130 @@ public sealed class TorobPayGatewayServiceTests
         Assert.Contains("403", result.TitleMessage);
     }
 
+    [Fact]
+    public async Task RequestPaymentAsync_OAuthReturnsErrorData1024_ReturnsDescriptiveInvalidCredentialsError()
+    {
+        var options = Options.Create(CreateDefaultOptions());
+        var handler = new TestHttpMessageHandler((req, _) =>
+        {
+            if (req.RequestUri!.ToString().Contains("/oauth/token"))
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Forbidden)
+                {
+                    Content = new StringContent("""{"successful":false,"errorData":{"errorCode":"1024","message":"invalid username or password","data":{}}}""", Encoding.UTF8, "application/json")
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        });
+
+        var customer = new Customer("علی احمدی", "09121112233", "ali@example.com");
+        var order = new Order("TRM-1004", customer, "تهران", "تهران", "خیابان آزادی پلاک ۱", "1234567890",
+            subtotal: 100_000, discountTotal: 0, shippingTotal: 0, reservationExpiresAtUtc: DateTime.UtcNow.AddMinutes(30));
+
+        using var client = new HttpClient(handler);
+        var service = new TorobPayGatewayService(client, options, NullLogger<TorobPayGatewayService>.Instance);
+
+        var result = await service.RequestPaymentAsync(order, "https://termabrand.ir/api/payment/torob/callback");
+
+        Assert.False(result.Success);
+        Assert.Contains("نام کاربری یا رمز عبور", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task RequestPaymentAsync_OAuthReturnsErrorData1099_ReturnsMerchantInactiveError()
+    {
+        var options = Options.Create(CreateDefaultOptions());
+        var handler = new TestHttpMessageHandler((req, _) =>
+        {
+            if (req.RequestUri!.ToString().Contains("/oauth/token"))
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Forbidden)
+                {
+                    Content = new StringContent("""{"successful":false,"errorData":{"errorCode":"1099","message":"merchant inactive","data":{}}}""", Encoding.UTF8, "application/json")
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        });
+
+        var customer = new Customer("علی احمدی", "09121112233", "ali@example.com");
+        var order = new Order("TRM-1005", customer, "تهران", "تهران", "خیابان آزادی پلاک ۱", "1234567890",
+            subtotal: 100_000, discountTotal: 0, shippingTotal: 0, reservationExpiresAtUtc: DateTime.UtcNow.AddMinutes(30));
+
+        using var client = new HttpClient(handler);
+        var service = new TorobPayGatewayService(client, options, NullLogger<TorobPayGatewayService>.Instance);
+
+        var result = await service.RequestPaymentAsync(order, "https://termabrand.ir/api/payment/torob/callback");
+
+        Assert.False(result.Success);
+        Assert.Contains("غیرفعال", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task RequestPaymentAsync_QuotedCredentialsInOptions_AreCleanedAndSendValidHeaders()
+    {
+        var options = Options.Create(new TorobPayOptions
+        {
+            BaseUrl = "\"https://cpg.torobpay.com/\"",
+            ClientId = "\"custom_client\"",
+            ClientSecret = "\"custom_secret\"",
+            Username = "\"custom_user\"",
+            Password = "\"custom_password\"",
+            Enabled = true
+        });
+
+        var handler = new TestHttpMessageHandler(async (req, _) =>
+        {
+            if (req.RequestUri!.ToString().Contains("/oauth/token"))
+            {
+                // Verify basic auth header is clean without surrounding quotes
+                var auth = req.Headers.Authorization?.Parameter;
+                var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(auth!));
+                Assert.Equal("custom_client:custom_secret", decoded);
+
+                var body = await req.Content!.ReadAsStringAsync();
+                Assert.Contains("\"username\":\"custom_user\"", body);
+                Assert.Contains("\"password\":\"custom_password\"", body);
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"access_token": "mock-clean-token"}""", Encoding.UTF8, "application/json")
+                };
+            }
+
+            if (req.RequestUri.ToString().Contains("/payment/v1/token"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""
+                    {
+                        "successful": true,
+                        "response": {
+                            "paymentToken": "tok_123",
+                            "paymentPageUrl": "https://torobpay.com/payment/brief-details?payment_token=tok_123"
+                        }
+                    }
+                    """, Encoding.UTF8, "application/json")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var customer = new Customer("علی احمدی", "09121112233", "ali@example.com");
+        var order = new Order("TRM-1006", customer, "تهران", "تهران", "خیابان آزادی پلاک ۱", "1234567890",
+            subtotal: 100_000, discountTotal: 0, shippingTotal: 0, reservationExpiresAtUtc: DateTime.UtcNow.AddMinutes(30));
+
+        using var client = new HttpClient(handler);
+        var service = new TorobPayGatewayService(client, options, NullLogger<TorobPayGatewayService>.Instance);
+
+        var result = await service.RequestPaymentAsync(order, "https://termabrand.ir/api/payment/torob/callback");
+
+        Assert.True(result.Success);
+        Assert.Equal("tok_123", result.Authority);
+    }
+
     private sealed class TestHttpMessageHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
         : HttpMessageHandler
     {
