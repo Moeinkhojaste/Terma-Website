@@ -75,6 +75,13 @@ services:
       ZarinPal__MerchantId: "${PROD_ZARINPAL_MERCHANT_ID:-a0d2840c-d4bd-4a64-ba0b-636e5a7a7f45}"
       ZarinPal__IsSandbox: "${PROD_ZARINPAL_IS_SANDBOX:-false}"
       ZarinPal__CallbackUrl: "https://${PROD_DOMAIN}/api/payment/zarinpal/callback"
+      TorobPay__BaseUrl: "${PROD_TOROBPAY_BASE_URL:-https://cpg.torobpay.com/}"
+      TorobPay__ClientId: "${PROD_TOROBPAY_CLIENT_ID:-28941414}"
+      TorobPay__ClientSecret: "${PROD_TOROBPAY_CLIENT_SECRET:-20qQevRPn8RdofXm50nvRRwhZ3QEIQRpxq4B7boUm0PeLhDbLI3ebVXKHmQXlsihJ6zCGb}"
+      TorobPay__Username: "${PROD_TOROBPAY_USERNAME:-termabrand.ir}"
+      TorobPay__Password: "${PROD_TOROBPAY_PASSWORD:-GaK2hMFUunFUVFkmLPLx}"
+      TorobPay__CallbackUrl: "https://${PROD_DOMAIN}/api/payment/torob/callback"
+      TorobPay__Enabled: "${PROD_TOROBPAY_ENABLED:-true}"
     deploy:
       resources:
         limits:
@@ -154,6 +161,13 @@ services:
       ZarinPal__MerchantId: "${STAGING_ZARINPAL_MERCHANT_ID:-00000000-0000-0000-0000-000000000000}"
       ZarinPal__IsSandbox: "${STAGING_ZARINPAL_IS_SANDBOX:-true}"
       ZarinPal__CallbackUrl: "https://${STAGING_DOMAIN}/api/payment/zarinpal/callback"
+      TorobPay__BaseUrl: "${STAGING_TOROBPAY_BASE_URL:-https://cpg.torobpay.com/}"
+      TorobPay__ClientId: "${STAGING_TOROBPAY_CLIENT_ID:-28941414}"
+      TorobPay__ClientSecret: "${STAGING_TOROBPAY_CLIENT_SECRET:-20qQevRPn8RdofXm50nvRRwhZ3QEIQRpxq4B7boUm0PeLhDbLI3ebVXKHmQXlsihJ6zCGb}"
+      TorobPay__Username: "${STAGING_TOROBPAY_USERNAME:-termabrand.ir}"
+      TorobPay__Password: "${STAGING_TOROBPAY_PASSWORD:-GaK2hMFUunFUVFkmLPLx}"
+      TorobPay__CallbackUrl: "https://${STAGING_DOMAIN}/api/payment/torob/callback"
+      TorobPay__Enabled: "${STAGING_TOROBPAY_ENABLED:-true}"
     deploy:
       resources:
         limits:

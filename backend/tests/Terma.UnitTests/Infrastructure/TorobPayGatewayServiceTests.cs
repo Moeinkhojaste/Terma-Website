@@ -219,6 +219,88 @@ public sealed class TorobPayGatewayServiceTests
         Assert.True(result);
     }
 
+    [Fact]
+    public async Task RequestPaymentAsync_MissingClientId_ReturnsDescriptiveConfigError()
+    {
+        var options = Options.Create(new TorobPayOptions
+        {
+            BaseUrl = "https://cpg.torobpay.com/",
+            ClientId = "", // Missing
+            ClientSecret = "secret",
+            Username = "user",
+            Password = "pwd",
+            Enabled = true
+        });
+
+        var customer = new Customer("علی احمدی", "09121112233", "ali@example.com");
+        var order = new Order("TRM-1002", customer, "تهران", "تهران", "خیابان آزادی پلاک ۱", "1234567890",
+            subtotal: 100_000, discountTotal: 0, shippingTotal: 0, reservationExpiresAtUtc: DateTime.UtcNow.AddMinutes(30));
+
+        using var client = new HttpClient();
+        var service = new TorobPayGatewayService(client, options, NullLogger<TorobPayGatewayService>.Instance);
+
+        var result = await service.RequestPaymentAsync(order, "https://termabrand.ir/api/payment/torob/callback");
+
+        Assert.False(result.Success);
+        Assert.Contains("شناسه یا کلید دسترسی", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task RequestPaymentAsync_OAuthHttpError_ReturnsDescriptiveStatusCodeError()
+    {
+        var options = Options.Create(CreateDefaultOptions());
+        var handler = new TestHttpMessageHandler((req, _) =>
+        {
+            if (req.RequestUri!.ToString().Contains("/oauth/token"))
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Unauthorized)
+                {
+                    Content = new StringContent("""{"error": {"code": 1000, "message": "merchant is not authenticated"}}""", Encoding.UTF8, "application/json")
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        });
+
+        var customer = new Customer("علی احمدی", "09121112233", "ali@example.com");
+        var order = new Order("TRM-1003", customer, "تهران", "تهران", "خیابان آزادی پلاک ۱", "1234567890",
+            subtotal: 100_000, discountTotal: 0, shippingTotal: 0, reservationExpiresAtUtc: DateTime.UtcNow.AddMinutes(30));
+
+        using var client = new HttpClient(handler);
+        var service = new TorobPayGatewayService(client, options, NullLogger<TorobPayGatewayService>.Instance);
+
+        var result = await service.RequestPaymentAsync(order, "https://termabrand.ir/api/payment/torob/callback");
+
+        Assert.False(result.Success);
+        Assert.Contains("احراز هویت فروشگاه انجام نشد", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CheckEligibilityAsync_OAuthFailure_ReturnsFalseWithDescriptiveError()
+    {
+        var options = Options.Create(CreateDefaultOptions());
+        var handler = new TestHttpMessageHandler((req, _) =>
+        {
+            if (req.RequestUri!.ToString().Contains("/oauth/token"))
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Forbidden)
+                {
+                    Content = new StringContent("IP not allowed", Encoding.UTF8, "text/plain")
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        });
+
+        using var client = new HttpClient(handler);
+        var service = new TorobPayGatewayService(client, options, NullLogger<TorobPayGatewayService>.Instance);
+
+        var result = await service.CheckEligibilityAsync(50_000);
+
+        Assert.False(result.Eligible);
+        Assert.Contains("403", result.TitleMessage);
+    }
+
     private sealed class TestHttpMessageHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
         : HttpMessageHandler
     {

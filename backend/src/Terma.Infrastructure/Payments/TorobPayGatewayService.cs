@@ -26,17 +26,18 @@ public sealed class TorobPayGatewayService(
     private DateTime _tokenExpiresAtUtc = DateTime.MinValue;
     private readonly SemaphoreSlim _tokenLock = new(1, 1);
 
-    private async Task<string?> GetAccessTokenAsync(CancellationToken cancellationToken)
+    private async Task<(string? Token, string? ErrorMessage)> GetAccessTokenAsync(CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(_options.ClientId) || string.IsNullOrWhiteSpace(_options.ClientSecret))
         {
+            const string error = "تنظیمات اتصال به درگاه ترب‌پی (شناسه یا کلید دسترسی) در سرور مقداردهی نشده است.";
             logger.LogWarning("TorobPay ClientId or ClientSecret is not configured in settings.");
-            return null;
+            return (null, error);
         }
 
         if (!string.IsNullOrWhiteSpace(_cachedAccessToken) && DateTime.UtcNow < _tokenExpiresAtUtc)
         {
-            return _cachedAccessToken;
+            return (_cachedAccessToken, null);
         }
 
         await _tokenLock.WaitAsync(cancellationToken);
@@ -44,7 +45,7 @@ public sealed class TorobPayGatewayService(
         {
             if (!string.IsNullOrWhiteSpace(_cachedAccessToken) && DateTime.UtcNow < _tokenExpiresAtUtc)
             {
-                return _cachedAccessToken;
+                return (_cachedAccessToken, null);
             }
 
             var tokenUrl = _options.GetTokenUrl();
@@ -65,7 +66,18 @@ public sealed class TorobPayGatewayService(
             if (!res.IsSuccessStatusCode)
             {
                 logger.LogWarning("Failed to retrieve TorobPay OAuth token. Status: {StatusCode}, Response: {Response}", res.StatusCode, content);
-                return null;
+                var error = $"خطا در احراز هویت با سرویس ترب‌پی (کد {(int)res.StatusCode}).";
+                try
+                {
+                    using var docErr = JsonDocument.Parse(content);
+                    var detail = ExtractErrorMessage(docErr.RootElement);
+                    if (!string.IsNullOrWhiteSpace(detail))
+                    {
+                        error = $"خطا در احراز هویت با سرویس ترب‌پی: {detail}";
+                    }
+                }
+                catch { }
+                return (null, error);
             }
 
             using var doc = JsonDocument.Parse(content);
@@ -80,17 +92,17 @@ public sealed class TorobPayGatewayService(
                     // Token is valid for 1 hour per Torob Pay docs; cache for 50 minutes to refresh before expiry
                     _tokenExpiresAtUtc = DateTime.UtcNow.AddMinutes(50);
                     logger.LogInformation("TorobPay OAuth access token acquired successfully.");
-                    return _cachedAccessToken;
+                    return (_cachedAccessToken, null);
                 }
             }
 
             logger.LogWarning("Failed to retrieve TorobPay OAuth token. Response: {Response}", content);
-            return null;
+            return (null, "پاسخ نامعتبر از سرویس احراز هویت ترب‌پی.");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Exception while requesting TorobPay OAuth token.");
-            return null;
+            return (null, $"خطا در اتصال به سرور ترب‌پی: {ex.Message}");
         }
         finally
         {
@@ -116,10 +128,10 @@ public sealed class TorobPayGatewayService(
             return new TorobEligibilityDto(false, "حداکثر مبلغ خرید اعتباری ترب‌پی ۱۰۰٬۰۰۰٬۰۰۰ تومان است.", null);
         }
 
-        var token = await GetAccessTokenAsync(cancellationToken);
+        var (token, tokenError) = await GetAccessTokenAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
-            return new TorobEligibilityDto(false, "عدم برقراری ارتباط با سرویس ترب‌پی.", null);
+            return new TorobEligibilityDto(false, tokenError ?? "عدم برقراری ارتباط با سرویس ترب‌پی.", null);
         }
 
         try
@@ -162,10 +174,10 @@ public sealed class TorobPayGatewayService(
             return new PaymentInitiateResponse(false, null, null, "درگاه خرید اعتباری ترب‌پی در حال حاضر غیرفعال است.");
         }
 
-        var token = await GetAccessTokenAsync(cancellationToken);
+        var (token, tokenError) = await GetAccessTokenAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
-            return new PaymentInitiateResponse(false, null, null, "خطا در احراز هویت با سرویس ترب‌پی.");
+            return new PaymentInitiateResponse(false, null, null, tokenError ?? "خطا در احراز هویت با سرویس ترب‌پی.");
         }
 
         try
@@ -259,10 +271,10 @@ public sealed class TorobPayGatewayService(
 
     public async Task<PaymentVerificationResult> VerifyPaymentAsync(string paymentToken, CancellationToken cancellationToken = default)
     {
-        var token = await GetAccessTokenAsync(cancellationToken);
+        var (token, tokenError) = await GetAccessTokenAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
-            return new PaymentVerificationResult(false, null, null, null, 401, "خطا در احراز هویت با سرویس ترب‌پی.");
+            return new PaymentVerificationResult(false, null, null, null, 401, tokenError ?? "خطا در احراز هویت با سرویس ترب‌پی.");
         }
 
         try
@@ -313,7 +325,7 @@ public sealed class TorobPayGatewayService(
 
     public async Task<bool> SettlePaymentAsync(string paymentToken, CancellationToken cancellationToken = default)
     {
-        var token = await GetAccessTokenAsync(cancellationToken);
+        var (token, _) = await GetAccessTokenAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             logger.LogWarning("Cannot settle TorobPay: failed to acquire access token.");
@@ -354,7 +366,7 @@ public sealed class TorobPayGatewayService(
 
     public async Task<bool> RevertPaymentAsync(string paymentToken, CancellationToken cancellationToken = default)
     {
-        var token = await GetAccessTokenAsync(cancellationToken);
+        var (token, _) = await GetAccessTokenAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
             logger.LogWarning("Cannot revert TorobPay: failed to acquire access token.");
