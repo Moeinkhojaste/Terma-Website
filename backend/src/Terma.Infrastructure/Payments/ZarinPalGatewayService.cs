@@ -72,12 +72,13 @@ public sealed class ZarinPalGatewayService(
 
             var errorMsg = GetFriendlyErrorMessage(errorCode, errorMessage);
             logger.LogWarning("ZarinPal payment request rejected. Code: {Code}, Message: {Message}, Raw: {Raw}", errorCode, errorMsg, responseContent);
-            return new PaymentInitiateResponse(false, null, null, errorMsg);
+            return new PaymentInitiateResponse(false, null, null, errorMsg, GetCustomerMessage(errorCode));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Unexpected error communicating with ZarinPal payment gateway for Order {OrderNumber}", order.Number);
-            return new PaymentInitiateResponse(false, null, null, "خطا در برقراری ارتباط با درگاه پرداخت. لطفاً دوباره تلاش کنید.");
+            return new PaymentInitiateResponse(false, null, null,
+                "خطا در برقراری ارتباط با درگاه پرداخت.", PaymentCustomerMessages.ZarinPalUnavailable);
         }
     }
 
@@ -144,15 +145,30 @@ public sealed class ZarinPalGatewayService(
                 CardPan: null,
                 CardHash: null,
                 Code: errorCode,
-                ErrorMessage: errorMsg
+                ErrorMessage: errorMsg,
+                CustomerMessage: PaymentCustomerMessages.ZarinPalVerificationFailed
             );
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Unexpected error verifying ZarinPal payment for Authority: {Authority}", authority);
-            return new PaymentVerificationResult(false, null, null, null, null, "خطا در تایید تراکنش درگاه پرداخت.");
+            return new PaymentVerificationResult(false, null, null, null, null,
+                "خطا در تایید تراکنش درگاه پرداخت.", PaymentCustomerMessages.ZarinPalVerificationFailed);
         }
     }
+
+    /// <summary>
+    /// Customer-safe explanation for a gateway status code. The provider's own wording (merchant,
+    /// acquirer, authority, ...) must never reach the storefront.
+    /// </summary>
+    private static string GetCustomerMessage(int code) => code switch
+    {
+        -12 => "تعداد تلاش‌های پرداخت بیش از حد مجاز است. لطفاً چند دقیقه بعد دوباره تلاش کنید.",
+        -32 or -50 => "مبلغ سفارش با مبلغ قابل پرداخت در درگاه بانکی همخوانی ندارد. لطفاً صفحه را تازه‌سازی کرده و دوباره تلاش کنید.",
+        -51 or -54 => "پرداخت انجام نشد یا مهلت آن به پایان رسید. لطفاً سفارش خود را دوباره ثبت کنید.",
+        -52 => "خطایی در درگاه بانکی رخ داد و مبلغی از حساب شما کسر نشده است. لطفاً چند دقیقه بعد دوباره تلاش کنید.",
+        _ => PaymentCustomerMessages.ZarinPalUnavailable
+    };
 
     private static string GetFriendlyErrorMessage(int code, string? gatewayMessage)
     {

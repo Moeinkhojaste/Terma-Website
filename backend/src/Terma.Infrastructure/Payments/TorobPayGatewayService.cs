@@ -176,7 +176,7 @@ public sealed class TorobPayGatewayService(
     {
         if (!_options.Enabled)
         {
-            return new TorobEligibilityDto(false, "درگاه خرید اعتباری ترب‌پی در حال حاضر غیرفعال است.", null);
+            return new TorobEligibilityDto(false, PaymentCustomerMessages.TorobDisabled, null);
         }
 
         var amountInRials = (long)(amountInTomans * 10);
@@ -190,10 +190,11 @@ public sealed class TorobPayGatewayService(
             return new TorobEligibilityDto(false, "حداکثر مبلغ خرید اعتباری ترب‌پی ۱۰۰٬۰۰۰٬۰۰۰ تومان است.", null);
         }
 
-        var (token, tokenError) = await GetAccessTokenAsync(cancellationToken);
+        var (token, _) = await GetAccessTokenAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
-            return new TorobEligibilityDto(false, tokenError ?? "عدم برقراری ارتباط با سرویس ترب‌پی.", null);
+            // The technical cause was already logged with the full gateway response.
+            return new TorobEligibilityDto(false, PaymentCustomerMessages.TorobUnavailable, null);
         }
 
         try
@@ -222,12 +223,12 @@ public sealed class TorobPayGatewayService(
 
             var errMsg = ExtractErrorMessage(root) ?? "عدم احراز صلاحیت برای خرید اعتباری ترب‌پی.";
             logger.LogWarning("TorobPay eligibility check returned unsuccessful. Message: {Message}, Raw: {Raw}", errMsg, content);
-            return new TorobEligibilityDto(false, errMsg, null);
+            return new TorobEligibilityDto(false, PaymentCustomerMessages.TorobUnavailable, null);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Unexpected error checking TorobPay eligibility.");
-            return new TorobEligibilityDto(false, "خطا در استعلام صلاحیت خرید اعتباری ترب‌پی.", null);
+            return new TorobEligibilityDto(false, PaymentCustomerMessages.TorobUnavailable, null);
         }
     }
 
@@ -235,13 +236,15 @@ public sealed class TorobPayGatewayService(
     {
         if (!_options.Enabled)
         {
-            return new PaymentInitiateResponse(false, null, null, "درگاه خرید اعتباری ترب‌پی در حال حاضر غیرفعال است.");
+            return new PaymentInitiateResponse(false, null, null,
+                "درگاه خرید اعتباری ترب‌پی در حال حاضر غیرفعال است.", PaymentCustomerMessages.TorobDisabled);
         }
 
         var (token, tokenError) = await GetAccessTokenAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
-            return new PaymentInitiateResponse(false, null, null, tokenError ?? "خطا در احراز هویت با سرویس ترب‌پی.");
+            return new PaymentInitiateResponse(false, null, null,
+                tokenError ?? "خطا در احراز هویت با سرویس ترب‌پی.", PaymentCustomerMessages.TorobUnavailable);
         }
 
         try
@@ -346,12 +349,13 @@ public sealed class TorobPayGatewayService(
             logger.LogWarning("TorobPay payment token request failed for Order {OrderNumber}: {Error}, Raw: {Raw}",
                 order.Number, errorMsg, content);
 
-            return new PaymentInitiateResponse(false, null, null, errorMsg);
+            return new PaymentInitiateResponse(false, null, null, errorMsg, PaymentCustomerMessages.TorobOrderRejected);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Unexpected error communicating with TorobPay for Order {OrderNumber}", order.Number);
-            return new PaymentInitiateResponse(false, null, null, "خطا در برقراری ارتباط با درگاه اعتباری ترب‌پی. لطفاً دوباره تلاش کنید.");
+            return new PaymentInitiateResponse(false, null, null,
+                "خطا در برقراری ارتباط با درگاه اعتباری ترب‌پی.", PaymentCustomerMessages.TorobConnectionFailed);
         }
     }
 
@@ -360,7 +364,8 @@ public sealed class TorobPayGatewayService(
         var (token, tokenError) = await GetAccessTokenAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(token))
         {
-            return new PaymentVerificationResult(false, null, null, null, 401, tokenError ?? "خطا در احراز هویت با سرویس ترب‌پی.");
+            return new PaymentVerificationResult(false, null, null, null, 401,
+                tokenError ?? "خطا در احراز هویت با سرویس ترب‌پی.", PaymentCustomerMessages.TorobVerificationFailed);
         }
 
         try
@@ -384,7 +389,8 @@ public sealed class TorobPayGatewayService(
                 var (freshToken, retryError) = await GetAccessTokenAsync(cancellationToken);
                 if (string.IsNullOrWhiteSpace(freshToken))
                 {
-                    return new PaymentVerificationResult(false, null, null, null, 401, retryError ?? "خطا در احراز هویت با سرویس ترب‌پی.");
+                    return new PaymentVerificationResult(false, null, null, null, 401,
+                        retryError ?? "خطا در احراز هویت با سرویس ترب‌پی.", PaymentCustomerMessages.TorobVerificationFailed);
                 }
 
                 using var retryReq = new HttpRequestMessage(HttpMethod.Post, url);
@@ -421,12 +427,14 @@ public sealed class TorobPayGatewayService(
             logger.LogWarning("TorobPay verify rejected for PaymentToken: {PaymentToken}. Error: {Error}, Raw: {Raw}",
                 paymentToken, errorMsg, content);
 
-            return new PaymentVerificationResult(false, null, null, null, (int)res.StatusCode, errorMsg);
+            return new PaymentVerificationResult(false, null, null, null, (int)res.StatusCode,
+                errorMsg, PaymentCustomerMessages.TorobVerificationFailed);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Unexpected error verifying TorobPay payment for token {PaymentToken}", paymentToken);
-            return new PaymentVerificationResult(false, null, null, null, 500, "خطای غیرمنتظره در تأیید پرداخت ترب‌پی.");
+            return new PaymentVerificationResult(false, null, null, null, 500,
+                "خطای غیرمنتظره در تأیید پرداخت ترب‌پی.", PaymentCustomerMessages.TorobVerificationFailed);
         }
     }
 
