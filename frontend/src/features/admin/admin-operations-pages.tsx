@@ -151,11 +151,11 @@ export function AdminOrdersPage() {
               return (
                 <Fragment key={x.id}>
                   <tr>
-                    <td dir="ltr">{x.number}</td>
-                    <td>{x.customerName}</td>
-                    <td dir="ltr">{x.phone}</td>
-                    <td>{formatPrice(x.total)}</td>
-                    <td>
+                    <td data-label="شماره" dir="ltr">{x.number}</td>
+                    <td data-label="مشتری">{x.customerName}</td>
+                    <td data-label="تلفن" dir="ltr">{x.phone}</td>
+                    <td data-label="مبلغ">{formatPrice(x.total)}</td>
+                    <td data-label="وضعیت پرداخت">
                       {x.paymentStatus === "Paid" || ["Confirmed", "Preparing", "Shipped", "Delivered"].includes(x.status) ? (
                         <span style={{ display: "inline-block", padding: "0.2rem 0.55rem", borderRadius: "999px", fontSize: "0.75rem", fontWeight: 600, backgroundColor: "#dcfce7", color: "#166534" }}>
                           پرداخت موفق
@@ -170,7 +170,7 @@ export function AdminOrdersPage() {
                         </span>
                       )}
                     </td>
-                    <td>
+                    <td data-label="وضعیت سفارش">
                       <select
                         value={x.status}
                         onChange={(e) => update(x.id, e.target.value)}
@@ -185,7 +185,7 @@ export function AdminOrdersPage() {
                         <option value="Expired">منقضی شده</option>
                       </select>
                     </td>
-                    <td>
+                    <td data-label="روش ارسال">
                       {x.shippingMethod === "Tipax" ? (
                         <span style={{ display: "inline-block", padding: "0.2rem 0.55rem", borderRadius: "999px", fontSize: "0.75rem", fontWeight: 600, backgroundColor: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" }}>
                           تیپاکس (پس‌کرایه)
@@ -196,8 +196,8 @@ export function AdminOrdersPage() {
                         </span>
                       )}
                     </td>
-                    <td dir="rtl">{formattedDate}</td>
-                    <td>
+                    <td data-label="تاریخ ثبت" dir="rtl">{formattedDate}</td>
+                    <td data-label="کد رهگیری">
                       {x.postalTrackingCode ? (
                         <span dir="ltr" style={{ fontSize: "0.85rem", fontWeight: 600, color: "#0f766e" }}>
                           {x.postalTrackingCode}
@@ -206,7 +206,7 @@ export function AdminOrdersPage() {
                         <span style={{ color: "#94a3b8", fontSize: "0.8rem" }}>—</span>
                       )}
                     </td>
-                    <td>
+                    <td data-label="جزئیات">
                       <button
                         type="button"
                         className="button button--secondary"
@@ -221,7 +221,7 @@ export function AdminOrdersPage() {
                     <tr>
                       <td colSpan={10} style={{ padding: 0, backgroundColor: "var(--surface-subtle, #f9fafb)" }}>
                         <div style={{ padding: "1rem 1.25rem", borderBottom: "2px solid var(--line, #e5e7eb)" }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1.25rem", marginBottom: "1rem" }}>
+                          <div className="admin-order-detail-cards">
                             <div style={{ background: "#fff", padding: "0.85rem", borderRadius: "8px", border: "1px solid var(--line, #e5e7eb)" }}>
                               <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem", color: "var(--brand-deep, #1e293b)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
                                 <MapPinIcon className="size-4" /> آدرس و روش ارسال
@@ -297,7 +297,7 @@ export function AdminOrdersPage() {
                                   const itemFee = item.packagingFee || 0;
                                   return (
                                     <tr key={idx}>
-                                      <td>
+                                      <td data-label="نام محصول">
                                         <strong>{item.productName}</strong>
                                         {versionLabel !== "—" && (
                                           <span style={{ marginRight: "0.5rem", padding: "0.15rem 0.45rem", borderRadius: "4px", backgroundColor: "#e2e8f0", color: "#1e293b", fontSize: "0.75rem", fontWeight: 600 }}>
@@ -305,10 +305,10 @@ export function AdminOrdersPage() {
                                           </span>
                                         )}
                                       </td>
-                                      <td>
+                                      <td data-label="نسخه">
                                         <strong style={{ color: "#0f766e" }}>{versionLabel}</strong>
                                       </td>
-                                      <td>
+                                      <td data-label="بسته‌بندی">
                                         {item.packagingType === "GiftBox" ? (
                                           <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", padding: "0.2rem 0.55rem", borderRadius: "4px", backgroundColor: "#f0fdfa", color: "#0f766e", border: "1px solid #ccfbf1", fontSize: "0.75rem", fontWeight: 600 }}>
                                             <GiftIcon className="size-3.5" />
@@ -322,10 +322,10 @@ export function AdminOrdersPage() {
                                           </span>
                                         )}
                                       </td>
-                                      <td dir="ltr">{item.sku}</td>
-                                      <td>{formatPrice(item.unitPrice + itemFee)}</td>
-                                      <td>{item.quantity}</td>
-                                      <td><strong>{formatPrice((item.unitPrice + itemFee) * item.quantity)}</strong></td>
+                                      <td data-label="SKU" dir="ltr">{item.sku}</td>
+                                      <td data-label="قیمت واحد">{formatPrice(item.unitPrice + itemFee)}</td>
+                                      <td data-label="تعداد">{item.quantity}</td>
+                                      <td data-label="جمع کل"><strong>{formatPrice((item.unitPrice + itemFee) * item.quantity)}</strong></td>
                                     </tr>
                                   );
                                 })}
@@ -347,12 +347,12 @@ export function AdminOrdersPage() {
   );
 }
 
-export function AdminCustomersPage() { const [items,setItems]=useState<AdminCustomer[]>([]); const [error,setError]=useState<string>(); useEffect(()=>{getCustomers().then(setItems).catch(e=>setError(getApiErrorMessage(e)));},[]); return <AdminShell title="مشتریان"><PageError error={error}/><div className="admin-panel admin-table-wrap"><table className="admin-table"><thead><tr><th>نام</th><th>تلفن</th><th>ایمیل</th><th>تعداد سفارش</th><th>ارزش سفارش‌ها</th></tr></thead><tbody>{items.map(x=><tr key={x.id}><td>{x.fullName}</td><td dir="ltr">{x.phone}</td><td dir="ltr">{x.email??"—"}</td><td>{x.orderCount}</td><td>{formatPrice(x.totalOrderValue)}</td></tr>)}</tbody></table>{items.length===0&&<Empty text="مشتری‌ای ثبت نشده است."/>}</div></AdminShell>; }
+export function AdminCustomersPage() { const [items,setItems]=useState<AdminCustomer[]>([]); const [error,setError]=useState<string>(); useEffect(()=>{getCustomers().then(setItems).catch(e=>setError(getApiErrorMessage(e)));},[]); return <AdminShell title="مشتریان"><PageError error={error}/><div className="admin-panel admin-table-wrap"><table className="admin-table"><thead><tr><th>نام</th><th>تلفن</th><th>ایمیل</th><th>تعداد سفارش</th><th>ارزش سفارش‌ها</th></tr></thead><tbody>{items.map(x=><tr key={x.id}><td data-label="نام">{x.fullName}</td><td data-label="تلفن" dir="ltr">{x.phone}</td><td data-label="ایمیل" dir="ltr">{x.email??"—"}</td><td data-label="تعداد سفارش">{x.orderCount}</td><td data-label="ارزش سفارش‌ها">{formatPrice(x.totalOrderValue)}</td></tr>)}</tbody></table>{items.length===0&&<Empty text="مشتری‌ای ثبت نشده است."/>}</div></AdminShell>; }
 
-export function AdminMessagesPage() { const [items,setItems]=useState<ContactMessage[]>([]); const [error,setError]=useState<string>(); const load=()=>getMessages().then(setItems).catch(e=>setError(getApiErrorMessage(e))); useEffect(load,[]); async function update(id:string,status:string){try{await changeMessageStatus(id,status);load();}catch(e){setError(getApiErrorMessage(e));}} return <AdminShell title="پیام‌های مشتریان"><PageError error={error}/><div className="admin-panel admin-table-wrap"><table className="admin-table"><thead><tr><th>فرستنده</th><th>موضوع</th><th>پیام</th><th>وضعیت</th><th>تاریخ</th></tr></thead><tbody>{items.map(x=><tr key={x.id}><td>{x.name}<small dir="ltr">{x.phone}</small></td><td>{x.topic}</td><td className="admin-table__message">{x.body}</td><td><select value={x.status} onChange={e=>update(x.id,e.target.value)} aria-label={`وضعیت پیام ${x.topic}`}><option value="New">جدید</option><option value="Read">خوانده‌شده</option><option value="Replied">پاسخ‌داده‌شده</option><option value="Archived">بایگانی</option></select></td><td>{new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium"}).format(new Date(x.createdAt))}</td></tr>)}</tbody></table>{items.length===0&&<Empty text="پیامی وجود ندارد."/>}</div></AdminShell>; }
+export function AdminMessagesPage() { const [items,setItems]=useState<ContactMessage[]>([]); const [error,setError]=useState<string>(); const load=()=>getMessages().then(setItems).catch(e=>setError(getApiErrorMessage(e))); useEffect(load,[]); async function update(id:string,status:string){try{await changeMessageStatus(id,status);load();}catch(e){setError(getApiErrorMessage(e));}} return <AdminShell title="پیام‌های مشتریان"><PageError error={error}/><div className="admin-panel admin-table-wrap"><table className="admin-table"><thead><tr><th>فرستنده</th><th>موضوع</th><th>پیام</th><th>وضعیت</th><th>تاریخ</th></tr></thead><tbody>{items.map(x=><tr key={x.id}><td data-label="فرستنده">{x.name}<small dir="ltr">{x.phone}</small></td><td data-label="موضوع">{x.topic}</td><td data-label="پیام" className="admin-table__message">{x.body}</td><td data-label="وضعیت"><select value={x.status} onChange={e=>update(x.id,e.target.value)} aria-label={`وضعیت پیام ${x.topic}`}><option value="New">جدید</option><option value="Read">خوانده‌شده</option><option value="Replied">پاسخ‌داده‌شده</option><option value="Archived">بایگانی</option></select></td><td data-label="تاریخ">{new Intl.DateTimeFormat("fa-IR",{dateStyle:"medium"}).format(new Date(x.createdAt))}</td></tr>)}</tbody></table>{items.length===0&&<Empty text="پیامی وجود ندارد."/>}</div></AdminShell>; }
 
-export function AdminPromotionsPage() { const [items,setItems]=useState<Promotion[]>([]); const [error,setError]=useState<string>(); const load=()=>getPromotions().then(setItems).catch(e=>setError(getApiErrorMessage(e))); useEffect(load,[]); async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();const formElement=e.currentTarget;const f=new FormData(formElement);try{await apiRequest("/api/admin/promotions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:f.get("name"),code:f.get("code")||null,type:"Coupon",discountType:"Percentage",value:Number(f.get("value")),startsAtUtc:new Date().toISOString(),isActive:true})});formElement.reset();load();}catch(e){setError(getApiErrorMessage(e));}} return <AdminShell title="تخفیف‌ها"><PageError error={error}/><div className="admin-two-col"><form className="admin-panel admin-form" onSubmit={submit}><h2>کد تخفیف جدید</h2><label className="form-field">عنوان<input name="name" required /></label><label className="form-field">کد<input name="code" required dir="ltr" /></label><label className="form-field">درصد تخفیف<input name="value" type="number" min="1" max="100" required /></label><button className="button button--primary" type="submit">افزودن تخفیف</button></form><div className="admin-panel admin-table-wrap"><table className="admin-table"><thead><tr><th>عنوان</th><th>کد</th><th>مقدار</th><th>مصرف</th><th>وضعیت</th></tr></thead><tbody>{items.map(x=><tr key={x.id}><td>{x.name}</td><td dir="ltr">{x.code??"خودکار"}</td><td>{x.discountType==="Percentage"?`${x.value}%`:formatPrice(x.value)}</td><td>{x.usageCount}{x.usageLimit?` / ${x.usageLimit}`:""}</td><td>{x.isActive?"فعال":"غیرفعال"}</td></tr>)}</tbody></table></div></div></AdminShell>; }
+export function AdminPromotionsPage() { const [items,setItems]=useState<Promotion[]>([]); const [error,setError]=useState<string>(); const load=()=>getPromotions().then(setItems).catch(e=>setError(getApiErrorMessage(e))); useEffect(load,[]); async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();const formElement=e.currentTarget;const f=new FormData(formElement);try{await apiRequest("/api/admin/promotions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:f.get("name"),code:f.get("code")||null,type:"Coupon",discountType:"Percentage",value:Number(f.get("value")),startsAtUtc:new Date().toISOString(),isActive:true})});formElement.reset();load();}catch(e){setError(getApiErrorMessage(e));}} return <AdminShell title="تخفیف‌ها"><PageError error={error}/><div className="admin-two-col"><form className="admin-panel admin-form" onSubmit={submit}><h2>کد تخفیف جدید</h2><label className="form-field">عنوان<input name="name" required /></label><label className="form-field">کد<input name="code" required dir="ltr" /></label><label className="form-field">درصد تخفیف<input name="value" type="number" min="1" max="100" required /></label><button className="button button--primary" type="submit">افزودن تخفیف</button></form><div className="admin-panel admin-table-wrap"><table className="admin-table"><thead><tr><th>عنوان</th><th>کد</th><th>مقدار</th><th>مصرف</th><th>وضعیت</th></tr></thead><tbody>{items.map(x=><tr key={x.id}><td data-label="عنوان">{x.name}</td><td data-label="کد" dir="ltr">{x.code??"خودکار"}</td><td data-label="مقدار">{x.discountType==="Percentage"?`${x.value}%`:formatPrice(x.value)}</td><td data-label="مصرف">{x.usageCount}{x.usageLimit?` / ${x.usageLimit}`:""}</td><td data-label="وضعیت">{x.isActive?"فعال":"غیرفعال"}</td></tr>)}</tbody></table></div></div></AdminShell>; }
 
-export function AdminShippingPage() { const [items,setItems]=useState<ShippingRule[]>([]); const [error,setError]=useState<string>(); const load=()=>getShippingRules().then(setItems).catch(e=>setError(getApiErrorMessage(e))); useEffect(load,[]); async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();const formElement=e.currentTarget;const f=new FormData(formElement);try{await apiRequest("/api/admin/shipping-rules",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:f.get("name"),province:f.get("province")||null,city:f.get("city")||null,cost:Number(f.get("cost")),priority:Number(f.get("priority")),isActive:true})});formElement.reset();load();}catch(e){setError(getApiErrorMessage(e));}} return <AdminShell title="قوانین ارسال"><PageError error={error}/><div className="admin-two-col"><form className="admin-panel admin-form" onSubmit={submit}><h2>قانون ارسال جدید</h2><label className="form-field">عنوان<input name="name" required /></label><label className="form-field">استان<input name="province" /></label><label className="form-field">شهر<input name="city" /></label><label className="form-field">هزینه<input name="cost" type="number" min="0" required /></label><label className="form-field">اولویت<input name="priority" type="number" defaultValue="10" required /></label><button className="button button--primary" type="submit">افزودن قانون</button></form><div className="admin-panel admin-table-wrap"><table className="admin-table"><thead><tr><th>عنوان</th><th>محدوده</th><th>هزینه</th><th>اولویت</th></tr></thead><tbody>{items.map(x=><tr key={x.id}><td>{x.name}</td><td>{[x.province,x.city].filter(Boolean).join("، ")||"همه"}</td><td>{formatPrice(x.cost)}</td><td>{x.priority}</td></tr>)}</tbody></table></div></div></AdminShell>; }
+export function AdminShippingPage() { const [items,setItems]=useState<ShippingRule[]>([]); const [error,setError]=useState<string>(); const load=()=>getShippingRules().then(setItems).catch(e=>setError(getApiErrorMessage(e))); useEffect(load,[]); async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();const formElement=e.currentTarget;const f=new FormData(formElement);try{await apiRequest("/api/admin/shipping-rules",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:f.get("name"),province:f.get("province")||null,city:f.get("city")||null,cost:Number(f.get("cost")),priority:Number(f.get("priority")),isActive:true})});formElement.reset();load();}catch(e){setError(getApiErrorMessage(e));}} return <AdminShell title="قوانین ارسال"><PageError error={error}/><div className="admin-two-col"><form className="admin-panel admin-form" onSubmit={submit}><h2>قانون ارسال جدید</h2><label className="form-field">عنوان<input name="name" required /></label><label className="form-field">استان<input name="province" /></label><label className="form-field">شهر<input name="city" /></label><label className="form-field">هزینه<input name="cost" type="number" min="0" required /></label><label className="form-field">اولویت<input name="priority" type="number" defaultValue="10" required /></label><button className="button button--primary" type="submit">افزودن قانون</button></form><div className="admin-panel admin-table-wrap"><table className="admin-table"><thead><tr><th>عنوان</th><th>محدوده</th><th>هزینه</th><th>اولویت</th></tr></thead><tbody>{items.map(x=><tr key={x.id}><td data-label="عنوان">{x.name}</td><td data-label="محدوده">{[x.province,x.city].filter(Boolean).join("، ")||"همه"}</td><td data-label="هزینه">{formatPrice(x.cost)}</td><td data-label="اولویت">{x.priority}</td></tr>)}</tbody></table></div></div></AdminShell>; }
 
 function PageError({error}:{error?:string}){return error?<div className="admin-alert admin-alert--error" role="alert">{error}</div>:null} function Empty({text}:{text:string}){return <div className="admin-empty">{text}</div>}

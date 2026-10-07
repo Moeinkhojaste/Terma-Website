@@ -5563,6 +5563,9 @@ img {
   background: #f1eee7;
   color: var(--charcoal);
   position: relative;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 .admin-sidebar {
@@ -5674,6 +5677,9 @@ img {
 .admin-main {
   flex: 1;
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   padding: clamp(1rem, 3vw, 2.75rem);
 }
 
@@ -5819,17 +5825,18 @@ img {
 }
 
 .admin-two-col {
-  display: grid;
-  grid-template-columns: minmax(17rem, 25rem) minmax(0, 1fr);
-  gap: 1rem;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .admin-products-layout {
-  display: grid;
-  grid-template-columns: minmax(21rem, 26rem) minmax(0, 1fr);
-  gap: 1.25rem;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
   min-width: 0;
 }
 
@@ -5906,37 +5913,40 @@ img {
 }
 
 .admin-table-wrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
   border-radius: var(--radius-sm);
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
 }
 
 .admin-table-wrap--full {
-  grid-column: 1 / -1;
+  width: 100%;
 }
 
 .admin-table-wrap::-webkit-scrollbar {
-  height: 6px;
+  display: none;
 }
 
 .admin-table-wrap::-webkit-scrollbar-thumb {
-  background: #d4cbbe;
-  border-radius: 99px;
+  display: none;
 }
 
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 38rem;
+  min-width: 0;
+  table-layout: auto;
 }
 
 .admin-table th,
 .admin-table td {
-  padding: .8rem .75rem;
+  padding: .75rem .65rem;
   text-align: right;
   border-bottom: 1px solid #ebe5dc;
   vertical-align: middle;
+  font-size: 0.88rem;
+  word-break: break-word;
 }
 
 .admin-table th {
@@ -5944,7 +5954,7 @@ img {
   color: #615a51;
   font-size: .8rem;
   font-weight: 700;
-  white-space: nowrap;
+  white-space: normal;
   border-bottom: 1px solid #dfd8cd;
 }
 
@@ -5975,9 +5985,9 @@ img {
 .admin-row-actions {
   display: inline-flex;
   align-items: center;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: .35rem;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .admin-row-actions button,
@@ -5986,15 +5996,17 @@ img {
   background: #ffffff;
   color: var(--teal-deep);
   cursor: pointer;
-  padding: .35rem .65rem;
+  padding: .35rem .6rem;
   border-radius: .45rem;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  min-height: 2.1rem;
-  white-space: nowrap;
+  justify-content: center;
+  min-height: 2rem;
+  white-space: normal;
+  text-align: center;
   box-shadow: 0 1px 2px rgb(36 33 30 / .04);
   transition: background .15s ease, border-color .15s ease, color .15s ease;
 }
@@ -6250,13 +6262,6 @@ img {
   pointer-events: none;
 }
 
-@media (max-width: 1200px) {
-  .admin-products-layout {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-}
-
 @media (max-width: 950px) {
   .admin-sidebar {
     width: 15rem;
@@ -6357,15 +6362,85 @@ img {
   .admin-form textarea {
     font-size: 16px !important;
   }
+
+  .admin-table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border: none;
+  }
+
+  .admin-table thead {
+    display: none;
+  }
+
+  .admin-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    width: 100%;
+  }
+
+  .admin-table tbody tr {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0.9rem;
+    background: #ffffff;
+    border: 1px solid #e7e0d5;
+    border-radius: var(--radius-sm, 0.5rem);
+    box-shadow: 0 1px 3px rgba(36, 33, 30, 0.04);
+  }
+
+  .admin-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0;
+    border-bottom: 1px dashed #f0eae1;
+    text-align: left;
+    min-width: 0;
+    width: 100%;
+    word-break: break-word;
+  }
+
+  .admin-table tbody td:last-child {
+    border-bottom: none;
+    padding-top: 0.5rem;
+    justify-content: flex-start;
+  }
+
+  .admin-table tbody td[data-label]::before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: 0.78rem;
+    color: #78716c;
+    text-align: right;
+    margin-left: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .admin-table tbody td:not([data-label]) {
+    display: block;
+  }
+
+  .admin-row-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .admin-row-actions button,
+  .admin-row-actions a {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 480px) {
   .admin-main {
     padding: 4rem 0.65rem 1.5rem;
-  }
-
-  .admin-table {
-    min-width: 32rem;
   }
 
   .admin-stat-grid {
@@ -9807,10 +9882,10 @@ body.dialog-open {
 
 .orders-filter-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
-  overflow-x: auto;
+  overflow-x: visible;
   padding-bottom: 0.25rem;
-  scrollbar-width: thin;
 }
 
 .orders-filter-tab {
@@ -11733,10 +11808,9 @@ body.dialog-open {
 
   .orders-filter-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.4rem;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    overflow-x: visible;
     padding-bottom: 0.35rem;
     width: 100%;
     max-width: 100%;
@@ -11749,8 +11823,9 @@ body.dialog-open {
   }
 
   .orders-filter-tab {
-    flex-shrink: 0;
-    white-space: nowrap;
+    flex: 1 1 auto;
+    text-align: center;
+    white-space: normal;
     padding: 0.45rem 0.85rem;
     font-size: 0.8rem;
   }
@@ -13324,7 +13399,6 @@ body {
   }
 
   /* Mobile tables horizontal scroll hint */
-  .admin-table-wrap,
   .table-scroll-container {
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
@@ -13936,11 +14010,24 @@ body {
 /* Reports Hub Tabs */
 .analytics-tabs-header {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-x: visible;
   padding-bottom: 0.25rem;
+}
+
+.admin-order-detail-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 900px) {
+  .admin-order-detail-cards {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
 }
 
 .analytics-tab-btn {

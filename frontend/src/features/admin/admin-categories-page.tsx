@@ -94,9 +94,9 @@ export function AdminCategoriesPage() {
             <tbody>
               {items.map((x) => (
                 <tr key={x.id}>
-                  <td>{x.name}</td>
-                  <td>{x.description || "—"}</td>
-                  <td>
+                  <td data-label="نام">{x.name}</td>
+                  <td data-label="توضیحات">{x.description || "—"}</td>
+                  <td data-label="عملیات">
                     <div className="admin-row-actions">
                       <button
                         type="button"

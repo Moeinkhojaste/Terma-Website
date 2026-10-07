@@ -49,17 +49,21 @@ public sealed class TorobPayGatewayService(
             }
 
             var tokenUrl = _options.GetTokenUrl();
-            var basicAuth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_options.ClientId}:{_options.ClientSecret}"));
+            var clientId = _options.ClientId?.Trim() ?? string.Empty;
+            var clientSecret = _options.ClientSecret?.Trim() ?? string.Empty;
+            var username = _options.Username?.Trim() ?? string.Empty;
+            var password = _options.Password?.Trim() ?? string.Empty;
+            var basicAuth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
 
             using var req = new HttpRequestMessage(HttpMethod.Post, tokenUrl);
             req.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
             req.Content = JsonContent.Create(new
             {
-                username = _options.Username,
-                password = _options.Password
+                username,
+                password
             });
 
-            logger.LogInformation("Requesting TorobPay OAuth token for ClientId: {ClientId}", _options.ClientId);
+            logger.LogInformation("Requesting TorobPay OAuth token for ClientId: {ClientId}", clientId);
             var res = await httpClient.SendAsync(req, cancellationToken);
             var content = await res.Content.ReadAsStringAsync(cancellationToken);
 
@@ -89,9 +93,9 @@ public sealed class TorobPayGatewayService(
                 if (!string.IsNullOrWhiteSpace(token))
                 {
                     _cachedAccessToken = token;
-                    // Token is valid for 1 hour per Torob Pay docs; cache for 50 minutes to refresh before expiry
-                    _tokenExpiresAtUtc = DateTime.UtcNow.AddMinutes(50);
-                    logger.LogInformation("TorobPay OAuth access token acquired successfully.");
+                    var expiresInSec = root.TryGetProperty("expires_in", out var expProp) && expProp.TryGetInt32(out var exp) ? exp : 3600;
+                    _tokenExpiresAtUtc = DateTime.UtcNow.AddSeconds(Math.Max(60, expiresInSec - 300));
+                    logger.LogInformation("TorobPay OAuth access token acquired successfully. Expires in {Sec}s.", expiresInSec);
                     return (_cachedAccessToken, null);
                 }
             }
@@ -239,6 +243,24 @@ public sealed class TorobPayGatewayService(
             var res = await httpClient.SendAsync(req, cancellationToken);
             var content = await res.Content.ReadAsStringAsync(cancellationToken);
 
+            if (res.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                logger.LogWarning("TorobPay payment token request returned 401. Refreshing access token and retrying...");
+                _cachedAccessToken = null;
+                var (freshToken, retryError) = await GetAccessTokenAsync(cancellationToken);
+                if (string.IsNullOrWhiteSpace(freshToken))
+                {
+                    return new PaymentInitiateResponse(false, null, null, retryError ?? "خطا در احراز هویت با سرویس ترب‌پی.");
+                }
+
+                using var retryReq = new HttpRequestMessage(HttpMethod.Post, url);
+                retryReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", freshToken);
+                retryReq.Content = JsonContent.Create(payload, options: JsonOpts);
+
+                res = await httpClient.SendAsync(retryReq, cancellationToken);
+                content = await res.Content.ReadAsStringAsync(cancellationToken);
+            }
+
             using var doc = JsonDocument.Parse(content);
             var root = doc.RootElement;
 
@@ -288,6 +310,24 @@ public sealed class TorobPayGatewayService(
 
             var res = await httpClient.SendAsync(req, cancellationToken);
             var content = await res.Content.ReadAsStringAsync(cancellationToken);
+
+            if (res.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                logger.LogWarning("TorobPay verify returned 401. Refreshing access token and retrying...");
+                _cachedAccessToken = null;
+                var (freshToken, retryError) = await GetAccessTokenAsync(cancellationToken);
+                if (string.IsNullOrWhiteSpace(freshToken))
+                {
+                    return new PaymentVerificationResult(false, null, null, null, 401, retryError ?? "خطا در احراز هویت با سرویس ترب‌پی.");
+                }
+
+                using var retryReq = new HttpRequestMessage(HttpMethod.Post, url);
+                retryReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", freshToken);
+                retryReq.Content = JsonContent.Create(new { paymentToken }, options: JsonOpts);
+
+                res = await httpClient.SendAsync(retryReq, cancellationToken);
+                content = await res.Content.ReadAsStringAsync(cancellationToken);
+            }
 
             using var doc = JsonDocument.Parse(content);
             var root = doc.RootElement;

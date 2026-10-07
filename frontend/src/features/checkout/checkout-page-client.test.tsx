@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createProduct } from "@/test/product-fixture";
+import { ApiError } from "@/lib/api-client";
 
 const mocks = vi.hoisted(() => ({
   createOrder: vi.fn(),
@@ -458,6 +459,38 @@ describe("checkout order review", () => {
     expect(mocks.createOrder).toHaveBeenCalledWith(expect.objectContaining({
       shippingMethod: "Tipax",
     }));
+  });
+
+  it("preserves cart and displays error modal when payment initiation fails", async () => {
+    mocks.createOrder.mockResolvedValue({
+      id: "order-guid-fail",
+      number: "TRM-FAIL-001",
+      total: 1000,
+      reservationExpiresAtUtc: new Date().toISOString(),
+    });
+    mocks.initiatePayment.mockRejectedValue(
+      new ApiError("خطا در احراز هویت با سرویس ترب‌پی.", { status: 400 })
+    );
+
+    render(<CheckoutPageClient />);
+    const torobRadio = await screen.findByRole("radio", { name: /پرداخت اقساطی با ترب‌پی/ });
+    fireEvent.click(torobRadio);
+
+    fillValidCheckout();
+    fireEvent.click(screen.getByRole("button", { name: "ثبت سفارش" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "بازبینی و تأیید سفارش" });
+    const confirm = within(dialog).getByRole("button", { name: "تأیید و ثبت سفارش" });
+    fireEvent.click(confirm);
+
+    await waitFor(() => {
+      expect(mocks.createOrder).toHaveBeenCalled();
+      expect(mocks.initiatePayment).toHaveBeenCalled();
+    });
+
+    const errorDialog = await screen.findByRole("dialog", { name: "خطا در اتصال به درگاه پرداخت" });
+    expect(within(errorDialog).getByText("خطا در احراز هویت با سرویس ترب‌پی.")).toBeInTheDocument();
+    expect(mocks.clearCart).not.toHaveBeenCalled();
   });
 });
 
