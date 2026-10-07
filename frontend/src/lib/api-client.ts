@@ -225,7 +225,12 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}, isR
     const fieldErrors = problem?.errors
       ? Object.values(problem.errors).flat().join(" ")
       : undefined;
-    const rawCandidate = fieldErrors || problem?.detail || problem?.title || "درخواست سرویس بک‌اند ناموفق بود.";
+    const rawCandidate = fieldErrors
+      || problem?.detail
+      || problem?.title
+      || (problem as { error?: string })?.error
+      || (problem as { message?: string })?.message
+      || "درخواست سرویس بک‌اند ناموفق بود.";
     const safeMessage = sanitizeErrorMessage(rawCandidate, response.status);
     throw new ApiError(safeMessage, {
       status: response.status,
@@ -257,7 +262,11 @@ export function getApiErrorMessage(error: unknown): string {
         return cleanMessages.join(" ");
       }
     }
-    const candidate = error.problem?.detail || error.message || error.problem?.title;
+    const candidate = error.problem?.detail
+      || (error.problem as { error?: string })?.error
+      || (error.problem as { message?: string })?.message
+      || error.message
+      || error.problem?.title;
     return sanitizeErrorMessage(candidate, error.status);
   }
 

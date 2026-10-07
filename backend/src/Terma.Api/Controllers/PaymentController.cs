@@ -61,7 +61,10 @@ public sealed class PaymentController(
         {
             logger.LogWarning("Failed to initiate payment for Order {OrderNumber} via {Gateway}: {Error}",
                 order.Number, isTorob ? "TorobPay" : "ZarinPal", initiateResult.ErrorMessage);
-            return BadRequest(new { error = initiateResult.ErrorMessage ?? "خطا در اتصال به درگاه پرداخت." });
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "خطا در اتصال به درگاه پرداخت",
+                detail: initiateResult.ErrorMessage ?? "خطا در اتصال به درگاه پرداخت.");
         }
 
         var transaction = new PaymentTransaction(

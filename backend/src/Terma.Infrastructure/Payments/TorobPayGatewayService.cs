@@ -28,6 +28,12 @@ public sealed class TorobPayGatewayService(
 
     private async Task<string?> GetAccessTokenAsync(CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(_options.ClientId) || string.IsNullOrWhiteSpace(_options.ClientSecret))
+        {
+            logger.LogWarning("TorobPay ClientId or ClientSecret is not configured in settings.");
+            return null;
+        }
+
         if (!string.IsNullOrWhiteSpace(_cachedAccessToken) && DateTime.UtcNow < _tokenExpiresAtUtc)
         {
             return _cachedAccessToken;
@@ -55,6 +61,12 @@ public sealed class TorobPayGatewayService(
             logger.LogInformation("Requesting TorobPay OAuth token for ClientId: {ClientId}", _options.ClientId);
             var res = await httpClient.SendAsync(req, cancellationToken);
             var content = await res.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!res.IsSuccessStatusCode)
+            {
+                logger.LogWarning("Failed to retrieve TorobPay OAuth token. Status: {StatusCode}, Response: {Response}", res.StatusCode, content);
+                return null;
+            }
 
             using var doc = JsonDocument.Parse(content);
             var root = doc.RootElement;
