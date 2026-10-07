@@ -359,11 +359,14 @@ export function CheckoutPageClient() {
       pendingOrderRef.current = null;
       router.replace(`/order/success?order=${encodeURIComponent(currentOrder.number)}`);
     } catch (caught) {
+      pendingOrderRef.current = null;
       const errInfo = parseCheckoutError(caught);
       setServerError(errInfo.message);
       setErrorModal(errInfo);
       setRequestState(caught instanceof ApiError && caught.isNetworkError ? "network-error" : "server-error");
-      void revalidateCart?.(true);
+      if (errInfo.isInventory) {
+        void revalidateCart?.(true);
+      }
     } finally {
       submissionLockRef.current = false;
     }

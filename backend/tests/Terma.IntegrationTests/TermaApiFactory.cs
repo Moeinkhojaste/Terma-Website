@@ -235,6 +235,11 @@ public sealed class TestTorobPayGatewayService : ITorobPayGatewayService
 
     public Task<PaymentInitiateResponse> RequestPaymentAsync(Order order, string callbackUrl, CancellationToken cancellationToken = default)
     {
+        if (order.PhoneSnapshot == "09120000000")
+        {
+            return Task.FromResult(new PaymentInitiateResponse(false, null, null, "خطا در احراز هویت با سرویس ترب‌پی."));
+        }
+
         var token = $"torob_{Guid.NewGuid():N}";
         return Task.FromResult(new PaymentInitiateResponse(true, $"https://cpg.torobpay.com/payment/brief-details?payment_token={token}", token, null));
     }

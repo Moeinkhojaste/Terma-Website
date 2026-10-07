@@ -53,14 +53,45 @@ public sealed class PaymentController(
         var isTorob = string.Equals(request.Gateway, "TorobPay", StringComparison.OrdinalIgnoreCase);
         var callbackUrl = isTorob ? ResolveTorobCallbackUrl() : ResolveCallbackUrl();
 
-        var initiateResult = isTorob
-            ? await torobPayGatewayService.RequestPaymentAsync(order, callbackUrl, ct)
-            : await paymentGatewayService.RequestPaymentAsync(order, callbackUrl, ct);
+        PaymentInitiateResponse initiateResult;
+        try
+        {
+            initiateResult = isTorob
+                ? await torobPayGatewayService.RequestPaymentAsync(order, callbackUrl, ct)
+                : await paymentGatewayService.RequestPaymentAsync(order, callbackUrl, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected exception while initiating payment for Order {OrderNumber} via {Gateway}",
+                order.Number, isTorob ? "TorobPay" : "ZarinPal");
+
+            if (order.Status == OrderStatus.PendingConfirmation)
+            {
+                order.ChangeStatus(OrderStatus.Cancelled);
+                await db.OrderStatusHistories.AddAsync(new OrderStatusHistory(order.Id, OrderStatus.Cancelled, DateTime.UtcNow), ct);
+                await ReleaseOrderStockAsync(order, ct);
+                await db.SaveChangesAsync(ct);
+            }
+
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "خطا در اتصال به درگاه پرداخت",
+                detail: "خطا در برقراری ارتباط با درگاه پرداخت. لطفاً دوباره تلاش کنید.");
+        }
 
         if (!initiateResult.Success || string.IsNullOrWhiteSpace(initiateResult.Authority))
         {
             logger.LogWarning("Failed to initiate payment for Order {OrderNumber} via {Gateway}: {Error}",
                 order.Number, isTorob ? "TorobPay" : "ZarinPal", initiateResult.ErrorMessage);
+
+            if (order.Status == OrderStatus.PendingConfirmation)
+            {
+                order.ChangeStatus(OrderStatus.Cancelled);
+                await db.OrderStatusHistories.AddAsync(new OrderStatusHistory(order.Id, OrderStatus.Cancelled, DateTime.UtcNow), ct);
+                await ReleaseOrderStockAsync(order, ct);
+                await db.SaveChangesAsync(ct);
+            }
+
             return Problem(
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "خطا در اتصال به درگاه پرداخت",

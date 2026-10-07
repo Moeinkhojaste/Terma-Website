@@ -269,5 +269,65 @@ public sealed class PaymentApiTests(TermaApiFactory factory) : IClassFixture<Ter
         Assert.Equal(OrderStatus.Cancelled, cancelledOrder.Status);
     }
 
+    [Fact]
+    public async Task PaymentInitiate_TorobPayFailure_CancelsOrderAndReleasesStock()
+    {
+        using var admin = await factory.CreateAdminClientAsync();
+        var categoryResponse = await admin.PostAsJsonAsync("/api/admin/categories", new CreateCategoryRequest { Name = "تست درگاه ترب" });
+        var category = (await categoryResponse.Content.ReadFromJsonAsync<CategoryDto>())!;
+
+        var productResponse = await admin.PostAsJsonAsync("/api/admin/products", new CreateProductRequest
+        {
+            Name = "محصول تست ترب‌پی لغو",
+            Sku = $"TOROB-FAIL-{Guid.NewGuid():N}",
+            Description = "توضیحات تست",
+            Price = 1_000_000,
+            StockQuantity = 10,
+            TableCapacity = 4,
+            Length = 100,
+            Width = 100,
+            FabricType = "ترمه",
+            LiningType = "ساتن",
+            Color = "قرمز",
+            Pattern = "سنتی",
+            CategoryId = category.Id
+        });
+        var product = (await productResponse.Content.ReadFromJsonAsync<ProductDto>())!;
+
+        using var guest = factory.CreateHttpsClient();
+        await TermaApiFactory.SetAntiforgeryHeaderAsync(guest);
+        guest.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
+
+        // Place order with phone 09120000000 which triggers simulate error
+        var checkoutRequest = new CheckoutRequest
+        {
+            Items = [new CheckoutItemRequest(product.Id, null, 2)],
+            FullName = "مشتری خطای درگاه",
+            Phone = "09120000000",
+            Province = "تهران",
+            City = "تهران",
+            Address = "خیابان تست پلاک ۱",
+            PostalCode = "1234567890"
+        };
+
+        var createdResponse = await guest.PostAsJsonAsync("/api/orders", checkoutRequest);
+        Assert.Equal(HttpStatusCode.OK, createdResponse.StatusCode);
+        var order = (await createdResponse.Content.ReadFromJsonAsync<CreatedOrderDto>())!;
+
+        // Attempt initiate payment
+        var initiateResponse = await guest.PostAsJsonAsync("/api/payment/initiate", new PaymentInitiateRequest(order.Id, "TorobPay"));
+        Assert.Equal(HttpStatusCode.BadRequest, initiateResponse.StatusCode);
+
+        // Verify order is now Cancelled and stock reservation is released
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<TermaDbContext>();
+        var dbOrder = await db.Orders.SingleAsync(x => x.Id == order.Id);
+        Assert.Equal(OrderStatus.Cancelled, dbOrder.Status);
+
+        var dbProduct = await db.Products.Include(p => p.Variants).SingleAsync(p => p.Id == product.Id);
+        Assert.Equal(10, dbProduct.StockQuantity);
+        Assert.Equal(0, dbProduct.Variants.Sum(v => v.ReservedQuantity));
+    }
+
     private sealed record PaymentInitiateJsonResult(bool Success, string? PaymentUrl, string? Authority);
 }

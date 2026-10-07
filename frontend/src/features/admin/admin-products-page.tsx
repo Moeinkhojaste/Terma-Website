@@ -374,16 +374,16 @@ export function AdminProductsPage() {
                 <tbody>
                   {variants.map((v) => (
                     <tr key={v.id}>
-                      <td>
+                      <td data-label="عنوان ظرفیت">
                         <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
                           <strong>{v.title}</strong>
                           <span className="admin-category-badge">{v.tableCapacity} نفره</span>
                         </div>
                       </td>
-                      <td>
+                      <td data-label="ابعاد">
                         <span className="admin-dim-chip">{v.length} × {v.width} سانتی‌متر</span>
                       </td>
-                      <td>
+                      <td data-label="قیمت فروش">
                         {v.compareAtPrice && v.compareAtPrice > v.price ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem", whiteSpace: "nowrap" }}>
                             <s style={{ opacity: 0.65, fontSize: "0.82em", color: "var(--color-muted, #716b64)" }}>
@@ -397,7 +397,7 @@ export function AdminProductsPage() {
                           <strong style={{ whiteSpace: "nowrap" }}>{formatPrice(v.price)}</strong>
                         )}
                       </td>
-                      <td>
+                      <td data-label="وضعیت موجودی">
                         {v.reservedQuantity > 0 ? (
                           <div>
                             <span className="admin-stock-badge admin-stock-badge--success">
@@ -417,10 +417,10 @@ export function AdminProductsPage() {
                           </span>
                         )}
                       </td>
-                      <td>
+                      <td data-label="SKU">
                         <span className="admin-sku-chip">{v.sku}</span>
                       </td>
-                      <td>
+                      <td data-label="عملیات">
                         <div className="admin-row-actions">
                           <button type="button" onClick={() => startEditVariant(v)}>ویرایش</button>
                           <button type="button" className="admin-btn--danger" onClick={() => removeVariant(v.id)}>حذف</button>
@@ -588,7 +588,7 @@ export function AdminProductsPage() {
                 const primaryMedia = x.media?.find((m) => m.isPrimary)?.publicUrl || x.media?.[0]?.publicUrl;
                 return (
                   <tr key={x.id}>
-                    <td>
+                    <td data-label="گروه محصول">
                       <div className="admin-product-cell">
                         <div className="admin-product-cell__thumb">
                           {primaryMedia ? (
@@ -606,13 +606,13 @@ export function AdminProductsPage() {
                         </div>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="SKU">
                       <span className="admin-sku-chip">{x.sku}</span>
                     </td>
-                    <td>
+                    <td data-label="دسته">
                       <span className="admin-category-badge">{x.categoryName}</span>
                     </td>
-                    <td>
+                    <td data-label="قیمت">
                       {x.compareAtPrice ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem", whiteSpace: "nowrap" }}>
                           <s style={{ opacity: 0.65, fontSize: "0.82em", color: "var(--color-muted, #716b64)" }}>
@@ -631,7 +631,7 @@ export function AdminProductsPage() {
                         <strong style={{ whiteSpace: "nowrap" }}>{formatPrice(x.price)}</strong>
                       )}
                     </td>
-                    <td>
+                    <td data-label="موجودی کل">
                       {totalStock > 2 ? (
                         <span className="admin-stock-badge admin-stock-badge--success">
                           {totalStock} عدد
@@ -646,7 +646,7 @@ export function AdminProductsPage() {
                         </span>
                       )}
                     </td>
-                    <td>
+                    <td data-label="عملیات">
                       <div className="admin-row-actions">
                         <button type="button" onClick={() => startEditProduct(x)}>
                           ویرایش گروه و ظرفیت‌ها

@@ -243,7 +243,7 @@ export function AdminReviewsPage() {
 
                 return (
                   <tr key={rev.id}>
-                    <td>
+                    <td data-label="محصول">
                       <strong className="block text-stone-900">{rev.productName}</strong>
                       <Link
                         href={`/products/${rev.productSlug || rev.productId}`}
@@ -254,18 +254,18 @@ export function AdminReviewsPage() {
                       </Link>
                     </td>
 
-                    <td>
+                    <td data-label="کاربر">
                       <div className="font-bold text-stone-900">{rev.customerName}</div>
                       <div className="text-xs text-stone-500 font-mono" dir="ltr">
                         {rev.customerPhone}
                       </div>
                     </td>
 
-                    <td>
+                    <td data-label="امتیاز">
                       <RatingStars rating={rev.rating} size="sm" />
                     </td>
 
-                    <td className="max-w-md">
+                    <td data-label="دیدگاه" className="max-w-md">
                       {rev.title && (
                         <div className="font-bold text-xs text-stone-900 mb-1">{rev.title}</div>
                       )}
@@ -286,7 +286,7 @@ export function AdminReviewsPage() {
                       )}
                     </td>
 
-                    <td>
+                    <td data-label="وضعیت">
                       {rev.status === "Approved" ? (
                         <span className="px-2 py-1 bg-emerald-100 text-emerald-800 rounded-md text-xs font-bold inline-flex items-center gap-1">
                           <CheckIcon className="size-3 text-emerald-600" />
@@ -304,11 +304,11 @@ export function AdminReviewsPage() {
                       )}
                     </td>
 
-                    <td dir="rtl" className="text-xs text-stone-500 whitespace-nowrap">
+                    <td data-label="تاریخ ثبت" dir="rtl" className="text-xs text-stone-500 whitespace-nowrap">
                       {formattedDate}
                     </td>
 
-                    <td>
+                    <td data-label="عملیات">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {rev.status !== "Approved" && (
                           <button

@@ -286,16 +286,16 @@ export function AdminVariantsPage() {
             <tbody>
               {items.map((x) => (
                 <tr key={x.id}>
-                  <td>
+                  <td data-label="عنوان ظرفیت">
                     <strong>{x.title}</strong>
                   </td>
-                  <td>
+                  <td data-label="ظرفیت میز">
                     <span className="admin-category-badge">{x.tableCapacity} نفره</span>
                   </td>
-                  <td>
+                  <td data-label="ابعاد">
                     <span className="admin-dim-chip">{x.length} × {x.width} سانتی‌متر</span>
                   </td>
-                  <td>
+                  <td data-label="قیمت">
                     {x.compareAtPrice && x.compareAtPrice > x.price ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem", whiteSpace: "nowrap" }}>
                         <s style={{ opacity: 0.65, fontSize: "0.82em", color: "var(--color-muted, #716b64)" }}>
@@ -309,7 +309,7 @@ export function AdminVariantsPage() {
                       <strong style={{ whiteSpace: "nowrap" }}>{formatPrice(x.price)}</strong>
                     )}
                   </td>
-                  <td>
+                  <td data-label="وضعیت موجودی">
                     {x.reservedQuantity > 0 ? (
                       <div>
                         <span className="admin-stock-badge admin-stock-badge--success">
@@ -329,10 +329,10 @@ export function AdminVariantsPage() {
                       </span>
                     )}
                   </td>
-                  <td>
+                  <td data-label="SKU">
                     <span className="admin-sku-chip">{x.sku}</span>
                   </td>
-                  <td>
+                  <td data-label="عملیات">
                     <div className="admin-row-actions">
                       <button type="button" onClick={() => startEdit(x)}>
                         ویرایش

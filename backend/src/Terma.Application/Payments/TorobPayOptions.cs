@@ -5,10 +5,10 @@ public sealed class TorobPayOptions
     public const string SectionName = "TorobPay";
 
     public string BaseUrl { get; set; } = "https://cpg.torobpay.com/";
-    public string ClientId { get; set; } = string.Empty;
-    public string ClientSecret { get; set; } = string.Empty;
-    public string Username { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
+    public string ClientId { get; set; } = "28941414";
+    public string ClientSecret { get; set; } = "20qQevRPn8RdofXm50nvRRwhZ3QEIQRpxq4B7boUm0PeLhDbLI3ebVXKHmQXlsihJ6zCGb";
+    public string Username { get; set; } = "termabrand.ir";
+    public string Password { get; set; } = "GaK2hMFUunFUVFkmLPLx";
     public string? CallbackUrl { get; set; }
     public bool Enabled { get; set; } = true;
 
