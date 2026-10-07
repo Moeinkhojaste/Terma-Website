@@ -38,7 +38,8 @@ public sealed class TorobPayGatewayService(
             string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
         {
             const string error = "تنظیمات اتصال به درگاه ترب‌پی (شناسه یا کلید دسترسی) در سرور مقداردهی نشده است.";
-            logger.LogWarning("TorobPay ClientId, ClientSecret, Username, or Password is not configured in settings.");
+            logger.LogWarning("TorobPay ClientId, ClientSecret, Username, or Password is not configured. {Diagnostics}",
+                _options.DescribeForDiagnostics());
             return (null, error);
         }
 
@@ -56,28 +57,30 @@ public sealed class TorobPayGatewayService(
             }
 
             var tokenUrl = _options.GetTokenUrl();
-            var basicAuth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
 
-            logger.LogInformation("Requesting TorobPay OAuth token for ClientId: {ClientId}, Username: {Username} at {Url}",
-                clientId, username, tokenUrl);
+            logger.LogInformation("Requesting TorobPay OAuth token at {Url}. {Diagnostics}", tokenUrl, _options.DescribeForDiagnostics());
 
-            using var req = new HttpRequestMessage(HttpMethod.Post, tokenUrl);
-            req.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
-            req.Headers.Accept.Clear();
-            req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            req.Content = JsonContent.Create(new
+            var (statusCode, content) = await SendTokenRequestAsync(
+                tokenUrl, clientId, clientSecret, username, password, useFormEncoding: false, cancellationToken);
+
+            // TorobPay answers 1023 ("no username or password") when the request reaches it without
+            // usable credentials, which happens when the credential body is dropped on the way. The
+            // same endpoint accepts the credentials as form fields, so one retry with that encoding
+            // recovers the handshake instead of failing the customer's checkout.
+            if (statusCode != HttpStatusCode.OK && IndicatesMissingCredentials(content))
             {
-                username,
-                password
-            });
+                logger.LogWarning(
+                    "TorobPay OAuth token request arrived without credentials (status {StatusCode}). Retrying with form-urlencoded credentials. {Diagnostics}",
+                    (int)statusCode, _options.DescribeForDiagnostics());
 
-            var res = await httpClient.SendAsync(req, cancellationToken);
-            var content = await res.Content.ReadAsStringAsync(cancellationToken);
+                (statusCode, content) = await SendTokenRequestAsync(
+                    tokenUrl, clientId, clientSecret, username, password, useFormEncoding: true, cancellationToken);
+            }
 
-            if (!res.IsSuccessStatusCode)
+            if (statusCode != HttpStatusCode.OK)
             {
-                logger.LogWarning("Failed to retrieve TorobPay OAuth token. Status: {StatusCode}, Response: {Response}", res.StatusCode, content);
-                var error = $"خطا در احراز هویت با سرویس ترب‌پی (کد {(int)res.StatusCode}).";
+                logger.LogWarning("Failed to retrieve TorobPay OAuth token. Status: {StatusCode}, Response: {Response}", statusCode, content);
+                var error = $"خطا در احراز هویت با سرویس ترب‌پی (کد {(int)statusCode}).";
                 try
                 {
                     using var docErr = JsonDocument.Parse(content);
@@ -119,6 +122,54 @@ public sealed class TorobPayGatewayService(
         {
             _tokenLock.Release();
         }
+    }
+
+    private async Task<(HttpStatusCode StatusCode, string Content)> SendTokenRequestAsync(
+        string tokenUrl,
+        string clientId,
+        string clientSecret,
+        string username,
+        string password,
+        bool useFormEncoding,
+        CancellationToken cancellationToken)
+    {
+        var basicAuth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, tokenUrl);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
+        req.Headers.Accept.Clear();
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        req.Content = useFormEncoding
+            ? new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["username"] = username,
+                ["password"] = password
+            })
+            : JsonContent.Create(new
+            {
+                username,
+                password
+            });
+
+        // Logged before sending so a credential-less request is visible in production logs.
+        logger.LogInformation(
+            "Sending TorobPay OAuth credentials: encoding={Encoding}, contentType={ContentType}, bodyLength={BodyLength}, usernameLength={UsernameLength}, passwordLength={PasswordLength}",
+            useFormEncoding ? "form-urlencoded" : "json",
+            req.Content.Headers.ContentType?.ToString() ?? "(none)",
+            req.Content.Headers.ContentLength?.ToString() ?? "(unknown)",
+            username.Length,
+            password.Length);
+
+        var res = await httpClient.SendAsync(req, cancellationToken);
+        return (res.StatusCode, await res.Content.ReadAsStringAsync(cancellationToken));
+    }
+
+    private static bool IndicatesMissingCredentials(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return false;
+
+        return content.Contains("no username or password", StringComparison.OrdinalIgnoreCase) ||
+               content.Contains("\"1023\"", StringComparison.Ordinal);
     }
 
     public async Task<TorobEligibilityDto> CheckEligibilityAsync(decimal amountInTomans, CancellationToken cancellationToken = default)
