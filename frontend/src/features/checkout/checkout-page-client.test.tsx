@@ -489,8 +489,41 @@ describe("checkout order review", () => {
     });
 
     const errorDialog = await screen.findByRole("dialog", { name: "خطا در اتصال به درگاه پرداخت" });
-    expect(within(errorDialog).getByText("خطا در احراز هویت با سرویس ترب‌پی.")).toBeInTheDocument();
+
+    // The gateway's internal wording must never be shown to the customer.
+    expect(within(errorDialog).queryByText("خطا در احراز هویت با سرویس ترب‌پی.")).not.toBeInTheDocument();
+    expect(within(errorDialog).getByText(/مبلغی از حساب شما کسر نشده است/)).toBeInTheDocument();
+    expect(within(errorDialog).getByText(/پرداخت آنلاین از درگاه پرداخت/)).toBeInTheDocument();
     expect(mocks.clearCart).not.toHaveBeenCalled();
+  });
+
+  it("shows the customer-safe gateway explanation sent by the API", async () => {
+    mocks.createOrder.mockResolvedValue({
+      id: "order-guid-safe",
+      number: "TRM-SAFE-001",
+      total: 1000,
+      reservationExpiresAtUtc: new Date().toISOString(),
+    });
+
+    const safeMessage =
+      "پرداخت اقساطی ترب‌پی در حال حاضر در دسترس نیست. می‌توانید همین سفارش را با «پرداخت آنلاین از درگاه پرداخت» نهایی کنید.";
+    mocks.initiatePayment.mockRejectedValue(
+      new ApiError(safeMessage, { status: 400, problem: { detail: safeMessage } })
+    );
+
+    render(<CheckoutPageClient />);
+    const torobRadio = await screen.findByRole("radio", { name: /پرداخت اقساطی با ترب‌پی/ });
+    fireEvent.click(torobRadio);
+
+    fillValidCheckout();
+    fireEvent.click(screen.getByRole("button", { name: "ثبت سفارش" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "بازبینی و تأیید سفارش" });
+    const confirm = within(dialog).getByRole("button", { name: "تأیید و ثبت سفارش" });
+    fireEvent.click(confirm);
+
+    const errorDialog = await screen.findByRole("dialog", { name: "خطا در اتصال به درگاه پرداخت" });
+    expect(within(errorDialog).getByText(safeMessage)).toBeInTheDocument();
   });
 });
 

@@ -76,7 +76,7 @@ public sealed class PaymentController(
             return Problem(
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "خطا در اتصال به درگاه پرداخت",
-                detail: "خطا در برقراری ارتباط با درگاه پرداخت. لطفاً دوباره تلاش کنید.");
+                detail: PaymentCustomerMessages.GatewayUnavailable);
         }
 
         if (!initiateResult.Success || string.IsNullOrWhiteSpace(initiateResult.Authority))
@@ -92,10 +92,12 @@ public sealed class PaymentController(
                 await db.SaveChangesAsync(ct);
             }
 
+            // The gateway's technical reason is logged above and stays out of the customer's dialog:
+            // it can mention merchant credentials, provider error codes or provider jargon.
             return Problem(
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "خطا در اتصال به درگاه پرداخت",
-                detail: initiateResult.ErrorMessage ?? "خطا در اتصال به درگاه پرداخت.");
+                detail: initiateResult.CustomerMessage ?? PaymentCustomerMessages.GatewayUnavailable);
         }
 
         var transaction = new PaymentTransaction(
@@ -224,6 +226,7 @@ public sealed class PaymentController(
 
         // Verification failed
         var failureMsg = verifyResult.ErrorMessage ?? "پرداخت توسط بانک تایید نشد.";
+        var customerFailureMsg = verifyResult.CustomerMessage ?? PaymentCustomerMessages.ZarinPalVerificationFailed;
         logger.LogWarning("Payment verification failed for Order {OrderNumber}, Authority {Authority}: {Error}",
             order.Number, cleanAuthority, failureMsg);
 
@@ -245,9 +248,11 @@ public sealed class PaymentController(
             GetClientIp(),
             ct);
 
+        // The customer sees the safe text only; the technical reason stays in the log and on the
+        // failed transaction record for support.
         return Redirect(BuildStorefrontUrl("/order/failed", [
             ("order", order.Number),
-            ("message", failureMsg)
+            ("message", customerFailureMsg)
         ]));
     }
 
@@ -388,6 +393,7 @@ public sealed class PaymentController(
         }
 
         var failureMsg = verifyResult.ErrorMessage ?? "پرداخت اقساطی توسط درگاه ترب‌پی تأیید نشد.";
+        var customerFailureMsg = verifyResult.CustomerMessage ?? PaymentCustomerMessages.TorobVerificationFailed;
         logger.LogWarning("TorobPay payment verification failed for Order {OrderNumber}: {Error}",
             order.Number, failureMsg);
 
@@ -409,9 +415,11 @@ public sealed class PaymentController(
             GetClientIp(),
             ct);
 
+        // The customer sees the safe text only; the technical reason stays in the log and on the
+        // failed transaction record for support.
         return Redirect(BuildStorefrontUrl("/order/failed", [
             ("order", order.Number),
-            ("message", failureMsg)
+            ("message", customerFailureMsg)
         ]));
     }
 

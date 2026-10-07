@@ -7,19 +7,25 @@ public sealed record TorobEligibilityDto(
     string? TitleMessage,
     string? Description);
 
+/// <param name="ErrorMessage">Technical cause for logs, admin screens and support. Never shown to customers.</param>
+/// <param name="CustomerMessage">Customer-safe explanation for the storefront. Must not contain gateway internals.</param>
 public sealed record PaymentInitiateResponse(
     bool Success,
     string? PaymentUrl,
     string? Authority,
-    string? ErrorMessage);
+    string? ErrorMessage,
+    string? CustomerMessage = null);
 
+/// <param name="ErrorMessage">Technical cause for logs, admin screens and support. Never shown to customers.</param>
+/// <param name="CustomerMessage">Customer-safe explanation for the storefront. Must not contain gateway internals.</param>
 public sealed record PaymentVerificationResult(
     bool Success,
     long? RefId,
     string? CardPan,
     string? CardHash,
     int? Code,
-    string? ErrorMessage);
+    string? ErrorMessage,
+    string? CustomerMessage = null);
 
 public sealed record PaymentTransactionDto(
     Guid Id,

@@ -237,7 +237,19 @@ public sealed class TestTorobPayGatewayService : ITorobPayGatewayService
     {
         if (order.PhoneSnapshot == "09120000000")
         {
-            return Task.FromResult(new PaymentInitiateResponse(false, null, null, "خطا در احراز هویت با سرویس ترب‌پی."));
+            // Mirrors a real TorobPay rejection: technical cause plus the customer-safe wording.
+            return Task.FromResult(new PaymentInitiateResponse(
+                false,
+                null,
+                null,
+                "خطا در احراز هویت با سرویس ترب‌پی: نام کاربری یا رمز عبور ترب‌پی ارسال نشده است.",
+                PaymentCustomerMessages.TorobUnavailable));
+        }
+
+        if (order.PhoneSnapshot == "09120000001")
+        {
+            // Gateway that offers no customer wording: the controller must fall back safely.
+            return Task.FromResult(new PaymentInitiateResponse(false, null, null, "merchant is not authenticated"));
         }
 
         var token = $"torob_{Guid.NewGuid():N}";
