@@ -220,29 +220,182 @@ public sealed class TorobPayGatewayServiceTests
     }
 
     [Fact]
-    public async Task RequestPaymentAsync_MissingClientId_ReturnsDescriptiveConfigError()
+    public async Task RequestPaymentAsync_BlankClientId_FallsBackToBuiltInMerchantCredentials()
     {
+        // A stale or partially populated appsettings file on the server must never produce a
+        // credential-less OAuth request: blank values fall back to the verified merchant defaults.
         var options = Options.Create(new TorobPayOptions
         {
             BaseUrl = "https://cpg.torobpay.com/",
-            ClientId = "", // Missing
+            ClientId = "", // Blank on purpose
             ClientSecret = "secret",
             Username = "user",
             Password = "pwd",
             Enabled = true
         });
 
+        var handler = new TestHttpMessageHandler(async (req, _) =>
+        {
+            if (req.RequestUri!.ToString().Contains("/oauth/token"))
+            {
+                var decoded = Encoding.UTF8.GetString(
+                    Convert.FromBase64String(req.Headers.Authorization!.Parameter!));
+                Assert.Equal($"{TorobPayDefaults.ClientId}:secret", decoded);
+
+                var body = await req.Content!.ReadAsStringAsync();
+                Assert.Contains("\"username\":\"user\"", body);
+                Assert.Contains("\"password\":\"pwd\"", body);
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"access_token": "mock-fallback-token"}""", Encoding.UTF8, "application/json")
+                };
+            }
+
+            if (req.RequestUri.ToString().Contains("/payment/v1/token"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""
+                    {
+                        "successful": true,
+                        "response": {
+                            "paymentToken": "tok_fallback",
+                            "paymentPageUrl": "https://torobpay.com/payment/brief-details?payment_token=tok_fallback"
+                        }
+                    }
+                    """, Encoding.UTF8, "application/json")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
         var customer = new Customer("علی احمدی", "09121112233", "ali@example.com");
         var order = new Order("TRM-1002", customer, "تهران", "تهران", "خیابان آزادی پلاک ۱", "1234567890",
             subtotal: 100_000, discountTotal: 0, shippingTotal: 0, reservationExpiresAtUtc: DateTime.UtcNow.AddMinutes(30));
 
-        using var client = new HttpClient();
+        using var client = new HttpClient(handler);
+        var service = new TorobPayGatewayService(client, options, NullLogger<TorobPayGatewayService>.Instance);
+
+        var result = await service.RequestPaymentAsync(order, "https://termabrand.ir/api/payment/torob/callback");
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.Equal("tok_fallback", result.Authority);
+    }
+
+    [Fact]
+    public async Task RequestPaymentAsync_OAuthRejectedWithoutCredentials_RetriesWithFormEncodedCredentials()
+    {
+        var options = Options.Create(CreateDefaultOptions());
+        var oauthAttempts = 0;
+
+        var handler = new TestHttpMessageHandler(async (req, _) =>
+        {
+            if (req.RequestUri!.ToString().Contains("/oauth/token"))
+            {
+                oauthAttempts++;
+                var mediaType = req.Content!.Headers.ContentType?.MediaType;
+
+                if (oauthAttempts == 1)
+                {
+                    // TorobPay error 1023: the JSON body reached the gateway without credentials.
+                    Assert.Equal("application/json", mediaType);
+
+                    return new HttpResponseMessage(HttpStatusCode.Forbidden)
+                    {
+                        Content = new StringContent(
+                            """{"successful":false,"errorData":{"errorCode":"1023","message":"no username or password","data":{}}}""",
+                            Encoding.UTF8, "application/json")
+                    };
+                }
+
+                // The retry carries the same credentials as form fields and succeeds.
+                Assert.Equal("application/x-www-form-urlencoded", mediaType);
+
+                var retryBody = await req.Content.ReadAsStringAsync();
+                Assert.Contains("username=test_user", retryBody);
+                Assert.Contains("password=test_password", retryBody);
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"access_token": "mock-retry-token"}""", Encoding.UTF8, "application/json")
+                };
+            }
+
+            if (req.RequestUri.ToString().Contains("/payment/v1/token"))
+            {
+                Assert.Equal("Bearer", req.Headers.Authorization?.Scheme);
+                Assert.Equal("mock-retry-token", req.Headers.Authorization?.Parameter);
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""
+                    {
+                        "successful": true,
+                        "response": {
+                            "paymentToken": "tok_retry",
+                            "paymentPageUrl": "https://torobpay.com/payment/brief-details?payment_token=tok_retry"
+                        }
+                    }
+                    """, Encoding.UTF8, "application/json")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var customer = new Customer("علی احمدی", "09121112233", "ali@example.com");
+        var order = new Order("TRM-1007", customer, "تهران", "تهران", "خیابان آزادی پلاک ۱", "1234567890",
+            subtotal: 100_000, discountTotal: 0, shippingTotal: 0, reservationExpiresAtUtc: DateTime.UtcNow.AddMinutes(30));
+
+        using var client = new HttpClient(handler);
+        var service = new TorobPayGatewayService(client, options, NullLogger<TorobPayGatewayService>.Instance);
+
+        var result = await service.RequestPaymentAsync(order, "https://termabrand.ir/api/payment/torob/callback");
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.Equal("tok_retry", result.Authority);
+        Assert.Equal(2, oauthAttempts);
+    }
+
+    [Fact]
+    public async Task RequestPaymentAsync_OAuthReturnsInvalidCredentials_DoesNotRetryWithFormEncoding()
+    {
+        var options = Options.Create(CreateDefaultOptions());
+        var oauthAttempts = 0;
+
+        var handler = new TestHttpMessageHandler((req, _) =>
+        {
+            if (req.RequestUri!.ToString().Contains("/oauth/token"))
+            {
+                oauthAttempts++;
+
+                // 1024 means the credentials arrived but are wrong - retrying with another
+                // encoding cannot help, so exactly one attempt must be made.
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Forbidden)
+                {
+                    Content = new StringContent(
+                        """{"successful":false,"errorData":{"errorCode":"1024","message":"invalid username or password","data":{}}}""",
+                        Encoding.UTF8, "application/json")
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        });
+
+        var customer = new Customer("علی احمدی", "09121112233", "ali@example.com");
+        var order = new Order("TRM-1008", customer, "تهران", "تهران", "خیابان آزادی پلاک ۱", "1234567890",
+            subtotal: 100_000, discountTotal: 0, shippingTotal: 0, reservationExpiresAtUtc: DateTime.UtcNow.AddMinutes(30));
+
+        using var client = new HttpClient(handler);
         var service = new TorobPayGatewayService(client, options, NullLogger<TorobPayGatewayService>.Instance);
 
         var result = await service.RequestPaymentAsync(order, "https://termabrand.ir/api/payment/torob/callback");
 
         Assert.False(result.Success);
-        Assert.Contains("شناسه یا کلید دسترسی", result.ErrorMessage);
+        Assert.Contains("نام کاربری یا رمز عبور", result.ErrorMessage);
+        Assert.Equal(1, oauthAttempts);
     }
 
     [Fact]
