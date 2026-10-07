@@ -21,96 +21,106 @@ public sealed class TorobPayOptions
     public string? CallbackUrl { get; set; }
     public bool Enabled { get; set; } = true;
 
-    private static string Clean(string? value)
+    /// <summary>
+    /// Characters that must never survive inside a resolved credential. They are invisible in
+    /// editors, terminals and chat messages, so credentials copied from the merchant panel or a
+    /// PDF commonly carry them; TorobPay answers such a request with error 1023
+    /// ("no username or password") because the value arrives blank or unusable.
+    /// </summary>
+    private static bool IsInvisible(char value) => value switch
+    {
+        '\u00a0' or '\u200b' or '\u200c' or '\u200d' or '\u200e' or '\u200f' or '\ufeff' => true,
+        >= '\u202a' and <= '\u202e' => true,
+        _ => false
+    };
+
+    internal static string Clean(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return string.Empty;
-        var trimmed = value.Trim().Trim('"', '\'', '`', ' ', '\t', '\r', '\n');
-        if (trimmed.StartsWith("your_", StringComparison.OrdinalIgnoreCase) ||
-            trimmed.StartsWith("ReplaceWith", StringComparison.OrdinalIgnoreCase))
+
+        var builder = new System.Text.StringBuilder(value.Length);
+        foreach (var ch in value)
         {
-            return string.Empty;
+            if (!IsInvisible(ch))
+            {
+                builder.Append(ch);
+            }
         }
-        return trimmed;
+
+        return builder.ToString().Trim().Trim('"', '\'', '`', ' ', '\t', '\r', '\n');
     }
+
+    private string Resolve(string? configuredValue, string[] environmentVariables, string fallback)
+    {
+        var configured = Clean(configuredValue);
+        if (!string.IsNullOrWhiteSpace(configured)) return configured;
+
+        foreach (var name in environmentVariables)
+        {
+            var fromEnvironment = Clean(Environment.GetEnvironmentVariable(name));
+            if (!string.IsNullOrWhiteSpace(fromEnvironment)) return fromEnvironment;
+        }
+
+        return fallback;
+    }
+
+    private string ResolveSource(string? configuredValue, string[] environmentVariables)
+    {
+        if (!string.IsNullOrWhiteSpace(Clean(configuredValue))) return "configuration";
+
+        foreach (var name in environmentVariables)
+        {
+            if (!string.IsNullOrWhiteSpace(Clean(Environment.GetEnvironmentVariable(name)))) return "environment";
+        }
+
+        return "built-in-default";
+    }
+
+    private static readonly string[] BaseUrlVariables = ["PROD_TOROBPAY_BASE_URL", "STAGING_TOROBPAY_BASE_URL", "TOROBPAY_BASE_URL", "TOROB_BASE_URL"];
+    private static readonly string[] ClientIdVariables = ["PROD_TOROBPAY_CLIENT_ID", "STAGING_TOROBPAY_CLIENT_ID", "TOROBPAY_CLIENT_ID", "TOROB_CLIENT_ID"];
+    private static readonly string[] ClientSecretVariables = ["PROD_TOROBPAY_CLIENT_SECRET", "STAGING_TOROBPAY_CLIENT_SECRET", "TOROBPAY_CLIENT_SECRET", "TOROB_CLIENT_SECRET"];
+    private static readonly string[] UsernameVariables = ["PROD_TOROBPAY_USERNAME", "STAGING_TOROBPAY_USERNAME", "TOROBPAY_USERNAME", "TOROB_USERNAME"];
+    private static readonly string[] PasswordVariables = ["PROD_TOROBPAY_PASSWORD", "STAGING_TOROBPAY_PASSWORD", "TOROBPAY_PASSWORD", "TOROB_PASSWORD"];
 
     public string ResolvedBaseUrl
     {
         get
         {
-            var b = Clean(BaseUrl);
-            if (!string.IsNullOrWhiteSpace(b)) return b.TrimEnd('/');
-            foreach (var env in new[] { "PROD_TOROBPAY_BASE_URL", "STAGING_TOROBPAY_BASE_URL", "TOROBPAY_BASE_URL", "TOROB_BASE_URL" })
+            var resolved = Resolve(BaseUrl, BaseUrlVariables, TorobPayDefaults.BaseUrl).TrimEnd('/');
+
+            // Credentials must never travel over plain HTTP: an http:// gateway URL answers with a
+            // 302 redirect, and following it drops the POST body (Browsers/.NET turn it into a GET),
+            // which TorobPay reports as "no username or password".
+            if (resolved.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !IsLoopback(resolved))
             {
-                var val = Clean(Environment.GetEnvironmentVariable(env));
-                if (!string.IsNullOrWhiteSpace(val)) return val.TrimEnd('/');
+                resolved = $"https://{resolved["http://".Length..]}";
             }
-            return TorobPayDefaults.BaseUrl.TrimEnd('/');
+
+            return resolved;
         }
     }
 
-    public string ResolvedClientId
-    {
-        get
-        {
-            var c = Clean(ClientId);
-            if (!string.IsNullOrWhiteSpace(c)) return c;
-            foreach (var env in new[] { "PROD_TOROBPAY_CLIENT_ID", "STAGING_TOROBPAY_CLIENT_ID", "TOROBPAY_CLIENT_ID", "TOROB_CLIENT_ID" })
-            {
-                var val = Clean(Environment.GetEnvironmentVariable(env));
-                if (!string.IsNullOrWhiteSpace(val)) return val;
-            }
-            if (ClientId != null && ClientId.Trim() == "") return string.Empty;
-            return TorobPayDefaults.ClientId;
-        }
-    }
+    private static bool IsLoopback(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+        (uri.IsLoopback || string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase));
 
-    public string ResolvedClientSecret
-    {
-        get
-        {
-            var s = Clean(ClientSecret);
-            if (!string.IsNullOrWhiteSpace(s)) return s;
-            foreach (var env in new[] { "PROD_TOROBPAY_CLIENT_SECRET", "STAGING_TOROBPAY_CLIENT_SECRET", "TOROBPAY_CLIENT_SECRET", "TOROB_CLIENT_SECRET" })
-            {
-                var val = Clean(Environment.GetEnvironmentVariable(env));
-                if (!string.IsNullOrWhiteSpace(val)) return val;
-            }
-            if (ClientSecret != null && ClientSecret.Trim() == "") return string.Empty;
-            return TorobPayDefaults.ClientSecret;
-        }
-    }
+    // A blank configured value must never disable authentication. Resolution order is
+    // configuration -> environment -> the verified built-in merchant credentials, so a stale or
+    // partially populated appsettings file on the server can no longer produce a credential-less
+    // OAuth request. Use TorobPay:Enabled to switch the gateway off.
+    public string ResolvedClientId => Resolve(ClientId, ClientIdVariables, TorobPayDefaults.ClientId);
+    public string ResolvedClientSecret => Resolve(ClientSecret, ClientSecretVariables, TorobPayDefaults.ClientSecret);
+    public string ResolvedUsername => Resolve(Username, UsernameVariables, TorobPayDefaults.Username);
+    public string ResolvedPassword => Resolve(Password, PasswordVariables, TorobPayDefaults.Password);
 
-    public string ResolvedUsername
-    {
-        get
-        {
-            var u = Clean(Username);
-            if (!string.IsNullOrWhiteSpace(u)) return u;
-            foreach (var env in new[] { "PROD_TOROBPAY_USERNAME", "STAGING_TOROBPAY_USERNAME", "TOROBPAY_USERNAME", "TOROB_USERNAME" })
-            {
-                var val = Clean(Environment.GetEnvironmentVariable(env));
-                if (!string.IsNullOrWhiteSpace(val)) return val;
-            }
-            if (Username != null && Username.Trim() == "") return string.Empty;
-            return TorobPayDefaults.Username;
-        }
-    }
-
-    public string ResolvedPassword
-    {
-        get
-        {
-            var p = Clean(Password);
-            if (!string.IsNullOrWhiteSpace(p)) return p;
-            foreach (var env in new[] { "PROD_TOROBPAY_PASSWORD", "STAGING_TOROBPAY_PASSWORD", "TOROBPAY_PASSWORD", "TOROB_PASSWORD" })
-            {
-                var val = Clean(Environment.GetEnvironmentVariable(env));
-                if (!string.IsNullOrWhiteSpace(val)) return val;
-            }
-            if (Password != null && Password.Trim() == "") return string.Empty;
-            return TorobPayDefaults.Password;
-        }
-    }
+    /// <summary>
+    /// Secret-free snapshot of the effective gateway configuration, safe to write to logs. It makes
+    /// a credential problem visible without exposing the merchant secret or password.
+    /// </summary>
+    public string DescribeForDiagnostics() =>
+        $"baseUrl={ResolvedBaseUrl}; clientId={ResolvedClientId} (source={ResolveSource(ClientId, ClientIdVariables)}); " +
+        $"clientSecretLength={ResolvedClientSecret.Length}; username={ResolvedUsername} (source={ResolveSource(Username, UsernameVariables)}); " +
+        $"passwordLength={ResolvedPassword.Length}; enabled={Enabled}";
 
     public string GetTokenUrl() => $"{ResolvedBaseUrl}/api/online/v1/oauth/token";
     public string GetEligibleUrl(long amountInRials) => $"{ResolvedBaseUrl}/api/online/offer/v1/eligible?amount={amountInRials}";
