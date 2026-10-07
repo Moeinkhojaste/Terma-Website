@@ -421,7 +421,7 @@ public sealed class TorobPayGatewayServiceTests
 
         var result = await service.RequestPaymentAsync(order, "https://termabrand.ir/api/payment/torob/callback");
 
-        Assert.True(result.Success);
+        Assert.True(result.Success, result.ErrorMessage);
         Assert.Equal("tok_123", result.Authority);
     }
 

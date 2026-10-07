@@ -61,61 +61,23 @@ public sealed class TorobPayGatewayService(
             logger.LogInformation("Requesting TorobPay OAuth token for ClientId: {ClientId}, Username: {Username} at {Url}",
                 clientId, username, tokenUrl);
 
-            // Attempt 1: Standard OAuth 2.0 Password Grant (RFC 6749) with application/x-www-form-urlencoded
-            HttpResponseMessage res;
-            string content;
-
-            using (var formReq = new HttpRequestMessage(HttpMethod.Post, tokenUrl))
+            using var req = new HttpRequestMessage(HttpMethod.Post, tokenUrl);
+            req.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
+            req.Headers.Accept.Clear();
+            req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            req.Content = JsonContent.Create(new
             {
-                formReq.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
-                formReq.Headers.Accept.Clear();
-                formReq.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                formReq.Content = new FormUrlEncodedContent(new Dictionary<string, string>
-                {
-                    ["grant_type"] = "password",
-                    ["username"] = username,
-                    ["password"] = password,
-                    ["client_id"] = clientId,
-                    ["client_secret"] = clientSecret
-                });
+                username,
+                password
+            });
 
-                res = await httpClient.SendAsync(formReq, cancellationToken);
-                content = await res.Content.ReadAsStringAsync(cancellationToken);
-            }
-
-            // Attempt 2: If form request returns failure (other than 401 Unauthorized), fallback to JSON payload
-            if (!res.IsSuccessStatusCode && res.StatusCode != HttpStatusCode.Unauthorized)
-            {
-                logger.LogInformation("TorobPay form-urlencoded OAuth request returned {StatusCode}. Retrying with JSON payload...", res.StatusCode);
-
-                using var jsonReq = new HttpRequestMessage(HttpMethod.Post, tokenUrl);
-                jsonReq.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
-                jsonReq.Headers.Accept.Clear();
-                jsonReq.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                jsonReq.Content = JsonContent.Create(new
-                {
-                    grant_type = "password",
-                    username,
-                    password
-                });
-
-                var jsonRes = await httpClient.SendAsync(jsonReq, cancellationToken);
-                var jsonContent = await jsonRes.Content.ReadAsStringAsync(cancellationToken);
-
-                if (jsonRes.IsSuccessStatusCode)
-                {
-                    res = jsonRes;
-                    content = jsonContent;
-                }
-            }
+            var res = await httpClient.SendAsync(req, cancellationToken);
+            var content = await res.Content.ReadAsStringAsync(cancellationToken);
 
             if (!res.IsSuccessStatusCode)
             {
                 logger.LogWarning("Failed to retrieve TorobPay OAuth token. Status: {StatusCode}, Response: {Response}", res.StatusCode, content);
-                var error = (int)res.StatusCode == 403
-                    ? "خطا در احراز هویت با سرویس ترب‌پی (کد 403): دسترسی به درگاه پرداخت رد شد. لطفاً نام کاربری و شناسه فروشگاه را بررسی فرمایید."
-                    : $"خطا در احراز هویت با سرویس ترب‌پی (کد {(int)res.StatusCode}).";
-
+                var error = $"خطا در احراز هویت با سرویس ترب‌پی (کد {(int)res.StatusCode}).";
                 try
                 {
                     using var docErr = JsonDocument.Parse(content);
