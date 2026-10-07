@@ -289,48 +289,55 @@ export function AdminVariantsPage() {
                   <td>
                     <strong>{x.title}</strong>
                   </td>
-                  <td>{x.tableCapacity} نفره</td>
                   <td>
-                    {x.length} × {x.width} سانتی‌متر
+                    <span className="admin-category-badge">{x.tableCapacity} نفره</span>
+                  </td>
+                  <td>
+                    <span className="admin-dim-chip">{x.length} × {x.width} سانتی‌متر</span>
                   </td>
                   <td>
                     {x.compareAtPrice && x.compareAtPrice > x.price ? (
-                      <div>
-                        <s style={{ opacity: 0.65, fontSize: "0.85em" }}>{formatPrice(x.compareAtPrice)}</s>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem", whiteSpace: "nowrap" }}>
+                        <s style={{ opacity: 0.65, fontSize: "0.82em", color: "var(--color-muted, #716b64)" }}>
+                          {formatPrice(x.compareAtPrice)}
+                        </s>
                         <div>
                           <strong>{formatPrice(x.price)}</strong>
                         </div>
                       </div>
                     ) : (
-                      formatPrice(x.price)
+                      <strong style={{ whiteSpace: "nowrap" }}>{formatPrice(x.price)}</strong>
                     )}
                   </td>
                   <td>
                     {x.reservedQuantity > 0 ? (
                       <div>
-                        <strong style={{ color: "var(--color-primary, #047857)" }}>
-                          {x.availableQuantity} عدد قابل فروش
-                        </strong>
-                        <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: "2px" }}>
+                        <span className="admin-stock-badge admin-stock-badge--success">
+                          {x.availableQuantity} عدد آزاد
+                        </span>
+                        <div style={{ fontSize: "0.76rem", color: "var(--color-text-muted, #716b64)", marginTop: "3px", whiteSpace: "nowrap" }}>
                           (کل انبار: {x.stockQuantity} | رزرو شده: {x.reservedQuantity})
                         </div>
                       </div>
+                    ) : x.stockQuantity > 0 ? (
+                      <span className="admin-stock-badge admin-stock-badge--success">
+                        {x.stockQuantity} عدد موجود
+                      </span>
                     ) : (
-                      <div>
-                        <strong>{x.stockQuantity} عدد</strong>
-                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", display: "block" }}>
-                          (تماماً قابل فروش)
-                        </span>
-                      </div>
+                      <span className="admin-stock-badge admin-stock-badge--danger">
+                        ناموجود (۰ عدد)
+                      </span>
                     )}
                   </td>
-                  <td dir="ltr">{x.sku}</td>
+                  <td>
+                    <span className="admin-sku-chip">{x.sku}</span>
+                  </td>
                   <td>
                     <div className="admin-row-actions">
                       <button type="button" onClick={() => startEdit(x)}>
                         ویرایش
                       </button>
-                      <button type="button" onClick={() => remove(x.id)}>
+                      <button type="button" className="admin-btn--danger" onClick={() => remove(x.id)}>
                         حذف
                       </button>
                     </div>

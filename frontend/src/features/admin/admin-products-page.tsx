@@ -1,10 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { AdminShell } from "@/features/admin/admin-shell";
 import { apiRequest, getApiErrorMessage } from "@/lib/api-client";
 import { formatPrice } from "@/lib/format";
+import { resolveCmsMediaUrl } from "@/features/content/cms-renderer";
 import type { CategoryDto, PagedResponse, ProductDto } from "@/features/products/models";
 import { getVariants, createVariant, updateVariant, deleteVariant, type ProductVariant } from "@/features/admin/store-api";
 
@@ -50,6 +52,8 @@ export function AdminProductsPage() {
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   const load = useCallback(() => {
     return Promise.all([
@@ -254,6 +258,17 @@ export function AdminProductsPage() {
     return item.availableQuantity ?? item.stockQuantity ?? 0;
   }
 
+  const filteredItems = items.filter((x) => {
+    const matchesCategory = selectedCategory === "all" || x.categoryId === selectedCategory;
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return matchesCategory;
+    const matchesName = x.name?.toLowerCase().includes(query);
+    const matchesSku = x.sku?.toLowerCase().includes(query);
+    const matchesPattern = x.pattern?.toLowerCase().includes(query);
+    const matchesColor = x.color?.toLowerCase().includes(query);
+    return matchesCategory && Boolean(matchesName || matchesSku || matchesPattern || matchesColor);
+  });
+
   return (
     <AdminShell title="مدیریت کاتالوگ و گروه محصولات">
       <div className="admin-products-layout">
@@ -341,65 +356,81 @@ export function AdminProductsPage() {
                 <p className="section-eyebrow">مدیریت ابعاد و ظرفیت‌ها</p>
                 <h2>ظرفیت‌های فعال این گروه محصول</h2>
               </div>
-              <span className="status-pill">{variants.length} ظرفیت ثبت‌شده</span>
+              <span className="status-pill status-pill--success">{variants.length} ظرفیت ثبت‌شده</span>
             </div>
 
-            <table className="admin-table" style={{ marginBottom: "1.5rem" }}>
-              <thead>
-                <tr>
-                  <th>عنوان ظرفیت</th>
-                  <th>ابعاد (طول × عرض)</th>
-                  <th>قیمت فروش</th>
-                  <th>وضعیت موجودی انبار</th>
-                  <th>SKU</th>
-                  <th>عملیات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {variants.map((v) => (
-                  <tr key={v.id}>
-                    <td><strong>{v.title}</strong> ({v.tableCapacity} نفره)</td>
-                    <td>{v.length} × {v.width} سانتی‌متر</td>
-                    <td>
-                      {v.compareAtPrice && v.compareAtPrice > v.price ? (
-                        <div>
-                          <s style={{ opacity: 0.65, fontSize: "0.85em" }}>{formatPrice(v.compareAtPrice)}</s>
-                          <div><strong>{formatPrice(v.price)}</strong></div>
-                        </div>
-                      ) : (
-                        formatPrice(v.price)
-                      )}
-                    </td>
-                    <td>
-                      {v.reservedQuantity > 0 ? (
-                        <div>
-                          <strong style={{ color: "var(--color-primary, #047857)" }}>
-                            {v.availableQuantity} عدد قابل فروش
-                          </strong>
-                          <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: "2px" }}>
-                            (کل انبار: {v.stockQuantity} | رزرو: {v.reservedQuantity})
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <strong>{v.stockQuantity} عدد</strong>
-                          <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", display: "block" }}>
-                            (تماماً قابل فروش)
-                          </span>
-                        </div>
-                      )}
-                    </td>
-                    <td dir="ltr">{v.sku}</td>
-                    <td>
-                      <div className="admin-row-actions">
-                        <button type="button" onClick={() => startEditVariant(v)}>ویرایش</button>
-                        <button type="button" onClick={() => removeVariant(v.id)}>حذف</button>
-                      </div>
-                    </td>
+            <div className="admin-table-wrap">
+              <table className="admin-table" style={{ marginBottom: "1rem" }}>
+                <thead>
+                  <tr>
+                    <th>عنوان ظرفیت</th>
+                    <th>ابعاد (طول × عرض)</th>
+                    <th>قیمت فروش</th>
+                    <th>وضعیت موجودی انبار</th>
+                    <th>SKU</th>
+                    <th>عملیات</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {variants.map((v) => (
+                    <tr key={v.id}>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
+                          <strong>{v.title}</strong>
+                          <span className="admin-category-badge">{v.tableCapacity} نفره</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="admin-dim-chip">{v.length} × {v.width} سانتی‌متر</span>
+                      </td>
+                      <td>
+                        {v.compareAtPrice && v.compareAtPrice > v.price ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem", whiteSpace: "nowrap" }}>
+                            <s style={{ opacity: 0.65, fontSize: "0.82em", color: "var(--color-muted, #716b64)" }}>
+                              {formatPrice(v.compareAtPrice)}
+                            </s>
+                            <div>
+                              <strong>{formatPrice(v.price)}</strong>
+                            </div>
+                          </div>
+                        ) : (
+                          <strong style={{ whiteSpace: "nowrap" }}>{formatPrice(v.price)}</strong>
+                        )}
+                      </td>
+                      <td>
+                        {v.reservedQuantity > 0 ? (
+                          <div>
+                            <span className="admin-stock-badge admin-stock-badge--success">
+                              {v.availableQuantity} عدد آزاد
+                            </span>
+                            <div style={{ fontSize: "0.76rem", color: "var(--color-text-muted, #716b64)", marginTop: "3px", whiteSpace: "nowrap" }}>
+                              (کل: {v.stockQuantity} | رزرو: {v.reservedQuantity})
+                            </div>
+                          </div>
+                        ) : v.stockQuantity > 0 ? (
+                          <span className="admin-stock-badge admin-stock-badge--success">
+                            {v.stockQuantity} عدد موجود
+                          </span>
+                        ) : (
+                          <span className="admin-stock-badge admin-stock-badge--danger">
+                            ناموجود (۰ عدد)
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <span className="admin-sku-chip">{v.sku}</span>
+                      </td>
+                      <td>
+                        <div className="admin-row-actions">
+                          <button type="button" onClick={() => startEditVariant(v)}>ویرایش</button>
+                          <button type="button" className="admin-btn--danger" onClick={() => removeVariant(v.id)}>حذف</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             {variants.length === 0 && (
               <div className="admin-empty" style={{ marginBottom: "1rem" }}>
@@ -408,19 +439,19 @@ export function AdminProductsPage() {
             )}
 
             {/* In-place Form to Add / Edit Variant */}
-            <form onSubmit={submitVariant} style={{ background: "var(--color-surface)", padding: "1rem", borderRadius: "8px", border: "1px solid var(--color-border)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                <h3 style={{ margin: 0, fontSize: "1.05rem" }}>
-                  {editingVariantId ? "ویرایش مشخصات ظرفیت" : "افزودن ظرفیت جدید به این محصول"}
+            <form onSubmit={submitVariant} className="admin-capacity-form-box">
+              <div className="admin-capacity-form-box__heading">
+                <h3>
+                  {editingVariantId ? "✏️ ویرایش مشخصات ظرفیت" : "➕ افزودن ظرفیت جدید به این محصول"}
                 </h3>
                 {editingVariantId && (
-                  <button type="button" className="button button--secondary" onClick={resetVariantForm}>
-                    لغو
+                  <button type="button" className="button button--secondary" onClick={resetVariantForm} style={{ minHeight: "2rem", padding: "0.25rem 0.75rem", fontSize: "0.82rem" }}>
+                    لغو ویرایش
                   </button>
                 )}
               </div>
 
-              <div className="form-grid">
+              <div className="admin-capacity-grid">
                 <label className="form-field">
                   <span>ظرفیت میز</span>
                   <select
@@ -447,7 +478,7 @@ export function AdminProductsPage() {
                 <Field label="طول (سانتی‌متر)" value={variantForm.length} onChange={(v) => setVariantForm((x) => ({ ...x, length: v }))} required />
                 <Field label="عرض (سانتی‌متر)" value={variantForm.width} onChange={(v) => setVariantForm((x) => ({ ...x, width: v }))} required />
                 <Field label="قیمت فروش (تومان)" value={variantForm.price} onChange={(v) => setVariantForm((x) => ({ ...x, price: v }))} type="number" required />
-                <Field label="قیمت اصلی / قبل از تخفیف (تومان)" value={variantForm.compareAtPrice} onChange={(v) => setVariantForm((x) => ({ ...x, compareAtPrice: v }))} type="number" placeholder="اختیاری جهت تخفیف" />
+                <Field label="قیمت اصلی قبل تخفیف" value={variantForm.compareAtPrice} onChange={(v) => setVariantForm((x) => ({ ...x, compareAtPrice: v }))} type="number" placeholder="اختیاری جهت تخفیف" />
                 <Field
                   label="موجودی کل انبار (فیزیکی)"
                   value={variantForm.stockQuantity}
@@ -463,16 +494,16 @@ export function AdminProductsPage() {
                             return (
                               <div
                                 style={{
-                                  fontSize: "0.8rem",
+                                  fontSize: "0.78rem",
                                   color: "var(--color-warning, #b45309)",
                                   background: "rgba(245, 158, 11, 0.08)",
-                                  padding: "0.4rem 0.6rem",
+                                  padding: "0.35rem 0.5rem",
                                   borderRadius: "6px",
                                   marginTop: "0.35rem",
                                   border: "1px solid rgba(245, 158, 11, 0.25)",
                                 }}
                               >
-                                ⚠️ <strong>{cur.reservedQuantity} عدد</strong> در سفارش‌های در انتظار رزرو است (موجودی آزاد قابل فروش: <strong>{cur.availableQuantity} عدد</strong>).
+                                ⚠️ <strong>{cur.reservedQuantity} عدد</strong> رزرو در سفارش‌ها (آزاد: <strong>{cur.availableQuantity}</strong>).
                               </div>
                             );
                           }
@@ -481,12 +512,14 @@ export function AdminProductsPage() {
                       : undefined
                   }
                 />
-                <Field label="SKU اختصاصی این ظرفیت" value={variantForm.sku} onChange={(v) => setVariantForm((x) => ({ ...x, sku: v }))} required dir="ltr" />
+                <Field label="SKU این ظرفیت" value={variantForm.sku} onChange={(v) => setVariantForm((x) => ({ ...x, sku: v }))} required dir="ltr" />
               </div>
 
-              <button className="button button--secondary" disabled={pending} type="submit" style={{ marginTop: "1rem" }}>
-                {pending ? "در حال ثبت…" : editingVariantId ? "ذخیره تغییرات ظرفیت" : "افزودن این ظرفیت"}
-              </button>
+              <div style={{ marginTop: "1rem", display: "flex", justifyContent: "flex-end" }}>
+                <button className="button button--secondary" disabled={pending} type="submit">
+                  {pending ? "در حال ثبت…" : editingVariantId ? "ذخیره تغییرات ظرفیت" : "افزودن این ظرفیت"}
+                </button>
+              </div>
             </form>
           </div>
         )}
@@ -498,7 +531,44 @@ export function AdminProductsPage() {
               <p className="section-eyebrow">مدیریت کاتالوگ</p>
               <h2>گروه‌های محصول فعال</h2>
             </div>
-            <span className="status-pill">{items.length} مورد</span>
+            <span className="status-pill status-pill--success">{filteredItems.length} مورد</span>
+          </div>
+
+          {/* Catalog Toolbar: Search and Filter */}
+          <div className="admin-catalog-toolbar">
+            <div className="admin-search-input">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="search"
+                placeholder="جستجو در نام محصول، SKU یا طرح…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <label style={{ fontSize: "0.82rem", color: "var(--muted)", whiteSpace: "nowrap" }}>دسته:</label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                style={{
+                  minHeight: "2.35rem",
+                  padding: "0.2rem 0.6rem",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--line)",
+                  background: "#fff",
+                  fontSize: "0.85rem",
+                }}
+              >
+                <option value="all">همه دسته‌ها ({items.length})</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <table className="admin-table">
@@ -513,35 +583,68 @@ export function AdminProductsPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((x) => {
+              {filteredItems.map((x) => {
                 const totalStock = calculateTotalStock(x);
+                const primaryMedia = x.media?.find((m) => m.isPrimary)?.publicUrl || x.media?.[0]?.publicUrl;
                 return (
                   <tr key={x.id}>
                     <td>
-                      <strong>{x.name}</strong>
-                      <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
-                        رنگ: {x.color} | طرح: {x.pattern}
+                      <div className="admin-product-cell">
+                        <div className="admin-product-cell__thumb">
+                          {primaryMedia ? (
+                            <Image src={resolveCmsMediaUrl(primaryMedia)} alt={x.name} fill sizes="44px" unoptimized />
+                          ) : (
+                            <span>ت</span>
+                          )}
+                        </div>
+                        <div className="admin-product-cell__meta">
+                          <span className="admin-product-cell__title">{x.name}</span>
+                          <div className="admin-product-cell__sub">
+                            {x.color && <span className="admin-chip">رنگ: {x.color}</span>}
+                            {x.pattern && <span className="admin-chip">طرح: {x.pattern}</span>}
+                          </div>
+                        </div>
                       </div>
                     </td>
-                    <td dir="ltr">{x.sku}</td>
-                    <td>{x.categoryName}</td>
+                    <td>
+                      <span className="admin-sku-chip">{x.sku}</span>
+                    </td>
+                    <td>
+                      <span className="admin-category-badge">{x.categoryName}</span>
+                    </td>
                     <td>
                       {x.compareAtPrice ? (
-                        <div>
-                          <s style={{ opacity: 0.65, fontSize: "0.85em" }}>{formatPrice(x.compareAtPrice)}</s>
-                          <div>
-                            <strong>{formatPrice(x.price)}</strong>{" "}
-                            <span className="status-pill status-pill--danger" style={{ marginRight: "4px", fontSize: "0.75rem" }}>
-                              {x.discountPercent}% تخفیف
-                            </span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem", whiteSpace: "nowrap" }}>
+                          <s style={{ opacity: 0.65, fontSize: "0.82em", color: "var(--color-muted, #716b64)" }}>
+                            {formatPrice(x.compareAtPrice)}
+                          </s>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                            <strong>{formatPrice(x.price)}</strong>
+                            {x.discountPercent ? (
+                              <span className="status-pill status-pill--danger" style={{ fontSize: "0.72rem", padding: "0.1rem 0.4rem" }}>
+                                {x.discountPercent}% تخفیف
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       ) : (
-                        formatPrice(x.price)
+                        <strong style={{ whiteSpace: "nowrap" }}>{formatPrice(x.price)}</strong>
                       )}
                     </td>
-                    <td className={totalStock < 2 ? "stock-low" : ""}>
-                      <strong>{totalStock} عدد</strong>
+                    <td>
+                      {totalStock > 2 ? (
+                        <span className="admin-stock-badge admin-stock-badge--success">
+                          {totalStock} عدد
+                        </span>
+                      ) : totalStock > 0 ? (
+                        <span className="admin-stock-badge admin-stock-badge--warning stock-low">
+                          {totalStock} عدد (موجودی کم)
+                        </span>
+                      ) : (
+                        <span className="admin-stock-badge admin-stock-badge--danger stock-low">
+                          ۰ عدد (ناموجود)
+                        </span>
+                      )}
                     </td>
                     <td>
                       <div className="admin-row-actions">
@@ -550,7 +653,7 @@ export function AdminProductsPage() {
                         </button>
                         <Link href={`/admin/products/${x.id}/variants`}>ظرفیت‌ها</Link>
                         <Link href={`/admin/products/${x.id}/media`}>گالری تصاویر</Link>
-                        <button type="button" onClick={() => removeProduct(x.id)}>
+                        <button type="button" className="admin-btn--danger" onClick={() => removeProduct(x.id)}>
                           غیرفعال
                         </button>
                       </div>
@@ -560,7 +663,11 @@ export function AdminProductsPage() {
               })}
             </tbody>
           </table>
-          {items.length === 0 && <div className="admin-empty">محصول فعالی وجود ندارد.</div>}
+          {filteredItems.length === 0 && (
+            <div className="admin-empty">
+              {searchQuery || selectedCategory !== "all" ? "موردی با این فیلترها یافت نشد." : "محصول فعالی وجود ندارد."}
+            </div>
+          )}
         </div>
       </div>
     </AdminShell>
