@@ -359,7 +359,7 @@ export function AdminProductsPage() {
               <span className="status-pill status-pill--success">{variants.length} ظرفیت ثبت‌شده</span>
             </div>
 
-            <div className="admin-table-wrap">
+            <div className="admin-table-scroll">
               <table className="admin-table" style={{ marginBottom: "1rem" }}>
                 <thead>
                   <tr>
@@ -571,98 +571,100 @@ export function AdminProductsPage() {
             </div>
           </div>
 
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>گروه محصول</th>
-                <th>SKU</th>
-                <th>دسته</th>
-                <th>قیمت</th>
-                <th>موجودی کل (تمام ظرفیت‌ها)</th>
-                <th>عملیات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.map((x) => {
-                const totalStock = calculateTotalStock(x);
-                const primaryMedia = x.media?.find((m) => m.isPrimary)?.publicUrl || x.media?.[0]?.publicUrl;
-                return (
-                  <tr key={x.id}>
-                    <td data-label="گروه محصول">
-                      <div className="admin-product-cell">
-                        <div className="admin-product-cell__thumb">
-                          {primaryMedia ? (
-                            <Image src={resolveCmsMediaUrl(primaryMedia)} alt={x.name} fill sizes="44px" unoptimized />
-                          ) : (
-                            <span>ت</span>
-                          )}
-                        </div>
-                        <div className="admin-product-cell__meta">
-                          <span className="admin-product-cell__title">{x.name}</span>
-                          <div className="admin-product-cell__sub">
-                            {x.color && <span className="admin-chip">رنگ: {x.color}</span>}
-                            {x.pattern && <span className="admin-chip">طرح: {x.pattern}</span>}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td data-label="SKU">
-                      <span className="admin-sku-chip">{x.sku}</span>
-                    </td>
-                    <td data-label="دسته">
-                      <span className="admin-category-badge">{x.categoryName}</span>
-                    </td>
-                    <td data-label="قیمت">
-                      {x.compareAtPrice ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem", whiteSpace: "nowrap" }}>
-                          <s style={{ opacity: 0.65, fontSize: "0.82em", color: "var(--color-muted, #716b64)" }}>
-                            {formatPrice(x.compareAtPrice)}
-                          </s>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                            <strong>{formatPrice(x.price)}</strong>
-                            {x.discountPercent ? (
-                              <span className="status-pill status-pill--danger" style={{ fontSize: "0.72rem", padding: "0.1rem 0.4rem" }}>
-                                {x.discountPercent}% تخفیف
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
+          <div className="admin-catalog-list">
+            {filteredItems.map((x) => {
+              const totalStock = calculateTotalStock(x);
+              const primaryMedia = x.media?.find((m) => m.isPrimary)?.publicUrl || x.media?.[0]?.publicUrl;
+              const variantCount = x.variants?.filter((v) => v.isActive !== false).length ?? 0;
+              return (
+                <article className="admin-catalog-row" key={x.id}>
+                  <div className="admin-catalog-row__head">
+                    <div className="admin-product-cell__thumb">
+                      {primaryMedia ? (
+                        <Image src={resolveCmsMediaUrl(primaryMedia)} alt={x.name} fill sizes="44px" unoptimized />
                       ) : (
-                        <strong style={{ whiteSpace: "nowrap" }}>{formatPrice(x.price)}</strong>
+                        <span>ت</span>
                       )}
-                    </td>
-                    <td data-label="موجودی کل">
-                      {totalStock > 2 ? (
-                        <span className="admin-stock-badge admin-stock-badge--success">
-                          {totalStock} عدد
+                    </div>
+                    <div className="admin-product-cell__meta">
+                      <span className="admin-product-cell__title">{x.name}</span>
+                    </div>
+                  </div>
+
+                  <div className="admin-row-actions">
+                    <button type="button" onClick={() => startEditProduct(x)}>
+                      ویرایش گروه و ظرفیت‌ها
+                    </button>
+                    <Link href={`/admin/products/${x.id}/variants`}>ظرفیت‌ها</Link>
+                    <Link href={`/admin/products/${x.id}/media`}>گالری تصاویر</Link>
+                    <button type="button" className="admin-btn--danger" onClick={() => removeProduct(x.id)}>
+                      غیرفعال
+                    </button>
+                  </div>
+
+                  <dl className="admin-catalog-row__facts">
+                    <div className="admin-fact">
+                      <dt>کد (SKU)</dt>
+                      <dd>
+                        <span className="admin-sku-chip">{x.sku}</span>
+                      </dd>
+                    </div>
+                    <div className="admin-fact">
+                      <dt>دسته</dt>
+                      <dd>
+                        <span className="admin-category-badge">{x.categoryName}</span>
+                      </dd>
+                    </div>
+                    <div className="admin-fact">
+                      <dt>قیمت</dt>
+                      <dd>
+                        {x.compareAtPrice && x.compareAtPrice > x.price ? (
+                          <s className="admin-price-compare">{formatPrice(x.compareAtPrice)}</s>
+                        ) : null}
+                        <strong>{formatPrice(x.price)}</strong>
+                        {x.discountPercent ? (
+                          <span className="status-pill status-pill--danger">{x.discountPercent}% تخفیف</span>
+                        ) : null}
+                      </dd>
+                    </div>
+                    <div className="admin-fact">
+                      <dt>موجودی کل</dt>
+                      <dd>
+                        {totalStock > 2 ? (
+                          <span className="admin-stock-badge admin-stock-badge--success">{totalStock} عدد</span>
+                        ) : totalStock > 0 ? (
+                          <span className="admin-stock-badge admin-stock-badge--warning stock-low">
+                            {totalStock} عدد (موجودی کم)
+                          </span>
+                        ) : (
+                          <span className="admin-stock-badge admin-stock-badge--danger stock-low">۰ عدد (ناموجود)</span>
+                        )}
+                        <span className="admin-fact__note">
+                          {variantCount > 0 ? `${variantCount} ظرفیت` : "ظرفیت پیش‌فرض"}
                         </span>
-                      ) : totalStock > 0 ? (
-                        <span className="admin-stock-badge admin-stock-badge--warning stock-low">
-                          {totalStock} عدد (موجودی کم)
-                        </span>
-                      ) : (
-                        <span className="admin-stock-badge admin-stock-badge--danger stock-low">
-                          ۰ عدد (ناموجود)
-                        </span>
-                      )}
-                    </td>
-                    <td data-label="عملیات">
-                      <div className="admin-row-actions">
-                        <button type="button" onClick={() => startEditProduct(x)}>
-                          ویرایش گروه و ظرفیت‌ها
-                        </button>
-                        <Link href={`/admin/products/${x.id}/variants`}>ظرفیت‌ها</Link>
-                        <Link href={`/admin/products/${x.id}/media`}>گالری تصاویر</Link>
-                        <button type="button" className="admin-btn--danger" onClick={() => removeProduct(x.id)}>
-                          غیرفعال
-                        </button>
+                      </dd>
+                    </div>
+                    {x.color && (
+                      <div className="admin-fact">
+                        <dt>رنگ</dt>
+                        <dd>
+                          <span className="admin-chip admin-chip--truncate">{x.color}</span>
+                        </dd>
                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    )}
+                    {x.pattern && (
+                      <div className="admin-fact">
+                        <dt>طرح</dt>
+                        <dd>
+                          <span className="admin-chip">{x.pattern}</span>
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </article>
+              );
+            })}
+          </div>
           {filteredItems.length === 0 && (
             <div className="admin-empty">
               {searchQuery || selectedCategory !== "all" ? "موردی با این فیلترها یافت نشد." : "محصول فعالی وجود ندارد."}
