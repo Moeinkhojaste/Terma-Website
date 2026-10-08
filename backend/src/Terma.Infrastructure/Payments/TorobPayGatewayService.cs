@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -124,6 +123,17 @@ public sealed class TorobPayGatewayService(
         }
     }
 
+    /// <summary>
+    /// JSON body that is serialized up front, so the request carries a known <c>Content-Length</c>.
+    /// <see cref="System.Net.Http.Json.JsonContent"/> streams the payload instead, which makes .NET
+    /// send <c>Transfer-Encoding: chunked</c>; the TorobPay gateway discards a chunked body and then
+    /// answers 1023 ("no username or password") on OAuth or 1003 with every field reported as
+    /// required on the payment endpoints. Content framing, not our payload, must never be the reason
+    /// a payment fails.
+    /// </summary>
+    private static StringContent BufferedJson<T>(T value) =>
+        new(JsonSerializer.Serialize(value, JsonOpts), Encoding.UTF8, "application/json");
+
     private async Task<(HttpStatusCode StatusCode, string Content)> SendTokenRequestAsync(
         string tokenUrl,
         string clientId,
@@ -145,7 +155,7 @@ public sealed class TorobPayGatewayService(
                 ["username"] = username,
                 ["password"] = password
             })
-            : JsonContent.Create(new
+            : BufferedJson(new
             {
                 username,
                 password
@@ -300,7 +310,7 @@ public sealed class TorobPayGatewayService(
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             req.Headers.Accept.Clear();
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            req.Content = JsonContent.Create(payload, options: JsonOpts);
+            req.Content = BufferedJson(payload);
 
             logger.LogInformation("Sending TorobPay payment token request for Order {OrderNumber}, Amount: {Amount} Rials",
                 order.Number, amountInRials);
@@ -322,7 +332,7 @@ public sealed class TorobPayGatewayService(
                 retryReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", freshToken);
                 retryReq.Headers.Accept.Clear();
                 retryReq.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                retryReq.Content = JsonContent.Create(payload, options: JsonOpts);
+                retryReq.Content = BufferedJson(payload);
 
                 res = await httpClient.SendAsync(retryReq, cancellationToken);
                 content = await res.Content.ReadAsStringAsync(cancellationToken);
@@ -375,7 +385,7 @@ public sealed class TorobPayGatewayService(
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             req.Headers.Accept.Clear();
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            req.Content = JsonContent.Create(new { paymentToken }, options: JsonOpts);
+            req.Content = BufferedJson(new { paymentToken });
 
             logger.LogInformation("Sending TorobPay verify request for PaymentToken: {PaymentToken}", paymentToken);
 
@@ -397,7 +407,7 @@ public sealed class TorobPayGatewayService(
                 retryReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", freshToken);
                 retryReq.Headers.Accept.Clear();
                 retryReq.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                retryReq.Content = JsonContent.Create(new { paymentToken }, options: JsonOpts);
+                retryReq.Content = BufferedJson(new { paymentToken });
 
                 res = await httpClient.SendAsync(retryReq, cancellationToken);
                 content = await res.Content.ReadAsStringAsync(cancellationToken);
@@ -454,7 +464,7 @@ public sealed class TorobPayGatewayService(
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             req.Headers.Accept.Clear();
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            req.Content = JsonContent.Create(new { paymentToken }, options: JsonOpts);
+            req.Content = BufferedJson(new { paymentToken });
 
             logger.LogInformation("Sending TorobPay settle request for PaymentToken: {PaymentToken}", paymentToken);
 
@@ -497,7 +507,7 @@ public sealed class TorobPayGatewayService(
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             req.Headers.Accept.Clear();
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            req.Content = JsonContent.Create(new { paymentToken }, options: JsonOpts);
+            req.Content = BufferedJson(new { paymentToken });
 
             logger.LogInformation("Sending TorobPay revert request for PaymentToken: {PaymentToken}", paymentToken);
 
