@@ -662,6 +662,129 @@ public sealed class TorobPayGatewayServiceTests
         Assert.Null(result.ErrorMessage);
     }
 
+    [Fact]
+    public async Task RequestPaymentAsync_GatewayDropsChunkedBodies_StillSendsIntactCredentialAndOrderPayloads()
+    {
+        // The live TorobPay gateway discards a request body that arrives without a Content-Length
+        // (Transfer-Encoding: chunked): OAuth then answers 1023 "no username or password" and the
+        // payment endpoints answer 1003 with every field reported as required. This double
+        // reproduces that behaviour, so a return to a streamed body fails here instead of in
+        // production.
+        const string chunkedRejection =
+            """{"successful":false,"errorData":{"errorCode":"1023","message":"no username or password","data":{}}}""";
+
+        var options = Options.Create(CreateDefaultOptions());
+        var oauthAttempts = 0;
+        string? paymentBody = null;
+
+        var handler = new TestHttpMessageHandler(async (req, _) =>
+        {
+            if (req.Content?.Headers.ContentLength is null)
+            {
+                return new HttpResponseMessage(HttpStatusCode.Forbidden)
+                {
+                    Content = new StringContent(chunkedRejection, Encoding.UTF8, "application/json")
+                };
+            }
+
+            var url = req.RequestUri!.ToString();
+
+            if (url.Contains("/oauth/token"))
+            {
+                oauthAttempts++;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"access_token": "mock-buffered-token"}""", Encoding.UTF8, "application/json")
+                };
+            }
+
+            if (url.Contains("/payment/v1/token"))
+            {
+                paymentBody = await req.Content!.ReadAsStringAsync();
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        """{"successful":true,"response":{"paymentToken":"tok_buffered","paymentPageUrl":"https://torobpay.com/payment/brief-details?payment_token=tok_buffered"}}""",
+                        Encoding.UTF8, "application/json")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var customer = new Customer("علی احمدی", "09121112233", "ali@example.com");
+        var order = new Order("TRM-1011", customer, "تهران", "تهران", "خیابان آزادی پلاک ۱", "1234567890",
+            subtotal: 100_000, discountTotal: 0, shippingTotal: 0, reservationExpiresAtUtc: DateTime.UtcNow.AddMinutes(30));
+
+        using var client = new HttpClient(handler);
+        var service = new TorobPayGatewayService(client, options, NullLogger<TorobPayGatewayService>.Instance);
+
+        var result = await service.RequestPaymentAsync(order, "https://termabrand.ir/api/payment/torob/callback");
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.Equal("tok_buffered", result.Authority);
+
+        // One attempt: the JSON credentials are buffered, so the form-urlencoded fallback is not needed.
+        Assert.Equal(1, oauthAttempts);
+
+        // The order payload reaches the gateway complete.
+        Assert.NotNull(paymentBody);
+        Assert.Contains("\"amount\":1000000", paymentBody);
+        Assert.Contains("\"paymentMethodTypeDto\":\"ONLINE_CREDIT\"", paymentBody);
+        Assert.Contains("\"returnURL\":\"https://termabrand.ir/api/payment/torob/callback\"", paymentBody);
+        Assert.Contains("\"cartList\"", paymentBody);
+    }
+
+    [Fact]
+    public async Task VerifySettleAndRevert_GatewayDropsChunkedBodies_StillSendBufferedPaymentToken()
+    {
+        // Verification, settle and revert carry the payment token in a JSON body too; a chunked body
+        // would be dropped there as well, which would leave a paid order unconfirmed.
+        var options = Options.Create(CreateDefaultOptions());
+        var bodies = new List<string>();
+
+        var handler = new TestHttpMessageHandler(async (req, _) =>
+        {
+            var url = req.RequestUri!.ToString();
+
+            if (url.Contains("/oauth/token"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"access_token": "mock-buffered-token"}""", Encoding.UTF8, "application/json")
+                };
+            }
+
+            if (req.Content?.Headers.ContentLength is null)
+            {
+                return new HttpResponseMessage(HttpStatusCode.BadRequest)
+                {
+                    Content = new StringContent(
+                        """{"successful":false,"errorData":{"errorCode":"1003","message":"invalid input","data":{"paymentToken":["This field is required."]}}}""",
+                        Encoding.UTF8, "application/json")
+                };
+            }
+
+            bodies.Add(await req.Content!.ReadAsStringAsync());
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"successful":true,"response":{}}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        using var client = new HttpClient(handler);
+        var service = new TorobPayGatewayService(client, options, NullLogger<TorobPayGatewayService>.Instance);
+
+        Assert.True((await service.VerifyPaymentAsync("tp_token_12345")).Success);
+        Assert.True(await service.SettlePaymentAsync("tp_token_12345"));
+        Assert.True(await service.RevertPaymentAsync("tp_token_12345"));
+
+        Assert.Equal(3, bodies.Count);
+        Assert.All(bodies, body => Assert.Contains("\"paymentToken\":\"tp_token_12345\"", body));
+    }
+
     private sealed class TestHttpMessageHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
         : HttpMessageHandler
     {
