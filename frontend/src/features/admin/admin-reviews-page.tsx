@@ -168,7 +168,7 @@ export function AdminReviewsPage() {
       <div className="admin-panel mb-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           {/* Status Tabs */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="admin-review-tabs">
             {[
               { label: "همه نظرات", value: "" },
               { label: "در انتظار بررسی", value: "Pending" },
@@ -194,15 +194,15 @@ export function AdminReviewsPage() {
           </div>
 
           {/* Search Form */}
-          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
+          <form onSubmit={handleSearchSubmit} className="admin-reviews-search">
             <input
               type="search"
               placeholder="جستجو در نظرات، نام کاربر، محصول…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="px-3.5 py-2 border border-stone-300 rounded-xl text-xs w-64 focus:outline-none focus:border-teal-700"
+              className="admin-reviews-search__input"
             />
-            <button type="submit" className="button button--secondary py-2 px-4 text-xs font-bold">
+            <button type="submit" className="button button--secondary admin-reviews-search__submit">
               جستجو
             </button>
           </form>
