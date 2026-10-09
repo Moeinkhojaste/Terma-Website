@@ -129,9 +129,24 @@ export PROD_CONNECTION_STRING="Server=db,1433;Database=TermaDb_Production;User I
 export ConnectionStrings__DefaultConnection="$PROD_CONNECTION_STRING"
 
 # Step 2: Build Updated Application Images
+# Registry metadata lookups (and rate limits) are transient-prone: retry the build
+# up to 3 times with a backoff before aborting.
 echo "[+] Step 2: Building updated application containers with tag ${COMMIT_SHA}..."
-if ! docker compose -p terma "${ENV_ARGS[@]}" build prod-backend prod-frontend; then
-    echo "[-] CRITICAL: Docker build failed. Aborting deployment." >&2
+BUILD_ATTEMPTS=3
+BUILD_OK=false
+for attempt in $(seq 1 $BUILD_ATTEMPTS); do
+    if docker compose -p terma "${ENV_ARGS[@]}" build prod-backend prod-frontend; then
+        BUILD_OK=true
+        break
+    fi
+    echo "[!] Docker build attempt ${attempt}/${BUILD_ATTEMPTS} failed." >&2
+    if [[ $attempt -lt $BUILD_ATTEMPTS ]]; then
+        echo "[*] Retrying in $((attempt * 15))s (transient registry/network errors are common)..." >&2
+        sleep $((attempt * 15))
+    fi
+done
+if [[ "$BUILD_OK" != "true" ]]; then
+    echo "[-] CRITICAL: Docker build failed after ${BUILD_ATTEMPTS} attempts. Aborting deployment." >&2
     exit 1
 fi
 

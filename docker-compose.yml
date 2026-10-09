@@ -214,7 +214,8 @@ services:
   # Reverse Proxy & SSL Gateway (Dual Network Bridge)
   # ============================================================================
   nginx:
-    image: nginx:alpine
+    # ECR Public mirror of docker.io/library/nginx:alpine (Docker Hub 403'd us once).
+    image: public.ecr.aws/docker/library/nginx:alpine
     container_name: terma-nginx
     restart: unless-stopped
     ports:

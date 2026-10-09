@@ -1,4 +1,7 @@
-FROM node:20-alpine AS base
+# Base image pulled from AWS ECR Public mirror (Docker Hub equivalent, no anonymous
+# rate limits): plain docker.io returned 403 Forbidden during a production deploy.
+# Content is identical to docker.io/library/node:20-alpine.
+FROM public.ecr.aws/docker/library/node:20-alpine AS base
 
 # Step 1: Install dependencies
 FROM base AS deps

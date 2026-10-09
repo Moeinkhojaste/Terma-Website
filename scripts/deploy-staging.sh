@@ -110,8 +110,26 @@ export STAGING_CONNECTION_STRING="Server=db,1433;Database=TermaDb_Staging;User I
 export ConnectionStrings__DefaultConnection="$STAGING_CONNECTION_STRING"
 
 # 1. Build updated staging images
+# Registry metadata lookups (and rate limits) are transient-prone: retry the build
+# up to 3 times with a backoff before aborting.
 echo "[+] Step 1: Building staging services with tag ${COMMIT_SHA}..."
-docker compose -p terma "${ENV_ARGS[@]}" build staging-backend staging-frontend
+BUILD_ATTEMPTS=3
+BUILD_OK=false
+for attempt in $(seq 1 $BUILD_ATTEMPTS); do
+    if docker compose -p terma "${ENV_ARGS[@]}" build staging-backend staging-frontend; then
+        BUILD_OK=true
+        break
+    fi
+    echo "[!] Docker build attempt ${attempt}/${BUILD_ATTEMPTS} failed." >&2
+    if [[ $attempt -lt $BUILD_ATTEMPTS ]]; then
+        echo "[*] Retrying in $((attempt * 15))s (transient registry/network errors are common)..." >&2
+        sleep $((attempt * 15))
+    fi
+done
+if [[ "$BUILD_OK" != "true" ]]; then
+    echo "[-] CRITICAL: Docker build failed after ${BUILD_ATTEMPTS} attempts. Aborting deployment." >&2
+    exit 1
+fi
 
 # 2. Wait for Database Readiness & Run database migrations for TermaDb_Staging
 echo "[+] Step 2: Verifying TermaDb_Staging connectivity before migration..."
