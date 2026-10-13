@@ -39,4 +39,5 @@ backend/.e2e-media/
 # Agent tooling
 .agents/
 .specify/
-
+.codebuff/
+.freebuff/
